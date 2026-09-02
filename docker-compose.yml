@@ -1,0 +1,169 @@
+# The whole stack.
+#
+#   docker compose up -d --build       everything: database, API, web app
+#   docker compose up -d db            just the database, for `npm run dev`
+#   docker compose --profile verify up -d
+#                                      the two throwaway databases that
+#                                      scripts/verify-schema.mjs compares
+#
+# The app and the API share ONE origin: nginx serves the bundle and proxies
+# /api to the API container. That removes CORS from the web path and is what
+# makes the signed image URLs work — they are relative and go into an <img src>,
+# which cannot send an Authorization header.
+#
+# pg_cron can only be installed in ONE database per server (`cron.database_name`),
+# and the schema creates it. That is why the verify databases are separate
+# CONTAINERS rather than extra databases inside `db`.
+
+name: intern-attendance
+
+x-postgres: &postgres
+  build:
+    context: ./server/docker
+    dockerfile: Dockerfile.postgres
+  environment:
+    POSTGRES_USER: attendance
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-attendance_dev}
+    POSTGRES_DB: attendance
+    # Africa/Cairo is applied in SQL and in the domain clock, never by the
+    # server timezone. Keep the cluster on UTC exactly as hosted Supabase was,
+    # or every stored timestamp shifts.
+    TZ: UTC
+    PGTZ: UTC
+  command:
+    - postgres
+    - -c
+    - shared_preload_libraries=pg_cron
+    - -c
+    - cron.database_name=attendance
+  healthcheck:
+    # -h 127.0.0.1 is load-bearing. During first-time initialisation the entry
+    # point runs a TEMPORARY server that listens on the unix socket only, and a
+    # plain `pg_isready` talks to that socket and reports healthy — so anything
+    # waiting on this condition starts and is refused over TCP. Forcing TCP
+    # keeps the check false until the real server is accepting connections.
+    test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U attendance -d attendance']
+    interval: 5s
+    timeout: 5s
+    retries: 20
+  restart: unless-stopped
+
+x-api-env: &api-env
+  DATABASE_URL: postgres://attendance:${POSTGRES_PASSWORD:-attendance_dev}@db:5432/attendance
+  # Reusing the old project's value keeps members signed in through the
+  # cutover; a fresh one signs them out once. Either is fine — see .env.example.
+  # The API refuses to start without it.
+  APP_JWT_SECRET: ${APP_JWT_SECRET:-}
+  # Signs the image URLs. Left empty the API derives one from APP_JWT_SECRET
+  # (sha256 with a domain separator), which is safe — knowing the derived value
+  # does not reveal the JWT secret — but it means the two rotate together. Set
+  # it explicitly to separate them.
+  STORAGE_URL_SECRET: ${STORAGE_URL_SECRET:-}
+  NODE_ENV: production
+  PORT: '8787'
+  # The web app is same-origin so it needs no entry here. These are the NATIVE
+  # origins: Capacitor serves the bundle from a local scheme, and that is the
+  # Origin the API sees. Android defaults to https://localhost, iOS to
+  # capacitor://localhost.
+  CORS_ORIGINS: ${CORS_ORIGINS:-https://localhost,capacitor://localhost,http://localhost:5173}
+  # Face and probe images. A VOLUME, never a bind into a web root: nginx must
+  # not be able to serve biometric images directly, or every bucket policy is
+  # decoration.
+  STORAGE_DIR: /data/storage
+  API_PUBLIC_PATH: /api/v1
+
+services:
+  db:
+    <<: *postgres
+    container_name: attendance-db
+    ports:
+      # Loopback only: never expose Postgres on a public interface.
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  # One-shot. Builds the schema from the models plus db/functions, then exits.
+  # The API waits for it to finish, so a container start can never race a
+  # half-applied migration.
+  migrate:
+    build:
+      context: ./server
+    container_name: attendance-migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      <<: *api-env
+      # Migrating needs no signing key; the API validates its own.
+      APP_JWT_SECRET: ${APP_JWT_SECRET:-0000000000000000000000000000000000000000}
+    command: ['node', 'scripts/migrate.mjs']
+    restart: 'no'
+
+  api:
+    build:
+      context: ./server
+    container_name: attendance-api
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment: *api-env
+    volumes:
+      - storage-data:/data/storage
+    ports:
+      # Reachable directly for debugging; the web app goes through nginx.
+      - '127.0.0.1:8787:8787'
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./ClientApp
+      args:
+        # Relative: same origin, proxied by nginx. Only override this if the API
+        # is genuinely on another host, and then CORS_ORIGINS must list this one.
+        VITE_API_URL: ${VITE_API_URL:-/api/v1}
+        VITE_MODEL_BASE_URL: ${VITE_MODEL_BASE_URL:-}
+    container_name: attendance-web
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '${WEB_PORT:-8080}:80'
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Throwaway databases for scripts/verify-schema.mjs. Wiped on every run — no
+  # named volume, deliberately.
+  # ---------------------------------------------------------------------------
+  db-verify-a:
+    <<: *postgres
+    profiles: ['verify']
+    container_name: attendance-db-verify-a
+    ports:
+      - '127.0.0.1:5433:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  db-verify-b:
+    <<: *postgres
+    profiles: ['verify']
+    container_name: attendance-db-verify-b
+    ports:
+      - '127.0.0.1:5434:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+
+volumes:
+  db-data:
+  storage-data:

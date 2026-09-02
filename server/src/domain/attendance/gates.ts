@@ -1,0 +1,204 @@
+// The gates a check-in or check-out must pass, as pure decisions.
+//
+// Ordering is deliberate and matches what the Edge Function did: the cheapest
+// and most absolute refusals come first, and a bypass short-circuits the gate
+// it covers rather than being checked inside it. Keeping that order visible in
+// one file is most of the value — while it was inline in a 470-line handler,
+// "does a location bypass also skip the accuracy check?" needed a careful read.
+// (It does. That is why they are one block.)
+import {
+  refuse,
+  type AttendanceSettings,
+  type BypassState,
+  type CheckPayload,
+  type MemberContext,
+  type Refusal,
+} from './types.js';
+
+/** Any TRUE across global, member, branch and group turns a bypass on. */
+function anyOn(
+  global: boolean,
+  member: boolean,
+  branch: boolean | undefined,
+  group: boolean | undefined,
+): boolean {
+  return Boolean(global || member || branch || group);
+}
+
+export interface BypassInput {
+  settings: AttendanceSettings;
+  member: MemberContext;
+  /** The instant to judge the timed bypass window against. */
+  now: Date;
+  /** True when a QR token presented with THIS request was already validated. */
+  qrAccepted?: boolean;
+}
+
+/**
+ * Resolve which gates are switched off for this member right now.
+ *
+ * The effective check-in METHOD is the most restrictive of global and branch,
+ * while every bypass is the most permissive of the four levels. Those pull in
+ * opposite directions on purpose: a bypass is a concession granted to someone,
+ * a method restriction is a rule imposed on a place.
+ */
+export function resolveBypass({ settings, member, now, qrAccepted }: BypassInput): BypassState {
+  const branch = member.branch;
+  const group = member.group;
+
+  const method = settings.checkinMethod || 'both';
+  const blocked = method === 'none' || Boolean(branch?.blockCheckin);
+  const requireQr = method === 'qr' || Boolean(branch?.requireQr);
+  const qrEnabled = (method === 'qr' || method === 'both') && branch?.qrEnabled !== false;
+
+  const face = anyOn(
+    settings.bypassFace,
+    member.bypassFace,
+    branch?.bypassFace,
+    group?.bypassFace,
+  );
+
+  let location = anyOn(
+    settings.bypassLocation,
+    member.bypassLocation,
+    branch?.bypassLocation,
+    group?.bypassLocation,
+  );
+  let source: BypassState['source'] = location ? 'flag' : null;
+
+  // A QR scanned earlier opened a timed window.
+  if (!location && member.locationBypassUntil && new Date(member.locationBypassUntil) > now) {
+    location = true;
+    source = 'window';
+  }
+  // A token presented with this very request.
+  if (!location && qrAccepted) {
+    location = true;
+    source = 'qr';
+  }
+
+  return {
+    face,
+    location,
+    source,
+    shiftWindow: !settings.enforceShiftWindow,
+    checkoutWindow: anyOn(
+      settings.bypassCheckoutWindow,
+      member.bypassCheckoutWindow,
+      branch?.bypassCheckoutWindow,
+      group?.bypassCheckoutWindow,
+    ),
+    blocked,
+    requireQr,
+    qrEnabled,
+  };
+}
+
+/** What the attendance row records about which gates were skipped. */
+export function bypassSnapshot(b: BypassState): Record<string, unknown> | null {
+  if (!b.face && !b.location && !b.shiftWindow) return null;
+  return { face: b.face, location: b.location, source: b.source, shift_window: b.shiftWindow };
+}
+
+/**
+ * Placeholder for Play Integrity / App Attest.
+ *
+ * Carried over from the Edge Function unchanged: when integrity is required a
+ * token must be PRESENT, but it is not verified against Google or Apple. That
+ * is an open hole, and naming it here rather than burying it in a handler is
+ * the point — a present-but-forged token passes.
+ */
+export function integrityOk(token: string | null, required: boolean): boolean {
+  return required ? Boolean(token) : true;
+}
+
+/** The result of the server-side PostGIS geofence check. */
+export interface GeofenceResult {
+  within: boolean;
+  distanceM: number;
+  radiusM: number;
+}
+
+/**
+ * Gates that do not depend on the roster: integrity, then location, then face.
+ * Returns the refusal, or null when everything passed.
+ *
+ * `geofence` is passed in rather than computed, because it is the one gate that
+ * genuinely needs the database (PostGIS). It may be null only when the location
+ * bypass is on — in which case it is never read.
+ */
+export function checkGates(
+  payload: CheckPayload,
+  settings: AttendanceSettings,
+  bypass: BypassState,
+  member: MemberContext,
+  geofence: GeofenceResult | null,
+): { refusal: Refusal | null; distance: number; audit: { event: string; detail: unknown } | null } {
+  const fail = (
+    refusal: Refusal,
+    event?: string,
+    detail?: unknown,
+  ): ReturnType<typeof checkGates> => ({
+    refusal,
+    distance: 0,
+    audit: event ? { event, detail } : null,
+  });
+
+  if (bypass.blocked) return fail(refuse(403, 'branch_blocked'));
+
+  // Proximity is not accepted at this branch and nothing has cleared location.
+  if (bypass.requireQr && !bypass.location) {
+    return fail(refuse(422, 'qr_required'), 'out_of_range', { require_qr: true });
+  }
+
+  // Enrolment only matters when the face gate is actually enforced.
+  if (!bypass.face && member.enrollmentStatus !== 'enrolled') {
+    return fail(refuse(422, 'not_enrolled'));
+  }
+
+  if (!integrityOk(payload.integrityToken, settings.requirePlayIntegrity)) {
+    return fail(refuse(422, 'integrity_failed'), 'integrity_failed', { type: payload.type });
+  }
+
+  let distance = 0;
+  if (!bypass.location) {
+    if (payload.isMock === true) {
+      return fail(refuse(422, 'mock'), 'mock_location_detected', {
+        lat: payload.lat,
+        lng: payload.lng,
+      });
+    }
+    if (typeof payload.accuracy === 'number' && payload.accuracy > settings.maxAccuracyMeters) {
+      return fail(refuse(422, 'low_accuracy', { accuracy: payload.accuracy }), 'low_accuracy', {
+        accuracy: payload.accuracy,
+      });
+    }
+    if (!geofence) return fail(refuse(500, 'geofence_error'));
+    distance = Math.round(geofence.distanceM);
+    if (!geofence.within) {
+      return {
+        refusal: refuse(422, 'out_of_range', { distance, radius: geofence.radiusM }),
+        distance,
+        audit: { event: 'out_of_range', detail: { distance, radius: geofence.radiusM } },
+      };
+    }
+  }
+
+  if (!bypass.face) {
+    if (settings.livenessRequired && !payload.livenessPassed) {
+      return { refusal: refuse(422, 'liveness'), distance, audit: { event: 'liveness_failed', detail: { type: payload.type } } };
+    }
+    if (typeof payload.faceScore !== 'number') {
+      return { refusal: refuse(422, 'face_required'), distance, audit: null };
+    }
+    if (payload.faceScore < settings.faceMatchThreshold) {
+      return {
+        refusal: refuse(422, 'face_mismatch', { score: payload.faceScore }),
+        distance,
+        audit: { event: 'face_mismatch', detail: { score: payload.faceScore } },
+      };
+    }
+  }
+
+  return { refusal: null, distance, audit: null };
+}

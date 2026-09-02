@@ -1,0 +1,91 @@
+// Who someone is, and what that lets them do at the API layer.
+//
+// This is NOT the authorization model. That lives in the 47 RLS policies, which
+// decide which ROWS a request can see and is the only thing standing between a
+// member and another member's data. What is here is the coarser question the
+// API answers first — "is this endpoint for you at all?" — so a member never
+// reaches an admin handler and gets a confusing empty result instead of a 403.
+//
+// Both layers matter. Skipping this one leaks the shape of the system; skipping
+// the policies leaks the data.
+
+/**
+ * `public.role` is an enum of exactly these three.
+ *
+ * There is no 'manager', even though the admin UI still offers the tier and the
+ * old create-staff Edge Function accepted it — inserting one always raised
+ * invalid_text_representation, so the feature never worked.
+ */
+export const ROLES = ['superadmin', 'admin', 'member'] as const;
+export type Role = (typeof ROLES)[number];
+
+export const STAFF_ROLES: readonly Role[] = ['superadmin', 'admin'];
+
+export function isRole(value: unknown): value is Role {
+  return typeof value === 'string' && (ROLES as readonly string[]).includes(value);
+}
+
+/** Staff run the admin dashboard; members are the people being recorded. */
+export function isStaff(role: Role): boolean {
+  return STAFF_ROLES.includes(role);
+}
+
+/** The signed-in person, as every handler sees them. */
+export interface Caller {
+  id: string;
+  role: Role;
+  nationalId?: string;
+}
+
+/**
+ * May the master password open this account?
+ *
+ * It opens members and admins so support can reproduce a problem, but NEVER a
+ * superadmin: one shared password that reaches the account which can change
+ * every other account is a single point of total compromise.
+ */
+export function masterPasswordMayOpen(role: Role): boolean {
+  return role !== 'superadmin';
+}
+
+/** Only a superadmin may reset another superadmin's password. */
+export function mayResetPasswordOf(actor: Role, target: Role): boolean {
+  if (target === 'superadmin') return actor === 'superadmin';
+  return isStaff(actor);
+}
+
+/** Deleting staff is superadmin-only, and nobody deletes themselves. */
+export function mayDeleteStaff(actor: Caller, targetId: string, targetRole: Role): boolean {
+  if (actor.role !== 'superadmin') return false;
+  if (actor.id === targetId) return false;
+  // Only plain admin accounts are deletable: a superadmin must be demoted
+  // deliberately rather than removed in passing.
+  return targetRole === 'admin';
+}
+
+/**
+ * The forced first password change, where there is no old password to prove.
+ *
+ * GoTrue allowed this for any signed-in session, which meant a borrowed
+ * unlocked phone could take over an account. It is gated on the one state where
+ * the user provably has no password of their own yet.
+ */
+export function mayChangePasswordWithoutCurrent(mustChangePassword: boolean): boolean {
+  return mustChangePassword;
+}
+
+/**
+ * A member granted a privilege acts only inside their OWN branch — they can
+ * cover colleagues, not the institution. Staff are not branch-scoped.
+ *
+ * Returns the branch to lock to, or null for no restriction.
+ */
+export function privilegeScope(
+  role: Role,
+  granted: boolean,
+  ownBranchId: string | null,
+): { allowed: boolean; branchId: string | null } {
+  if (isStaff(role)) return { allowed: true, branchId: null };
+  if (role !== 'member' || !granted) return { allowed: false, branchId: null };
+  return { allowed: true, branchId: ownBranchId };
+}

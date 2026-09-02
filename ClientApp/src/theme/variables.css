@@ -1,0 +1,126 @@
+/* Theme: generic attendance system.
+   Medical teal/green brand, Arabic-first typography, RTL aware. */
+
+:root {
+  /* Arabic-friendly font stack */
+  --ion-font-family: 'Cairo', 'Tajawal', 'Helvetica Neue', system-ui, sans-serif;
+
+  /* Brand: teal / medical green */
+  --ion-color-primary: #0d9488;
+  --ion-color-primary-rgb: 13, 148, 136;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #0b8276;
+  --ion-color-primary-tint: #259f92;
+
+  --ion-color-secondary: #2563eb;
+  --ion-color-secondary-rgb: 37, 99, 235;
+  --ion-color-secondary-contrast: #ffffff;
+  --ion-color-secondary-contrast-rgb: 255, 255, 255;
+  --ion-color-secondary-shade: #2157cf;
+  --ion-color-secondary-tint: #3b73ed;
+
+  --ion-color-success: #16a34a;
+  --ion-color-success-rgb: 22, 163, 74;
+  --ion-color-success-contrast: #ffffff;
+  --ion-color-success-shade: #138f41;
+  --ion-color-success-tint: #2dac5c;
+
+  --ion-color-warning: #f59e0b;
+  --ion-color-warning-rgb: 245, 158, 11;
+  --ion-color-warning-contrast: #000000;
+
+  --ion-color-danger: #dc2626;
+  --ion-color-danger-rgb: 220, 38, 38;
+  --ion-color-danger-contrast: #ffffff;
+  --ion-color-danger-shade: #c22121;
+  --ion-color-danger-tint: #e03c3c;
+
+  --app-page-bg: #f7f8f9;
+}
+
+/* Subtle page background on light mode */
+.ion-page,
+ion-content {
+  --background: var(--app-page-bg);
+}
+
+/* Numbers should stay LTR even inside RTL text (national IDs, times) */
+.ltr-nums {
+  direction: ltr;
+  unicode-bidi: plaintext;
+  display: inline-block;
+}
+
+/* Generic stat card used on dashboards */
+.stat-card {
+  text-align: center;
+}
+.stat-card .stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.stat-card .stat-label {
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+/* ---- Minimal / flat look ---- */
+:root {
+  --app-radius: 10px;
+  --app-hairline: var(--ion-color-step-150);
+}
+
+/* Dark-mode surfaces */
+.ion-palette-dark {
+  --app-page-bg: #0e1416;
+  --app-hairline: #232c30;
+}
+.ion-palette-dark .stat-card,
+.ion-palette-dark ion-card,
+.ion-palette-dark .ui-surface {
+  --background: #151c1f;
+  background: #151c1f;
+}
+
+/* Flat buttons — no shadow */
+ion-button {
+  --border-radius: var(--app-radius);
+  --box-shadow: none;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Flat cards — hairline border instead of elevation */
+ion-card {
+  border-radius: var(--app-radius);
+  box-shadow: none;
+  border: 1px solid var(--app-hairline);
+  margin-inline: 12px;
+}
+
+ion-item {
+  --border-radius: var(--app-radius);
+}
+
+ion-modal {
+  --border-radius: 16px;
+}
+
+/* Flat bottom tab bar with a top hairline */
+ion-tab-bar {
+  --border: 0;
+  border-top: 1px solid var(--app-hairline);
+  height: 60px;
+  padding-top: 4px;
+  box-shadow: none;
+}
+ion-tab-button {
+  --color-selected: var(--ion-color-primary);
+}
+
+ion-fab-button {
+  --box-shadow: none;
+}
