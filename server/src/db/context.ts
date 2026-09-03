@@ -23,8 +23,9 @@
 // app_settings.master_password_hash, cannot see refresh_tokens, and cannot
 // write to the audit log — whatever a route forgets.
 //
-// The claims are still published because auth.uid() reads them, and
-// server_now() and roster_maker_data() still call it.
+// The claims GUC is no longer published: auth.uid() was its only reader and
+// that function is gone with the `auth` schema. What asCaller still does is
+// switch the role, which is what brings the grants to bear.
 //
 // Exporting a bare `db` would make it one careless import to run a query with
 // none of that applied, so it is deliberately not exported.
@@ -66,24 +67,20 @@ const root = drizzle(pool, { schema, casing: 'snake_case' });
  * else. A route that must answer without a session decides that itself; see
  * GET /settings, which returns null rather than letting the grant refuse it.
  *
- * Two rules here are load-bearing and must not be "simplified":
- *
- *   1. `set_config(..., is_local => true)`. A plain SET would outlive the
- *      transaction and leak one user's role onto the next request that borrows
- *      the same pooled connection — privilege escalation, not a style choice.
- *   2. The claims are bound as a PARAMETER. Interpolating them would let a
- *      crafted national_id forge a claim.
+ * `set_config(..., is_local => true)` is load-bearing and must not be
+ * "simplified": a plain SET would outlive the transaction and leak one user's
+ * role onto the next request that borrows the same pooled connection —
+ * privilege escalation, not a style choice.
  */
 export async function asCaller<T>(
   claims: JwtClaims | null,
   fn: (db: DbContext) => Promise<T>,
 ): Promise<T> {
   return root.transaction(async (tx) => {
-    // Publish the claims while the session is still the owner, then drop
-    // privileges. Both unwind automatically at COMMIT or ROLLBACK.
-    await tx.execute(
-      sql`select set_config('request.jwt.claims', ${claims ? JSON.stringify(claims) : ''}, true)`,
-    );
+    // Drop privileges for the rest of the transaction. `is_local => true`
+    // unwinds it at COMMIT or ROLLBACK; a plain SET would outlive the
+    // transaction and leak this role onto the next request that borrows the
+    // same pooled connection.
     await tx.execute(
       sql`select set_config('role', ${claims ? 'authenticated' : 'anon'}, true)`,
     );

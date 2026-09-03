@@ -93,3 +93,28 @@ drop function if exists public.admin_has_assignments();
 drop function if exists public.current_app_role();
 drop function if exists public.my_member_id();
 drop function if exists public.attachment_folder(text);
+
+
+-- ---------------------------------------------------------------------------
+-- The last client-era RPCs, and the schema that outlived Supabase.
+--
+--   server_now()          the app clock. domain/clock.ts already formatted
+--                         Cairo time; the function was duplicating it to read
+--                         one column.
+--   roster_maker_data()   three scoped reads for the roster-drafting screen.
+--   roster_day_totals()   reimplemented the member filter that
+--                         domain/member/filter.ts already builds — the same
+--                         predicate written twice and kept in step by hand.
+--
+-- All three were SECURITY DEFINER and found the caller through auth.uid(),
+-- because a browser used to call them directly. No route calls a SQL function
+-- by name any more.
+--
+-- With them go auth.uid(), auth.jwt(), auth.role(), auth.email() and the `auth`
+-- schema itself — the last thing in this database that came from Supabase.
+-- ---------------------------------------------------------------------------
+drop function if exists public.server_now();
+drop function if exists public.roster_maker_data(integer, integer);
+drop function if exists public.roster_day_totals(integer, integer, uuid, text, text, uuid);
+
+drop schema if exists auth cascade;

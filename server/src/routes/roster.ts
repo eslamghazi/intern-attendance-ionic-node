@@ -3,7 +3,7 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { FastifyPluginAsync } from 'fastify';
-import { arrayOf, asCaller, callFunction, callTableFunction, query } from '../db/context.js';
+import { arrayOf, asCaller, query } from '../db/context.js';
 import { requireMember } from '../services/accessService.js';
 import { directoryWhere, MAX_PAGE_SIZE } from '../domain/member/filter.js';
 import { monthBounds, planBulk, rangeDates } from '../domain/roster/bulk.js';
@@ -105,12 +105,32 @@ export const rosterRoutes: FastifyPluginAsync = async (app) => {
     if (!q.success) throw badRequest('invalid', 'invalid query');
     const o = q.data;
 
+    const { first, last } = monthBounds(o.year, o.month);
+
     return asCaller(req.claims, async (tx) => {
-      const rows = await callTableFunction<{ day: number; shift_id: string | null; cnt: number }>(
-        tx,
-        'roster_day_totals',
-        [o.year, o.month, o.branchId ?? null, (o.search ?? '').trim(), o.field, o.departmentId ?? null],
-      );
+      // This was roster_day_totals(), a SQL function that reimplemented the
+      // member filter — the same predicate directoryWhere() builds, written a
+      // second time in plpgsql and kept in step by hand. One definition now.
+      const rows = await query<{ day: number; shift_id: string | null; cnt: number }>(tx, sql`
+        with picked as (
+          select d.member_id from public.member_directory d
+           where ${directoryWhere({
+             branchId: o.branchId,
+             search: o.search,
+             field: o.field,
+             departmentId: o.departmentId,
+             year: o.year,
+             month: o.month,
+           })}
+        )
+        select extract(day from rd.date)::int as day,
+               rd.shift_id,
+               count(*)::bigint as cnt
+          from public.roster_days rd
+          join picked p on p.member_id = rd.member_id
+         where rd.date between ${first} and ${last}
+         group by 1, 2
+      `);
 
       const perDay: Record<number, number> = {};
       const perDayShift: Record<number, Record<string, number>> = {};
@@ -125,17 +145,57 @@ export const rosterRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
-  /** Everything a privileged member needs to build their branch's roster. */
+  /**
+   * Everything a privileged member needs to build their branch's roster.
+   *
+   * A MEMBER endpoint, not a staff one: a senior student granted
+   * `can_make_roster` drafts the month for their own branch. That privilege is
+   * the guard, so requireAuth is correct here and requireRole would be wrong.
+   *
+   * This was roster_maker_data(), a SECURITY DEFINER function that found the
+   * caller through auth.uid(). It was the last consumer of the `auth` schema.
+   * Three scoped reads, and the scope is the caller's own branch — read here,
+   * never taken from the query.
+   */
   app.get('/roster/maker-data', { preHandler: app.requireAuth }, async (req) => {
     const q = monthQuery.safeParse(req.query);
     if (!q.success) throw badRequest('invalid', 'year and month are required');
+    const { first, last } = monthBounds(q.data.year, q.data.month);
+    const empty = { members: [], shifts: [], roster: [] };
+
     return asCaller(req.claims, async (tx) => {
-      const data = await callFunction<{ members: unknown[]; shifts: unknown[]; roster: unknown[] }>(
-        tx,
-        'roster_maker_data',
-        [q.data.year, q.data.month],
-      );
-      return data ?? { members: [], shifts: [], roster: [] };
+      const self = await query<{ branch_id: string; can_make_roster: boolean | null }>(tx, sql`
+        select branch_id, can_make_roster
+          from public.members where profile_id = ${req.caller!.id} limit 1
+      `);
+      // Empty rather than 403, matching what the function returned: the client
+      // renders an empty grid for a member without the privilege, and a refusal
+      // here would turn a normal state into an error screen.
+      if (!self[0]?.can_make_roster) return empty;
+      const branchId = self[0].branch_id;
+
+      const [members, shifts, roster] = await Promise.all([
+        query<{ member_id: string; code: string | null; full_name: string }>(tx, sql`
+          select md.member_id, md.member_code as code, md.full_name
+            from public.member_directory md
+           where md.branch_id = ${branchId}
+           order by md.full_name
+        `),
+        query<{ id: string; key: string | null; name: string }>(tx, sql`
+          select s.id, s.key, s.name
+            from public.shifts s where s.key is not null order by s.name
+        `),
+        query<{ member_id: string; day: number; key: string | null }>(tx, sql`
+          select rd.member_id, extract(day from rd.date)::int as day, sh.key
+            from public.roster_days rd
+            join public.shifts sh on sh.id = rd.shift_id
+            join public.members m on m.id = rd.member_id
+           where m.branch_id = ${branchId}
+             and rd.date between ${first} and ${last}
+        `),
+      ]);
+
+      return { members, shifts, roster };
     });
   });
 

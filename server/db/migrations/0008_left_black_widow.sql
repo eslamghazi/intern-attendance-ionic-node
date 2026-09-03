@@ -1,0 +1,19 @@
+-- The `auth` schema, and with it the last thing in this database that came
+-- from Supabase.
+--
+-- HAND-EDITED after `npm run db:generate`, which emitted:
+--
+--   DROP SCHEMA "auth";
+--
+-- That fails on any database that has actually been running: the schema still
+-- holds uid(), jwt(), role() and email(), and a bare DROP SCHEMA refuses to
+-- remove a schema that contains anything. CASCADE is what is meant here — the
+-- functions are exactly what is being dropped — and IF EXISTS so a database
+-- built after this point does not fail on the way past.
+--
+-- auth.uid() outlived GoTrue by a long way. It was read by 14 RLS policies and
+-- by three SECURITY DEFINER RPCs that found the caller through it. The policies
+-- went when authorization moved into the API; the RPCs became ordinary routes
+-- (GET /time/now, GET /roster/maker-data, GET /roster/totals). Nothing was left
+-- in the schema but the function itself.
+DROP SCHEMA IF EXISTS "auth" CASCADE;

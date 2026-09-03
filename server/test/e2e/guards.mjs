@@ -147,6 +147,7 @@ const NO_SCOPE_NEEDED = new Map([
   ['services/profileService.ts', "every statement is pinned to the caller's own id"],
   ['services/attendanceService.ts', "acts only on the caller's own membership"],
   ['routes/health.ts', 'reads the pool, touches no data'],
+  ['routes/time.ts', "reads frozen_at for the caller's OWN member row"],
   ['db/context.ts', 'defines asService — a false positive by construction'],
   ['auth/plugin.ts', "reads the caller's OWN role by claims.sub; nothing caller-supplied"],
   ['storage/objects.ts', 'enforces domain/access/attachment.ts on every caller-supplied path'],

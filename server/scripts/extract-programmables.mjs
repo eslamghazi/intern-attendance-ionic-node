@@ -41,10 +41,9 @@ const client = new pg.Client({
 });
 await client.connect();
 
-// `storage` is gone — Supabase Storage's schema, replaced by
-// public.attachments. `auth` still holds uid(), which server_now() and
-// roster_maker_data() call.
-const SCHEMAS = `('public', 'auth')`;
+// One schema. `storage` went with Supabase Storage and `auth` with the last
+// function that read auth.uid() — see db/functions/015_no_rls.sql.
+const SCHEMAS = `('public')`;
 const ROLES = `('anon', 'authenticated', 'service_role', 'supabase_auth_admin')`;
 
 const header = (what) =>
@@ -139,6 +138,11 @@ const RETIRED = new Set([
   'current_app_role',
   'my_member_id',
   'attachment_folder',
+  // The last client-era RPCs: the app clock and two roster reads, all of which
+  // found the caller through auth.uid().
+  'server_now',
+  'roster_maker_data',
+  'roster_day_totals',
 ]);
 
 let fnSql = header('Functions, with their privileges. Authored ones live in 012.');

@@ -37,11 +37,9 @@
 --     bookkeeping, has no RLS, and nothing in the app should read it.
 -- ============================================================================
 
--- `auth` holds no tables any more, only auth.uid() — which server_now() and
--- roster_maker_data() still read — so USAGE on the schema is still needed.
--- `storage` is gone entirely: public.attachments replaced it, and a table in
--- `public` is already covered by the grants below.
-grant usage on schema public, auth, extensions
+-- Only `public` and `extensions` are left. `storage` went with Supabase
+-- Storage, and `auth` with the last function that read auth.uid().
+grant usage on schema public, extensions
   to anon, authenticated, service_role;
 
 -- Read-write for a signed-in user and for the service role. Which ROWS either

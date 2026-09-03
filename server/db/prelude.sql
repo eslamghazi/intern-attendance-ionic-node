@@ -28,13 +28,12 @@ create extension if not exists vector;
 create extension if not exists pg_cron;
 
 create schema if not exists extensions;
--- auth holds auth.uid()/auth.jwt(), which the POLICIES reference, so it must
--- exist before the generated migration runs. drizzle also emits CREATE SCHEMA
--- for it; the patch script makes that IF NOT EXISTS.
+-- Neither `auth` nor `storage` exists any more. Supabase Storage's schema went
+-- in migration 0004 (public.attachments replaced it), and `auth` went with the
+-- last three functions that read auth.uid() — see db/functions/015_no_rls.sql.
 --
--- There is no `storage` schema: migration 0004 removed Supabase Storage's, and
--- public.attachments took its place.
-create schema if not exists auth;
+-- drizzle-kit still emits CREATE SCHEMA "auth" when it sees the pgSchema in the
+-- models; the models no longer declare one.
 
 create or replace function extensions.crypt(text, text) returns text
   language sql immutable strict parallel safe as $$ select public.crypt($1, $2) $$;
@@ -80,5 +79,5 @@ exception when others then
 end
 $$;
 
-grant usage on schema public, auth, extensions
+grant usage on schema public, extensions
   to anon, authenticated, service_role;
