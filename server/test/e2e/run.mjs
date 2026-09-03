@@ -28,7 +28,9 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 
 // token first: if sign-in itself is broken, the other three fail for reasons
 // that say nothing about what they test.
-const SUITES = ['token', 'auth', 'storage', 'access'];
+// guards last: it asserts the invariant the other four exercise case by case,
+// so a failure there is most legible once they have all reported.
+const SUITES = ['token', 'auth', 'storage', 'access', 'guards'];
 
 console.log(`\nEnd-to-end against ${BASE}\n${'='.repeat(60)}`);
 

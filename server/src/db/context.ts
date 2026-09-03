@@ -1,20 +1,33 @@
 // The database context — Drizzle over the shared pg pool, with the two access
 // modes this system has.
 //
-// There is no "just query the database" entry point on purpose. Every read and
-// write goes through one of:
-//
 //   asCaller(claims, fn)  the request's own identity. The session becomes
-//                         `authenticated` (or `anon`) and the verified JWT is
-//                         published into request.jwt.claims, so all 51 RLS
-//                         policies apply. This is what PostgREST used to do.
+//                         `authenticated` (or `anon`), so the table and column
+//                         GRANTS apply, and the verified JWT is published into
+//                         request.jwt.claims.
 //
-//   asService(fn)         RLS bypassed, because the connection user owns the
-//                         tables. Every call here is a place where authorization
-//                         is YOUR responsibility — check the caller first.
+//   asService(fn)         the connection user, which owns the tables and is
+//                         therefore exempt from those grants.
 //
-// Exporting a bare `db` would make it one careless import to read the whole
-// members table as nobody in particular, so it is deliberately not exported.
+// WHAT CHANGED, AND WHAT THIS IS FOR NOW
+//
+// asCaller used to be the whole security model: dropping to `authenticated`
+// brought 54 RLS policies into play, exactly as PostgREST did. Those policies
+// are gone — every rule they encoded is in src/domain/access with unit tests,
+// and the end-to-end suite was run against a database with RLS disabled to
+// prove the API stood on its own before they were dropped.
+//
+// So the role switch is no longer what decides which ROWS a request sees. It
+// still decides which TABLES AND COLUMNS it can touch at all, which is coarse,
+// cheap, and worth keeping: `authenticated` cannot read
+// app_settings.master_password_hash, cannot see refresh_tokens, and cannot
+// write to the audit log — whatever a route forgets.
+//
+// The claims are still published because auth.uid() reads them, and
+// server_now() and roster_maker_data() still call it.
+//
+// Exporting a bare `db` would make it one careless import to run a query with
+// none of that applied, so it is deliberately not exported.
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { sql, type SQL } from 'drizzle-orm';
 import { pool } from './pool.js';
@@ -30,7 +43,15 @@ export interface JwtClaims {
   sub: string;
   aud: string;
   role: 'authenticated';
-  /** Drives `current_app_role()`, and therefore every policy. */
+  /**
+   * The caller's role, re-read from `profiles` on every request by
+   * auth/plugin.ts rather than trusted from the token.
+   *
+   * It used to drive current_app_role() and through it every policy. Nothing in
+   * the database reads it now — the API does, via req.caller.role — but it stays
+   * in the claim set because the two must not disagree, and because a token
+   * whose role is missing would be indistinguishable from one that never had it.
+   */
   user_role: 'superadmin' | 'admin' | 'member';
   national_id?: string;
   iat?: number;
@@ -41,8 +62,9 @@ const root = drizzle(pool, { schema, casing: 'snake_case' });
 
 /**
  * Run `fn` as the caller. `claims === null` means an unauthenticated request,
- * which runs as `anon` — enough for the few things granted to it (public
- * branding, server_now) and nothing else.
+ * which runs as `anon` — enough for the few things granted to it and nothing
+ * else. A route that must answer without a session decides that itself; see
+ * GET /settings, which returns null rather than letting the grant refuse it.
  *
  * Two rules here are load-bearing and must not be "simplified":
  *
@@ -70,8 +92,11 @@ export async function asCaller<T>(
 }
 
 /**
- * Run `fn` with RLS bypassed — the old service-role path, for the writes a
- * client may never make (`attendance` above all).
+ * Run `fn` as the table owner — for the writes a client may never make
+ * (`attendance` above all) and for the tables `authenticated` has no grant on.
+ *
+ * Authorization is entirely YOURS here. There is no second layer behind this
+ * any more: check the caller first, with the helpers in services/accessService.
  *
  * The claims GUC is cleared so a stale `auth.uid()` from an earlier transaction
  * on the same pooled connection can never reach a SECURITY DEFINER function.

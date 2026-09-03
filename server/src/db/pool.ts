@@ -1,9 +1,10 @@
 // The single Postgres pool for the whole API.
 //
-// The connection user is the schema OWNER. That matters: a table owner is
-// exempt from RLS, which is exactly the old `service_role` capability. Every
-// request-scoped query instead drops into `anon`/`authenticated` inside its
-// transaction (see context.ts), so the 47 policies decide what it can see.
+// The connection user is the schema OWNER, and an owner is exempt from the
+// table and column grants. Request-scoped queries drop into
+// `anon`/`authenticated` inside their transaction (see context.ts), so those
+// grants apply to them — which is what keeps master_password_hash,
+// refresh_tokens and the audit log out of reach of a signed-in caller.
 import pg from 'pg';
 import { env } from '../env.js';
 

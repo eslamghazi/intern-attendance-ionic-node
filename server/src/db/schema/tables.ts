@@ -7,10 +7,11 @@ import { sql } from "drizzle-orm"
 // `npm run db:generate`, or by adding SQL under db/functions.
 //
 // The patch script fixes, every time: PostGIS column types, the securityInvoker
-// view option, composite-index operator classes, empty array defaults, and it
-// REMOVES all RLS policies — drizzle-kit drops their USING expressions, which
-// would turn each one into "permit everyone". Policies live in
-// db/functions/015_policies.sql.
+// view option, composite-index operator classes and empty array defaults. It
+// also strips any pgPolicy drizzle-kit emits — there are no RLS policies in this
+// schema any more (see db/functions/015_no_rls.sql), and one reintroduced by
+// introspection would arrive without its USING expression, which reads as
+// "permit everyone".
 import { geography } from './types.js'
 
 export const auth = pgSchema("auth");
@@ -129,7 +130,7 @@ export const attachments = pgTable("attachments", {
 	// what a foreign key was actually buying.
 	bucket: text().notNull(),
 	path: text().notNull(),
-	// Who uploaded it. NOT what the policies read — see 014_attachment_policies.sql:
+	// Who uploaded it. NOT what decides access — see domain/access/attachment.ts:
 	// a face photo is uploaded BY an admin but belongs TO the member named in its
 	// path, so ownership for access is read from the path, as it always was.
 	ownerId: uuid("owner_id"),
@@ -270,6 +271,12 @@ export const rosterDays = pgTable("roster_days", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
 	index("roster_days_intern_date_idx").using("btree", table.memberId.asc().nullsLast(), table.date.asc().nullsLast()),
+	// A filter on date ALONE — which the daily-roster view does — cannot use the
+	// composite above, because date is its second column. Confirmed with EXPLAIN:
+	// roster_days took a Seq Scan where attendance, which has this index, took an
+	// Index Scan for the identical query. The table grows at members x teaching
+	// days, roughly 110k rows a year for 300 students.
+	index("roster_days_date_idx").using("btree", table.date.asc().nullsLast()),
 	uniqueIndex("roster_days_intern_date_shift_key").using("btree", table.memberId.asc().nullsLast(), table.date.asc().nullsLast(), table.shiftId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.memberId],
@@ -433,6 +440,25 @@ export const appSettings = pgTable("app_settings", {
 	bypassCheckoutWindow: boolean("bypass_checkout_window").default(false).notNull(),
 	livenessMode: text("liveness_mode").default('turn').notNull(),
 	qrAllowImage: boolean("qr_allow_image").default(true).notNull(),
+	// These two were referenced everywhere and existed nowhere.
+	//
+	// The API read `store_probe_images` through `select *`, so it was always
+	// `undefined` and `Boolean(undefined)` is false — check-in probe images were
+	// never stored, silently, whatever the admin screen showed. The client read
+	// `capture_hold_seconds` with `?? 3`, so the hold was always three seconds
+	// and the setting did nothing. Writing either through PATCH /settings raised
+	// `column does not exist` and surfaced as a 500.
+	//
+	// THE DEFAULTS PRESERVE TODAY'S BEHAVIOUR EXACTLY, which is the whole point
+	// of adding them this way: `false` is what the undefined column already
+	// evaluated to, and `3` is the fallback the client already used. Nothing
+	// starts happening because these columns now exist.
+	//
+	// Turning probe storage ON is a deliberate act with real consequences — it
+	// keeps a face capture per check-in per student — so it stays an admin
+	// decision about retention, not a side effect of a schema fix.
+	storeProbeImages: boolean("store_probe_images").default(false).notNull(),
+	captureHoldSeconds: integer("capture_hold_seconds").default(3).notNull(),
 }, (table) => [
 	check("app_settings_id_check", sql`id = 1`),
 	check("app_settings_checkin_method_check", sql`checkin_method = ANY (ARRAY['location'::text, 'qr'::text, 'both'::text, 'none'::text])`),

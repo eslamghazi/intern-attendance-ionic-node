@@ -6,8 +6,7 @@
 -- file, and scripts/extract-programmables.mjs skips them by name — otherwise a
 -- re-extract would either duplicate them or capture a stale copy.
 --
--- Numbered 012 so it runs after 010 (which defines auth.uid() and the helpers
--- these lean on) and before 015_policies.sql.
+-- Numbered 012 so it runs after 010, which defines auth.uid().
 --
 -- set_member_password() used to live here too. It has moved to
 -- src/services/authService.ts with the other five password functions; there is
@@ -113,28 +112,6 @@ grant execute on function public.time_minutes(text)
 grant execute on function public.slot_concluded(date, uuid)
   to authenticated, anon, service_role;
 
-
--- ---------------------------------------------------------------------------
--- attachment_folder
---
--- The first path segment of an attachment, or NULL when the path has no folder
--- at all. `faces/<profile-id>/<file>` is how a stored image says who it belongs
--- to, and six policies in 014 ask this question.
---
--- Replaces storage.foldername(name)[1], which came with Supabase Storage and
--- returned the whole folder array only for its first element to be taken. The
--- NULL for a flat path is not incidental: it is what stops `<profile-id>` on
--- its own — no slash, no file — from reading as a folder and matching a caller's
--- own id.
---
--- nullif() does exactly that: split_part returns the WHOLE string when the
--- separator is absent, so a path with no '/' compares equal to itself and
--- becomes NULL.
--- ---------------------------------------------------------------------------
-create or replace function public.attachment_folder(p_path text)
-returns text language sql immutable parallel safe as $$
-  select nullif(split_part(p_path, '/', 1), p_path)
-$$;
-
-grant execute on function public.attachment_folder(text)
-  to authenticated, anon, service_role;
+-- attachment_folder() lived here. It existed only so the attachment policies
+-- could read a member id out of a path; that is pathOwner() in
+-- domain/access/attachment.ts now. See 015_no_rls.sql.

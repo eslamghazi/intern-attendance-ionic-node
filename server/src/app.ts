@@ -25,10 +25,30 @@ import { reportRoutes } from './routes/reports.js';
 export const API_PREFIX = '/api/v1';
 
 export async function buildApp(): Promise<FastifyInstance> {
+  // Anything that could carry a student identifier or a credential, gone
+  // before a line is written.
+  //
+  // `err.params` is the one that matters. drizzle throws a DrizzleQueryError
+  // carrying the statement AND its bound parameters, and the 5xx branch below
+  // logs the raw error — so a failing write on `profiles` would put a national
+  // id in the log, and a failing storePasswordHash would put a bcrypt hash
+  // there. Observed in this project's own logs before this was added.
+  //
+  // The rest is cheap insurance on paths that should never log a body anyway.
+  const redact = {
+    paths: [
+      'err.params', 'err.query',
+      'req.headers.authorization', 'req.headers.cookie',
+      'req.body.password', 'req.body.current', 'req.body.new',
+      'req.body.refresh_token', 'req.body.content_base64',
+    ],
+    remove: true,
+  };
+
   const app = Fastify({
     logger: env.isProd
-      ? { level: 'info' }
-      : { level: 'debug', transport: { target: 'pino-pretty' } },
+      ? { level: 'info', redact }
+      : { level: 'debug', redact, transport: { target: 'pino-pretty' } },
     trustProxy: true, // sits behind nginx; needed for real client IPs in the audit log
     bodyLimit: 15 * 1024 * 1024, // face captures are posted as base64 JPEG
   });
@@ -85,8 +105,15 @@ export async function buildApp(): Promise<FastifyInstance> {
         code: api.code,
         message: api.status >= 500 && env.isProd ? 'internal server error' : api.message,
         ...(api.details ? { details: api.details } : {}),
-        // Kept verbatim for the client's describeDbError() translation.
-        ...(api.pg ? { pg: api.pg } : {}),
+        // The client's describeDbError() turns a constraint violation into
+        // "can't delete, it's still linked to members". It reads the SQLSTATE
+        // and the table name — and nothing else, so nothing else is sent.
+        //
+        // `message` and `detail` are deliberately withheld: Postgres embeds the
+        // offending values in them, so a duplicate-key error would answer with
+        // `Key (national_id)=(29001011234567) already exists`. They stay in the
+        // server log, where they are useful and not public.
+        ...(api.pg ? { pg: { code: api.pg.code, table: api.pg.table } } : {}),
       },
     });
   });

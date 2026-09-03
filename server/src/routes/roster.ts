@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { FastifyPluginAsync } from 'fastify';
 import { arrayOf, asCaller, callFunction, callTableFunction, query } from '../db/context.js';
+import { requireMember } from '../services/accessService.js';
 import { directoryWhere, MAX_PAGE_SIZE } from '../domain/member/filter.js';
 import { monthBounds, planBulk, rangeDates } from '../domain/roster/bulk.js';
 import { filterQuery } from './members.js';
@@ -28,7 +29,7 @@ export const rosterRoutes: FastifyPluginAsync = async (app) => {
    * The client used to fetch a page of members, then fetch their roster days in
    * id-chunks, then group them in JavaScript. Postgres groups better.
    */
-  app.get('/roster/view', { preHandler: app.requireAuth }, async (req) => {
+  app.get('/roster/view', { preHandler: app.requireRole('admin', 'superadmin') }, async (req) => {
     const q = filterQuery
       .merge(monthQuery)
       .merge(
@@ -99,7 +100,7 @@ export const rosterRoutes: FastifyPluginAsync = async (app) => {
    * Day-by-day totals over EVERY member the filter matches — not just the page.
    * Counting the page would answer a different question than the row asks.
    */
-  app.get('/roster/totals', { preHandler: app.requireAuth }, async (req) => {
+  app.get('/roster/totals', { preHandler: app.requireRole('admin', 'superadmin') }, async (req) => {
     const q = filterQuery.merge(monthQuery).safeParse(req.query);
     if (!q.success) throw badRequest('invalid', 'invalid query');
     const o = q.data;
@@ -139,7 +140,7 @@ export const rosterRoutes: FastifyPluginAsync = async (app) => {
   });
 
   /** Identity keys already present in a month — the import conflict preview. */
-  app.post('/roster/existing-keys', { preHandler: app.requireAuth }, async (req) => {
+  app.post('/roster/existing-keys', { preHandler: app.requireRole('admin', 'superadmin') }, async (req) => {
     const body = monthQuery
       .extend({ member_ids: z.array(z.string().uuid()) })
       .safeParse(req.body);
@@ -169,6 +170,14 @@ export const rosterRoutes: FastifyPluginAsync = async (app) => {
     if (!days.length) return { affected: 0 };
 
     return asCaller(req.claims, async (tx) => {
+      // member_id comes straight from the body. This was guarded only by
+      // roster_days_write_admin, which was plain is_admin() — so ANY admin
+      // could roster ANY member in the faculty, whatever branch they run.
+      // With RLS gone this check is the only one there is.
+      for (const id of new Set(days.map((d) => d.member_id))) {
+        await requireMember(tx, req.caller!, id);
+      }
+
       // One multi-row insert instead of the client's chunked upserts: the whole
       // import either lands or it does not.
       const values = sql.join(
@@ -191,6 +200,13 @@ export const rosterRoutes: FastifyPluginAsync = async (app) => {
     if (!body.success) throw badRequest('invalid', 'invalid roster payload');
     const d = body.data;
     await asCaller(req.claims, async (tx) => {
+      // The destructive half, and the reason this matters more than the insert:
+      // sync_attendance_with_roster removes the matching ATTENDANCE row when a
+      // roster day goes. Unscoped, this let an admin silently delete another
+      // branch's attendance history one row at a time, with nothing in the
+      // audit log — the deletion happens in a trigger, not in a route.
+      await requireMember(tx, req.caller!, d.member_id);
+
       await tx.execute(sql`
         delete from public.roster_days
          where member_id = ${d.member_id} and date = ${d.date} and shift_id = ${d.shift_id}

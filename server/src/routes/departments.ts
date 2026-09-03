@@ -4,10 +4,13 @@ import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { FastifyPluginAsync } from 'fastify';
 import { asCaller, query } from '../db/context.js';
-import { badRequest, notFound } from '../http/errors.js';
+import { requireBranch, scopeOf } from '../services/accessService.js';
+import { badRequest, notFound, forbidden } from '../http/errors.js';
 
 export const departmentRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/departments', async (req) =>
+  // Departments belong to a branch, so writing one is scoped the same way
+  // everything else branch-shaped is. Reading is open to any session.
+  app.get('/departments', { preHandler: app.requireAuth }, async (req) =>
     asCaller(req.claims, async (tx) => {
       // The branch name is joined here rather than reshaped on the client, so
       // the response is already the flat { branch_name } the UI wants.
@@ -21,7 +24,7 @@ export const departmentRoutes: FastifyPluginAsync = async (app) => {
     }),
   );
 
-  app.get('/departments/options', async (req) => {
+  app.get('/departments/options', { preHandler: app.requireAuth }, async (req) => {
     const { branch_id: branchId } = req.query as { branch_id?: string };
     return asCaller(req.claims, async (tx) => {
       const rows = await query(tx, sql`
@@ -33,7 +36,7 @@ export const departmentRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
-  app.put('/departments', { preHandler: app.requireAuth }, async (req) => {
+  app.put('/departments', { preHandler: app.requireRole('admin', 'superadmin') }, async (req) => {
     const body = z
       .object({
         id: z.string().uuid().optional(),
@@ -45,6 +48,18 @@ export const departmentRoutes: FastifyPluginAsync = async (app) => {
     const d = body.data;
 
     return asCaller(req.claims, async (tx) => {
+      // departments carry a branch, so creating or moving one is scoped like
+      // everything else branch-shaped. This lived only in departments_write_admin
+      // until now — with RLS off, an admin created a department in a branch they
+      // do not run.
+      //
+      // A null branch is faculty-wide, which requireBranch cannot test because
+      // there is no branch to test; only an unrestricted scope may set one.
+      if (d.branch_id) await requireBranch(tx, req.caller!, d.branch_id);
+      else if ((await scopeOf(tx, req.caller!)).kind !== 'all') {
+        throw forbidden('a faculty-wide department is not yours to create');
+      }
+
       const { rows } = d.id
         ? await tx.execute<{ id: string }>(sql`
             insert into public.departments (id, name, branch_id)
@@ -62,9 +77,19 @@ export const departmentRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
-  app.delete('/departments/:id', { preHandler: app.requireAuth }, async (req, reply) => {
+  app.delete('/departments/:id', { preHandler: app.requireRole('admin', 'superadmin') }, async (req, reply) => {
     const { id } = req.params as { id: string };
     await asCaller(req.claims, async (tx) => {
+      // Read the branch BEFORE deleting, or there is nothing left to scope by.
+      const existing = await query<{ branch_id: string | null }>(tx, sql`
+        select branch_id from public.departments where id = ${id} limit 1
+      `);
+      if (!existing[0]) throw notFound();
+      if (existing[0].branch_id) await requireBranch(tx, req.caller!, existing[0].branch_id);
+      else if ((await scopeOf(tx, req.caller!)).kind !== 'all') {
+        throw forbidden('a faculty-wide department is not yours to delete');
+      }
+
       const rows = await query<{ id: string }>(tx, sql`
         delete from public.departments where id = ${id} returning id
       `);
@@ -74,7 +99,7 @@ export const departmentRoutes: FastifyPluginAsync = async (app) => {
   });
 
   /** Every member's department for one month, as { member_id: department_id }. */
-  app.get('/member-departments', async (req) => {
+  app.get('/member-departments', { preHandler: app.requireAuth }, async (req) => {
     const q = z
       .object({ year: z.coerce.number().int(), month: z.coerce.number().int().min(1).max(12) })
       .safeParse(req.query);
@@ -91,7 +116,7 @@ export const departmentRoutes: FastifyPluginAsync = async (app) => {
   });
 
   /** Set, or clear when department_id is null, one member's month. */
-  app.put('/member-departments', { preHandler: app.requireAuth }, async (req) => {
+  app.put('/member-departments', { preHandler: app.requireRole('admin', 'superadmin') }, async (req) => {
     const body = z
       .object({
         member_id: z.string().uuid(),

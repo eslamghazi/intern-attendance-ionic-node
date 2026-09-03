@@ -59,7 +59,7 @@ it cannot round-trip one: introspecting this schema returned **32 of 47**
 policies with their `USING` and `WITH CHECK` expressions dropped. A policy with
 no `USING` means `USING (true)` — it permits everything to everyone holding the
 role. That is the authorization model silently inverted, so policies live in
-`db/functions/015_policies.sql`.
+`db/functions/015_no_rls.sql`, which drops them.
 
 **Table grants are authored, not extracted** (`db/functions/040_grants.sql`).
 The 72 Supabase migrations grant almost nothing: `authenticated` has no SELECT
@@ -263,6 +263,10 @@ the set arithmetic they were doing in JavaScript are now one SQL statement each.
 
 ### The six phases after the functional port
 
+0. **Row-level security removed.** 54 policies and the nine helper functions
+   that served them, replaced by `domain/access` with unit tests — after the
+   suite was proven to pass with RLS already disabled. `db/functions/` went from
+   eleven files to nine, and the project's function count from 33 to 16.
 1. **Client-era RPCs, part 1.** `custom_access_token_hook`, `public_branding`,
    `my_member_code`, `clear_image_paths` — each a `SECURITY DEFINER` wrapper that
    existed only because a browser was talking to Postgres.
@@ -280,10 +284,11 @@ the set arithmetic they were doing in JavaScript are now one SQL statement each.
    deploy script, backup and restore, an aaPanel vhost, and a local aaPanel
    sandbox to practise on.
 
-Function count in `public` + `auth`: **25**, down from 33. What remains is RLS
-helpers (`is_admin`, `admin_*`, `my_member_id`, `current_app_role`) and genuine
-computation (`geofence_check`, `slot_concluded`, `server_now`,
-`roster_maker_data`) — no client-era wrappers.
+Function count in `public` + `auth`: **16**, down from 33. The RLS helpers are
+gone with the policies; what remains is genuine computation —
+`geofence_check` (PostGIS), `slot_concluded`, `time_minutes`, `server_now`,
+`roster_maker_data`, the lifecycle triggers, and `auth.uid()`, which the last
+two still read.
 
 ## Bugs found while porting
 
@@ -343,7 +348,7 @@ went.
 Discovered three separate times: `attendance_status` never gained `left_work`
 though three migrations used it; the table grants existed only because Supabase
 applied them at provisioning; and `auth_admin_read_profiles` named a role that a
-fresh build does not create, so `015_policies.sql` failed part-way through.
+fresh build does not create, so the policy file failed part-way through.
 
 ## Still outstanding
 

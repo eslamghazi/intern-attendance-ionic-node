@@ -1,9 +1,15 @@
 // Reference data: institutions, branches, groups, shifts.
 //
 // Replaces the direct PostgREST calls in ClientApp/src/lib/api/catalog.ts.
-// Every handler runs inside asCaller(), so who may read or write each table is
-// still decided by the policies in the database — these routes add no
-// authorization of their own, exactly as PostgREST added none.
+//
+// AUTHORIZATION IS STATED HERE, not only in the database.
+//
+// These handlers used to add none of their own and lean entirely on the
+// policies — the same arrangement PostgREST had. That worked, but it meant the
+// answer to "who can delete a shift?" lived in a file nobody reads while the
+// route said nothing, and it meant the API could not survive RLS being turned
+// off. Reads need a session; writes are superadmin, which is exactly what
+// branches_write_superadmin and its three siblings say.
 //
 // What they DO add is a column whitelist. PostgREST let the client name the
 // columns it wrote and relied on policies to constrain them; here the payload
@@ -120,8 +126,13 @@ const shiftBody = z.object({
 /* ------------------------------------------------------------------- routes */
 
 export const catalogRoutes: FastifyPluginAsync = async (app) => {
+  // Reference data: readable by anyone signed in, writable only by a
+  // superadmin. Named once so a new table cannot be added with the wrong one.
+  const readable = { preHandler: app.requireAuth };
+  const writable = { preHandler: app.requireRole('superadmin') };
+
   const list = (path: string, table: string, orderBy: string) =>
-    app.get(path, async (req) =>
+    app.get(path, readable, async (req) =>
       asCaller(req.claims, async (tx) => {
         const rows = await query(tx, sql`
           select * from ${qualified(table)} order by ${sql.raw(orderBy)}
@@ -131,7 +142,7 @@ export const catalogRoutes: FastifyPluginAsync = async (app) => {
     );
 
   const options = (path: string, table: string) =>
-    app.get(path, async (req) =>
+    app.get(path, readable, async (req) =>
       asCaller(req.claims, async (tx) => {
         const rows = await query(tx, sql`
           select id, name from ${qualified(table)} order by name, id
@@ -149,7 +160,7 @@ export const catalogRoutes: FastifyPluginAsync = async (app) => {
   options('/branches/options', 'branches');
   options('/groups/options', 'groups');
 
-  app.get('/shifts/keys', async (req) =>
+  app.get('/shifts/keys', readable, async (req) =>
     asCaller(req.claims, async (tx) => {
       const rows = await query(tx, sql`select id, key from public.shifts order by id`);
       return rows;
@@ -164,7 +175,7 @@ export const catalogRoutes: FastifyPluginAsync = async (app) => {
     columns: readonly string[],
     normalise?: (v: z.infer<S>) => Record<string, unknown>,
   ) => {
-    app.post(base, async (req, reply) => {
+    app.post(base, writable, async (req, reply) => {
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) throw badRequest('invalid', `invalid ${table} payload`);
       const payload = normalise
@@ -175,7 +186,7 @@ export const catalogRoutes: FastifyPluginAsync = async (app) => {
       return row;
     });
 
-    app.patch(`${base}/:id`, async (req) => {
+    app.patch(`${base}/:id`, writable, async (req) => {
       const { id } = req.params as { id: string };
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) throw badRequest('invalid', `invalid ${table} payload`);
@@ -185,7 +196,7 @@ export const catalogRoutes: FastifyPluginAsync = async (app) => {
       return asCaller(req.claims, (tx) => updateRow(tx, table, id, payload));
     });
 
-    app.delete(`${base}/:id`, async (req, reply) => {
+    app.delete(`${base}/:id`, writable, async (req, reply) => {
       const { id } = req.params as { id: string };
       await asCaller(req.claims, (tx) => deleteRow(tx, table, id));
       reply.code(204);

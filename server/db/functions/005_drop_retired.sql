@@ -62,8 +62,9 @@ drop function if exists public.master_password_is_set();
 -- token. The hook went in the first phase of this port and the role is no
 -- longer created (see db/prelude.sql), which makes this the one kind of dead
 -- object that is NOT harmless: CREATE POLICY against a missing role fails, so
--- a database built from scratch stopped part-way through 015_policies.sql
--- until this was removed.
+-- a database built from scratch stopped part-way through the policy file
+-- until this was removed. (Both that file and this drop are historical now:
+-- RLS is off entirely — see 015_no_rls.sql.)
 -- ---------------------------------------------------------------------------
 drop policy if exists "auth_admin_read_profiles" on public.profiles;
 
@@ -83,3 +84,14 @@ drop policy if exists "auth_admin_read_profiles" on public.profiles;
 drop function if exists public.mark_enrolled();
 drop function if exists public.mark_password_changed();
 drop function if exists public.update_my_profile(text, text, text, text, text);
+
+
+-- ---------------------------------------------------------------------------
+-- The client's write access to the audit log.
+--
+-- `for insert to authenticated with check (actor_id = auth.uid() OR actor_id
+-- IS NULL)` — any signed-in user could write audit rows as themselves, or as
+-- nobody. Every audit write now goes through data.audit() under asService,
+-- which runs as the owner, so nothing legitimate used this path.
+-- ---------------------------------------------------------------------------
+drop policy if exists "audit_insert_self" on public.audit_log;

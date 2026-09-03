@@ -23,8 +23,10 @@ import { randomUUID } from 'node:crypto';
 import { env } from '../env.js';
 import { asCaller, asService, type DbContext } from '../db/context.js';
 import * as data from '../data/attachments.js';
+import { mayTouchAttachment } from '../domain/access/attachment.js';
+import type { Role } from '../domain/identity/role.js';
 import type { JwtClaims } from '../db/context.js';
-import { notFound } from '../http/errors.js';
+import { forbidden, notFound } from '../http/errors.js';
 import { signedPath } from './signing.js';
 
 export const BUCKETS = {
@@ -49,6 +51,18 @@ const PUBLIC_BUCKETS: ReadonlySet<string> = new Set<string>([BUCKETS.avatars]);
 /** Is this bucket served without a signature? */
 export function isPublicBucket(bucket: string): boolean {
   return PUBLIC_BUCKETS.has(bucket);
+}
+
+/**
+ * The caller, as domain/access/attachment.ts needs to see them.
+ *
+ * Read from the claims the auth plugin already re-issued from the database, so
+ * `user_role` is the CURRENT role and not whatever an old token happens to
+ * carry. Null claims mean an unauthenticated caller, who owns nothing.
+ */
+function callerOf(claims: JwtClaims | null): { callerId: string; role: Role } | null {
+  if (!claims?.sub) return null;
+  return { callerId: claims.sub, role: claims.user_role as Role };
 }
 
 const ROOT = resolve(env.STORAGE_DIR);
@@ -103,6 +117,30 @@ export interface PutOptions {
 export async function putObject(opts: PutOptions): Promise<{ path: string }> {
   const contentType = opts.contentType ?? 'application/octet-stream';
 
+  // A caller-supplied path is checked HERE, not only by the bucket policy.
+  //
+  // With RLS switched off, the end-to-end suite showed one student uploading
+  // into another student's folder — because this function had no opinion and
+  // simply asked the database. `opts.claims === undefined` is the privileged
+  // server-side path (an admin enrolling a face into the member's folder),
+  // which is deliberate and stays; a caller context means a caller-chosen path,
+  // and that is the one to police.
+  if (opts.claims !== undefined) {
+    const caller = callerOf(opts.claims);
+    if (
+      !caller ||
+      !mayTouchAttachment({
+        bucket: opts.bucket,
+        path: opts.path,
+        action: 'write',
+        callerId: caller.callerId,
+        role: caller.role,
+      })
+    ) {
+      throw forbidden('that path is not yours to write');
+    }
+  }
+
   // Metadata first: if a policy rejects the row, no bytes are written.
   const write = (tx: DbContext) =>
     data.upsert(tx, opts.bucket, opts.path, opts.owner ?? null, opts.body.length, contentType);
@@ -145,7 +183,28 @@ export async function signedUrls(
   const wanted = [...new Set(paths.filter(Boolean))];
   if (!wanted.length) return {};
 
-  const visible = await asCaller(claims, (tx) => data.findVisible(tx, bucket, wanted));
+  // Filtered twice, on purpose. The API decides first — this is what stops a
+  // member minting a URL for another member's face template, and it held when
+  // RLS was switched off to test exactly that — and the query then runs under
+  // the caller's context, so the policies get their say too.
+  const caller = callerOf(claims);
+  const permitted = wanted.filter(
+    (path) =>
+      caller !== null &&
+      mayTouchAttachment({
+        bucket,
+        path,
+        action: 'read',
+        callerId: caller.callerId,
+        role: caller.role,
+      }),
+  );
+  // A public bucket needs no session at all: an avatar shows beside a name on
+  // screens a signed-out caller already sees.
+  const askable = isPublicBucket(bucket) ? wanted : permitted;
+  if (!askable.length) return {};
+
+  const visible = await asCaller(claims, (tx) => data.findVisible(tx, bucket, askable));
 
   // Was a join onto storage.buckets to read its `public` column. One less table
   // and one less join for a fact that is now a constant.

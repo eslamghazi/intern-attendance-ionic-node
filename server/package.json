@@ -5,7 +5,7 @@
   "type": "module",
   "author": "Calaix AI (https://calaixai.com)",
   "license": "UNLICENSED",
-  "description": "Node API for the intern-attendance app \u2014 replaces Supabase (PostgREST + GoTrue + Storage + Edge Functions). The Postgres schema, its 36 SQL functions and its 51 RLS policies are kept as-is.",
+  "description": "Node API for the intern-attendance app — replaces Supabase (PostgREST + GoTrue + Storage + Edge Functions). The Postgres schema, its 36 SQL functions and its 51 RLS policies are kept as-is.",
   "engines": {
     "node": ">=20"
   },
@@ -22,7 +22,7 @@
     "import:storage": "node scripts/import-storage.mjs",
     "db:pull": "drizzle-kit pull --config drizzle.pull.config.ts && node scripts/patch-drizzle-output.mjs",
     "db:generate": "drizzle-kit generate && node scripts/patch-drizzle-output.mjs",
-    "db:push": "node -e \"console.error('REFUSED: drizzle-kit push would rewrite the live schema from the entities. Add a .sql file in db/forward instead \u2014 see drizzle.config.ts.'); process.exit(1)\"",
+    "db:push": "node -e \"console.error('REFUSED: drizzle-kit push would rewrite the live schema from the entities. Add a .sql file in db/forward instead — see drizzle.config.ts.'); process.exit(1)\"",
     "db:extract": "node scripts/extract-programmables.mjs",
     "verify:schema": "node scripts/verify-schema.mjs",
     "test:e2e": "node test/e2e/run.mjs",
@@ -31,7 +31,6 @@
   "dependencies": {
     "@fastify/cors": "^10.0.1",
     "@fastify/helmet": "^13.1.1",
-    "@fastify/multipart": "^10.1.1",
     "@fastify/rate-limit": "^11.2.0",
     "bcryptjs": "^2.4.3",
     "date-fns": "^4.4.0",

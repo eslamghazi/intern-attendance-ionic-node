@@ -8,7 +8,10 @@ import { asCaller, query } from '../db/context.js';
 import { badRequest, notFound } from '../http/errors.js';
 
 export const adminRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/admins', { preHandler: app.requireAuth }, async (req) =>
+  // Staff administration. Listing is for staff; changing a staff account or
+  // its assignments is superadmin — the same split profiles_update_superadmin
+  // and assignments_write_superadmin make, said where the route is.
+  app.get('/admins', { preHandler: app.requireRole('admin', 'superadmin') }, async (req) =>
     asCaller(req.claims, async (tx) => {
       const rows = await query(tx, sql`
         select id, full_name, national_id, phone, role, permissions
@@ -20,7 +23,7 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     }),
   );
 
-  app.get('/admins/assignments', { preHandler: app.requireAuth }, async (req) =>
+  app.get('/admins/assignments', { preHandler: app.requireRole('admin', 'superadmin') }, async (req) =>
     asCaller(req.claims, async (tx) => {
       const rows = await query(tx, sql`
         select aa.id, aa.admin_id, aa.group_id, aa.branch_id,
@@ -37,7 +40,7 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     }),
   );
 
-  app.patch('/admins/:id', { preHandler: app.requireAuth }, async (req) => {
+  app.patch('/admins/:id', { preHandler: app.requireRole('superadmin') }, async (req) => {
     const { id } = req.params as { id: string };
     const body = z
       .object({
@@ -70,7 +73,7 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
-  app.post('/admins/assignments', { preHandler: app.requireAuth }, async (req, reply) => {
+  app.post('/admins/assignments', { preHandler: app.requireRole('superadmin') }, async (req, reply) => {
     const body = z
       .object({
         admin_id: z.string().uuid(),
@@ -93,7 +96,7 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     return row;
   });
 
-  app.delete('/admins/assignments/:id', { preHandler: app.requireAuth }, async (req, reply) => {
+  app.delete('/admins/assignments/:id', { preHandler: app.requireRole('superadmin') }, async (req, reply) => {
     const { id } = req.params as { id: string };
     await asCaller(req.claims, async (tx) => {
       const rows = await query<{ id: string }>(tx, sql`

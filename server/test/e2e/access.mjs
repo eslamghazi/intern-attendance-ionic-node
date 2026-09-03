@@ -191,4 +191,184 @@ const escalate = await call('PATCH', '/profile/me', {
 check('a member cannot promote themselves', escalate.status, 200);
 check('  still a member', psql(`select role from public.profiles where id='${selfId}'`), 'member');
 
+console.log('\n--- the master password hash must never leave the server ---');
+// AUDIT 2.1. GET /settings ran `select *` under the caller, and the governing
+// policy is `settings_select ... to authenticated using (true)` — so every
+// column came back, including the bcrypt hash of the SHARED master password
+// that opens every member and admin account.
+psql(`update public.app_settings set master_password_hash = crypt('AuditMaster!2026', gen_salt('bf')) where id = 1`);
+const settingsAsMember = await call('GET', '/settings', { token: selfTok });
+check('a member can read /settings', settingsAsMember.status, 200);
+check('  but NOT the master password hash',
+  settingsAsMember.body?.master_password_hash, undefined);
+check('  nor any other column carrying a secret',
+  Object.keys(settingsAsMember.body ?? {}).some((k) => /password|secret|hash/i.test(k)), false);
+// The settings the app actually needs must still be there, or the fix broke it.
+check('  the settings the app needs are still returned',
+  typeof settingsAsMember.body?.face_match_threshold, 'number');
+check('  and so is the check-in method', typeof settingsAsMember.body?.checkin_method, 'string');
+// An admin is no more entitled to it than a member: only the API itself,
+// through verify/set, ever needs the hash.
+const suSettings = await call('GET', '/settings', { token: suToken });
+check('a superadmin cannot read it either', suSettings.body?.master_password_hash, undefined);
+check('  though they can still ask WHETHER one is set',
+  (await call('GET', '/settings/master-password', { token: suToken })).body?.configured, true);
+// And the master password must still WORK, or the move broke sign-in.
+check('the master password still opens an admin',
+  (await login('29505151234561', 'AuditMaster!2026')).status, 200);
+psql(`update public.app_settings set master_password_hash = null where id = 1`);
+
+console.log('\n--- roster days are scoped to the admin who owns the branch ---');
+// AUDIT 2.2. POST/DELETE /roster/days took member_id straight from the body and
+// relied on `roster_days_write_admin`, which was plain is_admin() — unscoped.
+// DELETE cascades through sync_attendance_with_roster, so an out-of-scope admin
+// could silently destroy another branch's ATTENDANCE, not just its roster.
+psql(`insert into public.shifts (name, start_time, end_time)
+      select 'Audit Shift', '08:00', '14:00'
+       where not exists (select 1 from public.shifts where name = 'Audit Shift')`);
+const shiftId = psql(`select id from public.shifts where name = 'Audit Shift'`);
+const rosterDate = '2026-09-10';
+
+const writeTheirs = await call('POST', '/roster/days', {
+  token: aTok, body: { member_id: bMember, date: rosterDate, shift_id: shiftId },
+});
+check("assigned admin CANNOT roster another branch's member", writeTheirs.status, 404);
+check('  and nothing was written',
+  psql(`select count(*) from public.roster_days where member_id='${bMember}' and date='${rosterDate}'`), '0');
+
+// Seed a roster day plus the attendance the trigger ties to it, then try to
+// delete it from outside the scope. This is the destructive half.
+psql(`insert into public.roster_days (member_id, date, shift_id)
+      values ('${bMember}', '${rosterDate}', '${shiftId}')
+      on conflict do nothing`);
+psql(`insert into public.attendance (member_id, branch_id, date, shift_id, status, check_in_at)
+      values ('${bMember}', '${branchB}', '${rosterDate}', '${shiftId}', 'present', now())
+      on conflict (member_id, date, shift_id) do nothing`);
+check('  a Branch B attendance record exists',
+  psql(`select count(*) from public.attendance where member_id='${bMember}' and date='${rosterDate}'`), '1');
+
+const deleteTheirs = await call('DELETE', '/roster/days', {
+  token: aTok, body: { member_id: bMember, date: rosterDate, shift_id: shiftId },
+});
+check('assigned admin CANNOT un-roster them', deleteTheirs.status, 404);
+check('  the roster day survives',
+  psql(`select count(*) from public.roster_days where member_id='${bMember}' and date='${rosterDate}'`), '1');
+check('  and so does the ATTENDANCE record',
+  psql(`select count(*) from public.attendance where member_id='${bMember}' and date='${rosterDate}'`), '1');
+
+// The admin who does own the branch is unaffected.
+const ownRoster = await call('POST', '/roster/days', {
+  token: wTok, body: { member_id: bMember, date: '2026-09-11', shift_id: shiftId },
+});
+check('an unassigned admin still can', ownRoster.status, 200);
+check('  and can remove it again',
+  (await call('DELETE', '/roster/days', {
+    token: wTok, body: { member_id: bMember, date: '2026-09-11', shift_id: shiftId },
+  })).status, 204);
+
+console.log('\n--- a member record belongs to the branch that runs it ---');
+// AUDIT 3.1. profiles_update_member_by_admin and profiles_delete_member_by_admin
+// were `role = 'member' AND is_admin()` — no scope at all. The members table was
+// already scoped, so PATCH /members/:id updated the member half correctly and
+// the PROFILE half regardless of branch, in one transaction.
+const editTheirs = await call('PATCH', `/members/${bMember}`, {
+  token: aTok, body: { full_name: 'Renamed By Outsider' },
+});
+check("assigned admin CANNOT edit another branch's member", editTheirs.status >= 400, true);
+check('  the name is unchanged',
+  psql(`select full_name from public.profiles where id='${bProfile}'`), 'B Member');
+
+// The national id is the login identifier AND, for a member who has never set a
+// password, the password. Editing it across scope is account takeover.
+const stealId = await call('PATCH', `/members/${bMember}`, {
+  token: aTok, body: { national_id: '30909091234569' },
+});
+check('  nor rewrite their national id', stealId.status >= 400, true);
+check('  it is unchanged',
+  psql(`select national_id from public.profiles where id='${bProfile}'`), '30303031234565');
+
+// The destructive one: deleting the profile cascades to the member row, their
+// attendance, and their face template.
+const delTheirs = await call('DELETE', `/members/by-profile/${bProfile}`, { token: aTok });
+check('  nor delete their record entirely', delTheirs.status >= 400, true);
+check('  the member still exists',
+  psql(`select count(*) from public.profiles where id='${bProfile}'`), '1');
+
+console.log('\n--- departments belong to a branch too ---');
+// AUDIT 3.1. departments_write_admin was is_admin(); departments carry branch_id.
+const deptTheirs = await call('PUT', '/departments', {
+  token: aTok, body: { name: 'Ward X', branch_id: branchB },
+});
+check("assigned admin CANNOT create a department in another branch", deptTheirs.status >= 400, true);
+check('  nothing was created',
+  psql(`select count(*) from public.departments where branch_id='${branchB}'`), '0');
+
+const deptOwn = await call('PUT', '/departments', {
+  token: aTok, body: { name: 'Ward A', branch_id: branchA },
+});
+check('  but can in their own', deptOwn.status < 400, true);
+
+console.log('\n--- the audit log is not client-writable ---');
+// AUDIT 3.2. audit_insert_self allowed any authenticated caller to insert rows
+// attributed to themselves OR to nobody (actor_id IS NULL). This table records
+// mock_location_detected, face_mismatch, master_login and refresh-token reuse —
+// the evidence trail for exactly the behaviour someone would want to bury.
+const auditBefore = psql(`select count(*) from public.audit_log`);
+const forged = psql(
+  `insert into public.audit_log (actor_id, event, detail)
+   select null, 'check_in', '{"forged":true}'::jsonb
+    where pg_catalog.has_table_privilege('authenticated', 'public.audit_log', 'INSERT')`,
+);
+check('authenticated has no INSERT grant on audit_log',
+  psql(`select has_table_privilege('authenticated', 'public.audit_log', 'INSERT')::text`), 'false');
+check('  and no insert policy remains',
+  psql(`select count(*) from pg_policies where tablename='audit_log' and cmd='INSERT'`), '0');
+check('  nothing was forged', psql(`select count(*) from public.audit_log`), auditBefore);
+// The API still writes them — it runs as the owner, which bypasses both.
+check('  the API can still record events',
+  psql(`select count(*) > 0 from public.audit_log where event = 'password_changed'`) !== '',
+  true);
+
+console.log('\n--- the API refuses on its own, without leaning on RLS ---');
+// Five route files used to carry NO role check and rely entirely on the
+// policies — catalog.ts said so in its own header. That worked, but it meant
+// the API could not survive RLS being turned off: any signed-in student could
+// have created a branch or deleted a shift.
+//
+// A 403 here is the API refusing. An empty list or a 404 would be RLS refusing,
+// which is what these checks exist to tell apart — so they assert the status,
+// not the absence of data.
+const asMember = { token: selfTok };
+
+check('a member cannot create a branch',
+  (await call('POST', '/branches', { ...asMember, body: { name: 'Rogue', latitude: 31, longitude: 30, radius_meters: 100 } })).status, 403);
+check('  nor delete a shift',
+  (await call('DELETE', `/shifts/${shiftId}`, asMember)).status, 403);
+check('  nor create an institution',
+  (await call('POST', '/institutions', { ...asMember, body: { name: 'Rogue U', code: 99 } })).status, 403);
+check('  nor edit a group',
+  (await call('PATCH', `/groups/${groupB}`, { ...asMember, body: { name: 'Renamed', year: 2026 } })).status, 403);
+
+check('a member cannot list staff',
+  (await call('GET', '/admins', asMember)).status, 403);
+check('  nor change a staff account',
+  (await call('PATCH', `/admins/${bProfile}`, { ...asMember, body: { full_name: 'x' } })).status, 403);
+check('  nor grant themselves an assignment',
+  (await call('POST', '/admins/assignments', { ...asMember, body: { admin_id: selfId, branch_id: branchA } })).status, 403);
+
+check('a member cannot create a department',
+  (await call('PUT', '/departments', { ...asMember, body: { name: 'Rogue Ward', branch_id: branchA } })).status, 403);
+check('  nor reassign members to one',
+  (await call('PUT', '/member-departments', { ...asMember, body: { year: 2026, month: 9, assignments: [] } })).status, 403);
+
+check('a member cannot read the whole roster grid',
+  (await call('GET', '/roster/view?year=2026&month=9&page=1&page_size=5', asMember)).status, 403);
+
+// And an ADMIN still can, so the checks refuse the right people.
+check('an admin still lists staff', (await call('GET', '/admins', { token: wTok })).status, 200);
+check('  and reads the roster grid',
+  (await call('GET', '/roster/view?year=2026&month=9&page=1&page_size=5', { token: wTok })).status, 200);
+check('a superadmin still creates an institution',
+  (await call('POST', '/institutions', { token: suToken, body: { name: 'Second Inst', code: 2 } })).status, 201);
+
 process.exit(report() ? 0 : 1);

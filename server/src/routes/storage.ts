@@ -1,8 +1,8 @@
 // File upload and download URLs. Replaces supabase.storage on the client.
 //
-// The permission question is never answered here: signedUrl() and putObject()
-// consult public.attachments under the caller's RLS context, so the bucket
-// policies (db/functions/014_attachment_policies.sql) remain the authority.
+// The permission question is answered in domain/access/attachment.ts and
+// enforced by storage/objects.ts, which checks every caller-supplied path
+// before it touches the index or the disk.
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { FastifyPluginAsync } from 'fastify';

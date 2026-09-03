@@ -50,49 +50,6 @@ grant execute on function auth.uid() to anon;
 grant execute on function auth.uid() to authenticated;
 grant execute on function auth.uid() to service_role;
 
-CREATE OR REPLACE FUNCTION public.admin_branch_ids()
- RETURNS SETOF uuid
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  select branch_id from public.admin_assignments
-   where admin_id = auth.uid() and branch_id is not null;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.admin_can_access(p_batch uuid, p_hospital uuid)
- RETURNS boolean
- LANGUAGE sql
- STABLE
- SET search_path TO 'public'
-AS $function$
-  select public.is_superadmin()
-      or (public.is_admin() and (
-            not public.admin_has_assignments()
-            or p_hospital in (select public.admin_branch_ids())
-            or p_batch    in (select public.admin_group_ids())
-      ));
-$function$;
-
-CREATE OR REPLACE FUNCTION public.admin_group_ids()
- RETURNS SETOF uuid
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  select group_id from public.admin_assignments
-   where admin_id = auth.uid() and group_id is not null;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.admin_has_assignments()
- RETURNS boolean
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  select exists (select 1 from public.admin_assignments where admin_id = auth.uid());
-$function$;
-
 CREATE OR REPLACE FUNCTION public.assert_member_codes_unique()
  RETURNS void
  LANGUAGE plpgsql
@@ -210,18 +167,6 @@ AS $function$
   end;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.current_app_role()
- RETURNS text
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  select coalesce(
-    nullif(current_setting('request.jwt.claims', true)::jsonb ->> 'user_role', ''),
-    (select role::text from public.profiles where id = auth.uid())
-  );
-$function$;
-
 CREATE OR REPLACE FUNCTION public.geofence_check(p_branch uuid, p_lat double precision, p_lng double precision)
  RETURNS TABLE(distance_m double precision, radius_m integer, within boolean)
  LANGUAGE sql
@@ -237,24 +182,6 @@ AS $function$
   from public.branches h
   cross join lateral (select ST_SetSRID(ST_MakePoint(p_lng, p_lat), 4326)::geography as pt) g
   where h.id = p_branch;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.is_admin()
- RETURNS boolean
- LANGUAGE sql
- STABLE
- SET search_path TO 'public'
-AS $function$
-  select public.current_app_role() in ('admin', 'superadmin');
-$function$;
-
-CREATE OR REPLACE FUNCTION public.is_superadmin()
- RETURNS boolean
- LANGUAGE sql
- STABLE
- SET search_path TO 'public'
-AS $function$
-  select public.current_app_role() = 'superadmin';
 $function$;
 
 CREATE OR REPLACE FUNCTION public.mark_left_work()
@@ -301,15 +228,6 @@ end;
 $function$;
 revoke all on function public.mark_left_work() from public, anon, authenticated, service_role;
 grant execute on function public.mark_left_work() to service_role;
-
-CREATE OR REPLACE FUNCTION public.my_member_id()
- RETURNS uuid
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  select id from public.members where profile_id = auth.uid();
-$function$;
 
 CREATE OR REPLACE FUNCTION public.roster_day_totals(p_year integer, p_month integer, p_branch_id uuid DEFAULT NULL::uuid, p_search text DEFAULT ''::text, p_field text DEFAULT 'name'::text, p_department_id uuid DEFAULT NULL::uuid)
  RETURNS TABLE(day integer, shift_id uuid, cnt bigint)

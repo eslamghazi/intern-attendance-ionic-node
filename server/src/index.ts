@@ -15,6 +15,22 @@ try {
   app.log.error({ err }, 'could not reach object storage — uploads will fail');
 }
 
+// A rejection nobody caught, or a throw outside a request — a timer, a plugin
+// callback. Node terminates the process for both, but with a bare stack trace
+// on stderr and no drain. Logging through the app's own logger first means the
+// last thing the process says is structured, redacted, and in the same stream
+// as everything else; exiting non-zero then lets Docker restart it.
+//
+// These deliberately do NOT keep the process alive. A process that has thrown
+// somewhere unaccounted for has unknown state, and this one records attendance.
+for (const event of ['unhandledRejection', 'uncaughtException'] as const) {
+  process.on(event, (err: unknown) => {
+    app.log.fatal({ err, event }, 'fatal: shutting down');
+    // Give pino a moment to flush, then go regardless.
+    setTimeout(() => process.exit(1), 250).unref();
+  });
+}
+
 // Drain in-flight requests before dropping the pool. This service records
 // attendance: killing a request mid-transaction during a deploy is the one
 // failure a student cannot work around.

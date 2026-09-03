@@ -115,11 +115,17 @@ services:
       # Reachable directly for debugging; the web app goes through nginx.
       - '127.0.0.1:8787:8787'
     healthcheck:
+      # /health/ready, not /health. Liveness answers {ok:true} unconditionally,
+      # so an API that cannot reach the database reported healthy and kept
+      # taking traffic. Readiness checks the pool and returns 503.
+      #
+      # /health stays as it is for the CLIENT's outage screen, which should not
+      # flap on a database blip — the two probes answer different questions.
       test:
         - CMD
         - node
         - -e
-        - "fetch('http://127.0.0.1:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        - "fetch('http://127.0.0.1:8787/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
       interval: 10s
       timeout: 5s
       retries: 6

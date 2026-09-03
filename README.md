@@ -121,23 +121,35 @@ a password revokes every session for that account. The role is re-read from
 `profiles` on each request, so a demotion takes effect on the next request
 rather than at renewal.
 
-**Authorization sits in two places, and both are load-bearing:**
+**Authorization is in the API.** Row-level security is off.
 
-- **RLS** on most tables, 46 policies. It applies to statements run under the
-  caller's context (`asCaller`).
-- **`domain/access/`** in the API, for the paths RLS cannot reach. Six admin
-  endpoints run as the service role and so bypass RLS entirely — opening a
-  spot-check, minting a QR, overriding attendance, clearing a face enrolment
-  (two ways) and uploading a roster. Each now goes through an explicit scope
-  check. Without it, `requireRole('admin')` was the only barrier and an admin
-  assigned to one branch reached the whole faculty.
+```
+domain/identity/role.ts       what a role may do at all
+domain/access/scope.ts        an admin's reach — branches and groups
+domain/access/attachment.ts   who may touch which stored file
+services/accessService.ts     requireMember / requireBranch / requireUnit
+```
 
-`presence_checks`, `presence_confirmations` and `qr_tokens` arrived from
-Supabase with RLS enabled and *no policies at all* — deny-all, which is why
-those routes must use the service role in the first place. They have policies
-now (`db/functions/016_service_only_policies.sql`), so the database states their
-reach as plainly as it states everything else's, and a read endpoint added with
-`asCaller` is scoped rather than silently empty.
+Every route states its own rule; `test/e2e/guards.mjs` asserts that all 91 of
+them carry a guard or are listed as public with a reason.
+
+RLS arrived with Supabase, where it had to exist — a browser held an anon key
+and talked to PostgREST directly, so the database was the only place a rule
+could live. With an API in between it became a second copy of the same rules,
+maintained by hand, and every serious finding in this project's audit was the
+two copies disagreeing.
+
+Dropping it was not a judgement call. RLS was disabled on all 19 tables and the
+whole end-to-end suite run against the result: **181 of 181 functional checks
+passed with no policy in the database.** The first time that experiment was run
+it failed in eight places — including one student fetching a signed URL for
+another student's face template — and those eight fixes are what made the
+removal safe.
+
+What deliberately stayed in SQL is `db/functions/040_grants.sql`. Table and
+column privileges are coarse, cheap and hard to get wrong: `authenticated`
+cannot read `app_settings.master_password_hash`, cannot see `refresh_tokens`,
+and cannot write to the audit log — whatever a route forgets.
 
 ## Status
 

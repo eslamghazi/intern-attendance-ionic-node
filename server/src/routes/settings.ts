@@ -44,15 +44,62 @@ const EDITABLE = [
   'checkin_method',
 ] as const;
 
+/**
+ * Every column of app_settings EXCEPT `master_password_hash`.
+ *
+ * This route used to `select *`, and the policy behind it is
+ * `settings_select … to authenticated using (true)` — no column restriction —
+ * so the bcrypt hash of the SHARED master password was returned to every
+ * signed-in student. That password opens every member and admin account, so
+ * handing out its hash turned one sign-in into an offline attack on all of
+ * them. It was proven against the running stack, not theorised.
+ *
+ * The list is written out rather than computed. `select *` minus a blocklist
+ * is the same bug waiting for the next column: a new secret would be exposed
+ * by default and nobody would notice. Here a new column is invisible until
+ * someone adds it deliberately, which is the failure direction you want.
+ *
+ * db/functions/040_grants.sql revokes the column from `authenticated` as well,
+ * so a future `select *` fails loudly instead of leaking again.
+ */
+const READABLE = [
+  'id',
+  'face_match_threshold', 'liveness_required', 'liveness_mode',
+  'default_radius_meters', 'max_accuracy_meters',
+  'shift_start', 'shift_end', 'late_grace_minutes',
+  'require_play_integrity', 'bypass_face', 'bypass_location',
+  'bypass_checkout_window', 'store_face_images', 'store_probe_images',
+  'qr_requires_member', 'qr_allow_image', 'qr_validity_seconds', 'qr_bypass_minutes',
+  'enforce_shift_window', 'allow_checkout_only', 'auto_leave_work',
+  'capture_hold_seconds',
+  'org_name', 'org_logo_url', 'terminology', 'member_photos',
+  'show_out_of_range_map', 'block_dev_options', 'location_ip_max_km',
+  'web_detect_frozen_gps', 'checkin_method',
+] as const;
+
 export const settingsRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/settings', async (req) =>
-    asCaller(req.claims, async (tx) => {
-      // Zero rows is a legitimate answer, not an error: an unauthenticated
-      // request is filtered by RLS and the client falls back to its defaults.
-      const rows = await query(tx, sql`select * from public.app_settings where id = 1`);
+  app.get('/settings', async (req) => {
+    // Null for a caller with no session, and NOT an error.
+    //
+    // This used to fall out of RLS: `settings_select` was `to authenticated`,
+    // so an anonymous request matched no rows and the route returned null,
+    // which is what the sign-in screen expects before anyone has a session.
+    //
+    // With the policies gone that stopped being free — `anon` has no grant on
+    // this table, so the same request became a 403 carrying `permission denied
+    // for table app_settings`. Same answer as before, said here instead of
+    // being a side effect of a policy nobody was reading.
+    if (!req.caller) return null;
+
+    return asCaller(req.claims, async (tx) => {
+      const cols = sql.join(
+        READABLE.map((c) => sql.identifier(c)),
+        sql`, `,
+      );
+      const rows = await query(tx, sql`select ${cols} from public.app_settings where id = 1`);
       return rows[0] ?? null;
-    }),
-  );
+    });
+  });
 
   /** Branding shown before sign-in, exposed to `anon` by the SQL function. */
   /**

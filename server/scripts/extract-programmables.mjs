@@ -4,19 +4,16 @@
 //
 //   src/db/schema/   the models own tables, columns, indexes, foreign keys,
 //                    views and enums. `db:generate` writes migrations for them.
-//   db/functions/    RLS policies, functions, triggers, scheduled jobs, grants
+//   db/functions/    functions, triggers, scheduled jobs, grants and seed rows
 //                    and seed rows. Re-applied in full after every migration —
 //                    every statement is CREATE OR REPLACE or an idempotent
 //                    upsert — so they can never drift from a column that just
 //                    moved underneath them.
 //
-// WHY POLICIES ARE HERE AND NOT IN THE MODELS
-//
-// drizzle-kit can express pgPolicy, but it cannot round-trip one. Introspecting
-// this schema returned 32 of 47 policies with their USING and WITH CHECK
-// expressions dropped. A policy with no USING means `USING (true)`: it permits
-// everything to everyone holding the role. That is the whole authorization
-// model silently inverted, so policies are SQL and stay SQL.
+// POLICIES ARE GONE. They were the reason this script had to exist at all —
+// drizzle-kit can express pgPolicy but cannot round-trip one, and introspection
+// dropped the USING expression from 32 of 47, which turns each into "permit
+// everyone". Authorization is in the API now; see db/functions/015_no_rls.sql.
 //
 // Read from the live catalog rather than from the migration history: the 72
 // legacy files redefine the same function up to five times, and only the
@@ -45,7 +42,8 @@ const client = new pg.Client({
 await client.connect();
 
 // `storage` is gone — Supabase Storage's schema, replaced by
-// public.attachments. `auth` still holds uid()/jwt(), which the policies call.
+// public.attachments. `auth` still holds uid(), which server_now() and
+// roster_maker_data() call.
 const SCHEMAS = `('public', 'auth')`;
 const ROLES = `('anon', 'authenticated', 'service_role', 'supabase_auth_admin')`;
 
@@ -109,7 +107,7 @@ for (const g of fnGrants) {
 // 012_app_functions.sql is AUTHORED and must not be swept back in here: a
 // re-extract would duplicate it, and the next one after a schema change
 // would capture a stale copy. Skip anything this project added.
-const AUTHORED = new Set(['slot_concluded', 'time_minutes', 'attachment_folder']);
+const AUTHORED = new Set(['slot_concluded', 'time_minutes']);
 
 // Retired by the move to a Node API — see db/functions/005_drop_retired.sql.
 // Excluded here as well, or a re-extract from a database that predates the
@@ -130,6 +128,17 @@ const RETIRED = new Set([
   'mark_enrolled',
   'mark_password_changed',
   'update_my_profile',
+  // The RLS helpers. They existed only to be called from policy expressions,
+  // and there are no policies — see 015_no_rls.sql, which drops them.
+  'admin_can_access',
+  'is_admin',
+  'is_superadmin',
+  'admin_branch_ids',
+  'admin_group_ids',
+  'admin_has_assignments',
+  'current_app_role',
+  'my_member_id',
+  'attachment_folder',
 ]);
 
 let fnSql = header('Functions, with their privileges. Authored ones live in 012.');
@@ -149,82 +158,16 @@ for (const f of functions) {
 
 /* ------------------------------------------------------------------ policies */
 
-const { rows: rlsTables } = await client.query(`
-  select n.nspname as schema, c.relname as name
-    from pg_class c join pg_namespace n on n.oid = c.relnamespace
-   where n.nspname in ${SCHEMAS} and c.relkind = 'r' and c.relrowsecurity
-   order by 1, 2
-`);
-
-const { rows: policies } = await client.query(`
-  select schemaname, tablename, policyname, permissive, roles::text[] as roles, cmd, qual, with_check
-    from pg_policies
-   where schemaname in ${SCHEMAS}
-   order by schemaname, tablename, policyname
-`);
-
-// Authored in db/functions/014_attachment_policies.sql, for the same reason
-// 012 exists: sweeping them into the generated file would duplicate them, and
-// the next extract after an edit would capture a stale copy.
-const AUTHORED_POLICIES = new Set([
-  'public.attachments.faces_read_own_or_admin',
-  'public.attachments.faces_insert_own',
-  'public.attachments.faces_update_own',
-  'public.attachments.faces_delete_admin',
-  'public.attachments.probes_read_own_or_admin',
-  'public.attachments.probes_insert_own',
-  'public.attachments.probes_delete_admin',
-  'public.attachments.avatars_read',
-  'public.attachments.avatars_write_own_admin',
-  'public.attachments.avatars_update_own_admin',
-  'public.attachments.avatars_delete_own_admin',
-  // 016_service_only_policies.sql — the three tables that arrived with RLS on
-  // and no policies at all.
-  'public.presence_checks.presence_checks_select',
-  'public.presence_checks.presence_checks_insert',
-  'public.presence_checks.presence_checks_update_own',
-  'public.presence_checks.presence_checks_delete_own',
-  'public.presence_confirmations.presence_confirmations_select',
-  'public.presence_confirmations.presence_confirmations_insert_self',
-  'public.qr_tokens.qr_tokens_select_own',
-  'public.qr_tokens.qr_tokens_insert_scoped',
-  'public.qr_tokens.qr_tokens_delete_own',
-]);
-
-// Retired along with the code that needed them — see db/functions/005_drop_retired.sql.
+// NOT EXTRACTED ANY MORE. Row-level security is off; authorization lives in
+// src/domain/access and src/services/accessService.ts, with unit tests.
 //
-// A policy naming a role that no longer exists is not inert: CREATE POLICY
-// fails outright with `role "…" does not exist`, so re-extracting from a
-// database that predates the drop would produce a file that cannot be applied
-// to a fresh one.
-const RETIRED_POLICIES = new Set([
-  // Let GoTrue's own role read every profile, for custom_access_token_hook.
-  // Both are gone.
-  'public.profiles.auth_admin_read_profiles',
-]);
-
-let polSql = header('RLS policies — the authorization model. See the note above.');
-for (const t of rlsTables) {
-  polSql += `alter table ${t.schema}.${t.name} enable row level security;` + NL;
-}
-polSql += NL;
-
-for (const p of policies) {
-  const target = `${p.schemaname}.${p.tablename}`;
-  const key = `${target}.${p.policyname}`;
-  if (RETIRED_POLICIES.has(key) || AUTHORED_POLICIES.has(key)) continue;
-  const name = quoteIdent(p.policyname);
-  const roles = (p.roles ?? []).length ? p.roles.join(', ') : 'public';
-  polSql += `drop policy if exists ${name} on ${target};` + NL;
-  polSql += `create policy ${name} on ${target}` + NL;
-  polSql +=
-    `  as ${p.permissive === 'PERMISSIVE' ? 'permissive' : 'restrictive'}` +
-    ` for ${String(p.cmd).toLowerCase()} to ${roles}` +
-    NL;
-  if (p.qual) polSql += `  using (${p.qual})` + NL;
-  if (p.with_check) polSql += `  with check (${p.with_check})` + NL;
-  polSql = polSql.trimEnd() + ';' + NL + NL;
-}
+// This block used to read 47 policies out of pg_policies and write them to
+// 015_policies.sql. db/functions/015_no_rls.sql now drops every policy and
+// disables RLS instead, so a database restored from an older dump converges on
+// the current model rather than resurrecting the old one.
+//
+// Left as a comment rather than deleted, because the reason matters: it is the
+// last thing this generator did that the API could not.
 
 /* ------------------------------------------------------------------ triggers */
 
@@ -307,7 +250,6 @@ seedSql += 'insert into public.app_settings (id) values (1) on conflict (id) do 
 // no privileges at all. A generator must never remove what it did not write.
 const GENERATED = [
   '010_functions.sql',
-  '015_policies.sql',
   '020_triggers.sql',
   '030_cron.sql',
   '050_seed.sql',
@@ -316,15 +258,14 @@ mkdirSync(OUT, { recursive: true });
 for (const name of GENERATED) rmSync(join(OUT, name), { force: true });
 
 writeFileSync(join(OUT, '010_functions.sql'), fnSql, 'utf8');
-writeFileSync(join(OUT, '015_policies.sql'), polSql, 'utf8');
 writeFileSync(join(OUT, '020_triggers.sql'), trgSql, 'utf8');
 writeFileSync(join(OUT, '030_cron.sql'), cronSql, 'utf8');
 writeFileSync(join(OUT, '050_seed.sql'), seedSql, 'utf8');
 
 console.log(
-  `[extract] ${functions.length} function(s), ${policies.length} policy/policies, ` +
+  `[extract] ${functions.length} function(s), ` +
     `${triggers.length} trigger(s), ${jobCount} job(s), ` +
-    `-> db/functions/  (040_grants.sql and 014_attachment_policies.sql are authored)`,
+    `-> db/functions/  (040_grants.sql and 015_no_rls.sql are authored)`,
 );
 
 await client.end();

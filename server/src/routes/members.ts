@@ -7,7 +7,8 @@ import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { FastifyPluginAsync } from 'fastify';
 import { asCaller, asService, qualified, query, type DbContext } from '../db/context.js';
-import { requireUnit } from '../services/accessService.js';
+import { requireMember, scopeOf } from '../services/accessService.js';
+import { coversUnit } from '../domain/access/scope.js';
 import { parseNationalId } from '../domain/identity/nationalId.js';
 import {
   directoryWhere,
@@ -240,27 +241,39 @@ export const memberRoutes: FastifyPluginAsync = async (app) => {
       const items = 'members' in body.data ? body.data.members : [body.data];
       const callerId = req.caller!.id;
 
+      // The uploader's reach, read ONCE.
+      //
+      // This used to sit inside the loop, so a 300-student roster made 300
+      // identical queries against admin_assignments for something that cannot
+      // change during a single request. Start of term is the heaviest thing
+      // this system does and the one an administrator watches a spinner
+      // through; it does not need to be 300 round trips slower than necessary.
+      //
+      // The per-row TRANSACTION stays — that is protecting something real.
+      const scope = await asService((tx) => scopeOf(tx, req.caller!));
+
       const results: ItemResult[] = [];
       for (const item of items) {
+        // Service role, so members_update_admin — the policy that says an
+        // assigned admin only touches their own branches and groups — is not in
+        // the path. Checked per row against the scope resolved above, so a
+        // roster that strays outside the uploader's assignments reports which
+        // rows were refused instead of failing whole.
+        if (!coversUnit(scope, { branchId: item.branch_id, groupId: item.group_id })) {
+          results.push({
+            national_id: item.national_id,
+            ok: false,
+            error: 'outside your assignments',
+          });
+          continue;
+        }
+
         // One transaction PER ROW: a failure must roll back only that member's
         // half-written profile, not the 299 rows already imported. The Edge
         // Function compensated by hand — deleting the orphan profile — and would
         // leave one behind if that delete also failed.
         try {
-          results.push(
-            await asService(async (tx) => {
-              // Service role, so members_update_admin — the policy that says an
-              // assigned admin only touches their own branches and groups — is
-              // not in the path. Checked per row, not per request, so a roster
-              // that strays outside the uploader's assignments reports which
-              // rows were refused instead of failing whole.
-              await requireUnit(tx, req.caller!, {
-                branchId: item.branch_id,
-                groupId: item.group_id,
-              });
-              return upsertMember(tx, callerId, item);
-            }),
-          );
+          results.push(await asService((tx) => upsertMember(tx, callerId, item)));
         } catch (err) {
           results.push({
             national_id: item.national_id,
@@ -441,16 +454,27 @@ export const memberRoutes: FastifyPluginAsync = async (app) => {
    * `/members/:id` already means the member id for PATCH and one path meaning
    * two different identifiers is how the wrong person gets deleted.
    */
-  app.delete('/members/by-profile/:profileId', { preHandler: app.requireAuth }, async (req, reply) => {
+  app.delete(
+    '/members/by-profile/:profileId',
+    { preHandler: app.requireRole('admin', 'superadmin') },
+    async (req, reply) => {
     const { profileId } = req.params as { profileId: string };
     await asCaller(req.claims, async (tx) => {
+      // The most destructive route in the API, and until now the check was
+      // entirely in profiles_delete_member_by_admin. With RLS off, an admin
+      // scoped to one branch erased a member of another — proven, not argued.
+      const member = await query<{ id: string }>(tx, sql`
+        select id from public.members where profile_id = ${profileId} limit 1
+      `);
+      if (member[0]) await requireMember(tx, req.caller!, member[0].id);
       const rows = await query<{ id: string }>(tx, sql`
         delete from public.profiles where id = ${profileId} returning id
       `);
       if (!rows[0]) throw notFound();
-    });
-    reply.code(204);
-  });
+      });
+      reply.code(204);
+    },
+  );
 
   /* ------------------------------------------------------------ bulk actions */
 

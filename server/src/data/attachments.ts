@@ -1,9 +1,9 @@
 // Data access for the file index. Takes an OPEN transaction.
 //
-// Every function here runs under whatever RLS context the caller opened, which
-// is the point: the eleven policies in db/functions/014_attachment_policies.sql
-// decide which rows a request can see, and therefore which files it can reach.
-// A row this caller cannot select simply is not returned, and no URL is minted.
+// Who may reach which file is decided in domain/access/attachment.ts and
+// enforced by storage/objects.ts BEFORE anything here runs. Eleven RLS policies
+// used to do it; they were the only guard until an experiment with RLS disabled
+// showed one student fetching a signed URL for another student's face template.
 import { sql } from 'drizzle-orm';
 import type { DbContext } from '../db/context.js';
 import { arrayOf, query } from '../db/context.js';
