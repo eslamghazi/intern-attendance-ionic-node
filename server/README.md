@@ -352,20 +352,25 @@ fresh build does not create, so the policy file failed part-way through.
 
 ## Still outstanding
 
-- **The old Supabase keys are not rotated.** `ClientApp/.env` was committed with
-  a live service-role key, an account-wide `sbp_` management token, the JWT
-  secret and a plaintext superadmin password. The file is untracked now; the
-  values remain in git history. Rotating them is what closes it.
+- **The old Supabase keys are not rotated.** `ClientApp/.env` held a live
+  service-role key, an account-wide `sbp_` management token, the JWT secret and
+  a plaintext superadmin password. The file is gone, and — verified across all
+  three commits and every unreachable object — **none of those values is in this
+  repository's history**; only `.env.example` placeholders are tracked.
+  They still need rotating: the values sat in a working file for months and may
+  survive in the original repo, a clone, a backup or an editor history, and a
+  service-role key keeps working until it is revoked. That is a Supabase
+  dashboard task, not a git one.
 - **`import-from-supabase.mjs` and `import-storage.mjs` have never run against
   real data.** Both are dry-runnable and neither writes to the source.
-- Report *values* are verified for shape, not for arithmetic against a
-  populated database.
+- `audit_log` has no index on `actor_id`. Deliberate — no query filters by it
+  yet, and an index that serves nothing still costs every write.
 
 ## Tests
 
 ```bash
-npm test                 # 172 unit tests — the domain, pure, no database
-npm run test:e2e         # 139 checks against a RUNNING stack, api on :8787
+npm test                 # 193 unit tests — the domain, pure, no database
+npm run test:e2e         # 217 checks against a RUNNING stack, api on :8787
 npm run test:e2e:prod    # the same, through nginx on :8080 — production's path
 ```
 
@@ -375,6 +380,25 @@ to reading the code. Signed image URLs pointing at a route that did not exist,
 every Postgres error arriving as a 500, a revoked token family rolled back by
 the throw that followed it, six admin endpoints with no scope check — all of
 them needed a real request against a real database.
+
+Seven suites, in the order they run:
+
+| suite | what it establishes |
+|---|---|
+| `token` | sign-in, access/refresh rotation, reuse detection |
+| `auth` | password changes, master password, staff lifecycle |
+| `storage` | upload, download, signed URLs, attachment ownership |
+| `access` | scope — that an admin sees their branch and no more |
+| `attendance` | two simultaneous check-ins; exactly one lands |
+| `reports` | report *values*, against a month whose answer is known by hand |
+| `guards` | that no route is reachable without a guard |
+
+`reports` is worth a note. The others check shape and permission; this one
+checks arithmetic, because "200 with a plausible body" is a weak claim for the
+screen a faculty uses to decide whether a student passed a placement. It builds
+two months — one over, one not yet begun — and the second is the one that
+matters: a slot nobody could have attended yet must count as *pending*, never as
+an absence.
 
 Run the `:prod` variant before a deploy. In production the API publishes no port
 at all, so a suite pointed at `:8787` exercises a path production does not have;

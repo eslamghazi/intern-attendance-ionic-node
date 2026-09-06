@@ -252,19 +252,25 @@ down — not just built:
   8787 and 5432 refuse connections, 8080 accepts;
 - the SPA, `/api/v1/health`, sign-in, and token refresh all answer **through the
   nginx proxy**, which is the only path production uses;
-- all four end-to-end suites (tokens 36, auth 40, storage 23, access 40) pass
-  against that proxied path, including the signed-image URLs, which are the part
-  most likely to break behind a reverse proxy.
+- all seven end-to-end suites — 217 checks: token 36, auth 40, storage 23,
+  access 82, attendance 5, reports 19, guards 12 — pass against that proxied
+  path, including the signed-image URLs, which are the part most likely to break
+  behind a reverse proxy. `reports` is the one that checks report *values*
+  rather than shape, against a month whose answer is known by hand;
+  `attendance` fires two simultaneous check-ins and requires that exactly one
+  lands.
 
 What has NOT been verified is TLS, Let's Encrypt, and aaPanel's own vhost — none
 of which exist on a laptop. Section 5 is the part to walk through carefully.
 
 ## What is still outstanding
 
-- **The old Supabase keys are not rotated.** `ClientApp/.env` was committed with
-  a live service-role key, an account-wide `sbp_` management token, the JWT
-  secret and a plaintext superadmin password. The file is untracked now, but
-  the values are still readable in git history. Revoke and rotate them at
-  Supabase; that, not the untracking, is what closes it.
+- **The old Supabase keys are not rotated.** `ClientApp/.env` held a live
+  service-role key, an account-wide `sbp_` management token, the JWT secret and
+  a plaintext superadmin password. It is not in this repository's history — that
+  was checked — but the values existed in a working file for months and a
+  service-role key keeps working until revoked. Revoke the `sbp_` token and
+  rotate the project keys in the Supabase dashboard, or delete the project once
+  the import is done.
 - `import-from-supabase.mjs` and `import-storage.mjs` have never been run
   against the real project.

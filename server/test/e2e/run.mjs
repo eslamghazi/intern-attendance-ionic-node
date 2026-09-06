@@ -30,7 +30,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // that say nothing about what they test.
 // guards last: it asserts the invariant the other four exercise case by case,
 // so a failure there is most legible once they have all reported.
-const SUITES = ['token', 'auth', 'storage', 'access', 'guards'];
+const SUITES = ['token', 'auth', 'storage', 'access', 'attendance', 'reports', 'guards'];
 
 console.log(`\nEnd-to-end against ${BASE}\n${'='.repeat(60)}`);
 

@@ -16,6 +16,23 @@
 //   npm run test:e2e                       dev stack   (api on :8787)
 //   npm run test:e2e:prod                  prod stack  (through nginx on :8080)
 import { execSync } from 'node:child_process';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+/**
+ * The repository root — where the compose files live.
+ *
+ * Every `docker compose` call below runs from here rather than from wherever
+ * the suite was launched. The `-f docker-compose.yml` flags are relative, so
+ * without this the whole suite depends on the caller's directory: `npm run
+ * test:e2e:prod` sets the cwd to `server/`, which has no compose file, and
+ * every suite fails at `reset()` with "cannot find the file specified" — a
+ * message that says nothing about what is actually wrong.
+ */
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+
+/** Run a command from the repo root, whatever the caller's directory is. */
+const atRoot = (cmd, opts = {}) => execSync(cmd, { cwd: REPO_ROOT, ...opts });
 
 /** Where the API is. Set API_BASE to test through nginx instead. */
 export const BASE = process.env.API_BASE || 'http://127.0.0.1:8787/api/v1';
@@ -107,7 +124,7 @@ export const loginSuper = () => login(SUPERADMIN.nationalId, SUPERADMIN.password
  */
 export function psql(query) {
   const sql = query.replace(/\s+/g, ' ').trim().replace(/"/g, '\\"');
-  return execSync(
+  return atRoot(
     `docker compose ${COMPOSE} exec -T db psql -U attendance -d attendance -t -A -c "${sql}"`,
     { encoding: 'utf8' },
   ).trim();
@@ -127,11 +144,11 @@ export function reset() {
   psql(`delete from public.refresh_tokens`);
   psql(`delete from public.audit_log`);
   psql(`update public.app_settings set master_password_hash = null where id = 1`);
-  execSync(`docker compose ${COMPOSE} restart api`, { stdio: 'pipe' });
+  atRoot(`docker compose ${COMPOSE} restart api`, { stdio: 'pipe' });
 
   for (let i = 0; i < 30; i++) {
     try {
-      execSync(
+      atRoot(
         `docker compose ${COMPOSE} exec -T api node -e ` +
           `"fetch('http://127.0.0.1:8787/health').then(r=>{if(!r.ok)process.exit(1)})"`,
         { stdio: 'pipe' },

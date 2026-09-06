@@ -248,8 +248,22 @@ export interface CheckInWrite {
   bypass: Record<string, unknown> | null;
 }
 
-export async function writeCheckIn(tx: DbContext, w: CheckInWrite): Promise<void> {
-  await tx.execute(sql`
+/**
+ * Record a check-in. Returns false when someone else got there first.
+ *
+ * `decideCheckIn` has already refused a second check-in for the slot — but it
+ * decided that from a READ, and two requests arriving together both pass it.
+ * The upsert used to be a plain `do update`, so the second silently overwrote
+ * the first, including its `status`: a `late` could become a `present`, or the
+ * reverse, depending on which finished last.
+ *
+ * `where check_in_at is null` makes the write itself first-wins, which is what
+ * the domain rule says. The condition is not `do nothing`, because a row may
+ * legitimately exist already with no check-in — the roster sync creates them —
+ * and that row is exactly the one this should fill in.
+ */
+export async function writeCheckIn(tx: DbContext, w: CheckInWrite): Promise<boolean> {
+  const result = await tx.execute(sql`
     insert into public.attendance (
       member_id, branch_id, date, status, shift_id, shift_name, check_in_at,
       check_in_lat, check_in_lng, check_in_accuracy_m, check_in_distance_m,
@@ -275,7 +289,12 @@ export async function writeCheckIn(tx: DbContext, w: CheckInWrite): Promise<void
       check_in_is_mock = excluded.check_in_is_mock,
       check_in_probe_path = excluded.check_in_probe_path,
       check_in_bypass = excluded.check_in_bypass
+    where public.attendance.check_in_at is null
   `);
+  // Zero rows means the conflict target existed AND already carried a check-in,
+  // so the `where` refused the update — someone checked in between the decision
+  // and this statement.
+  return (result.rowCount ?? 0) > 0;
 }
 
 export interface CheckOutWrite {

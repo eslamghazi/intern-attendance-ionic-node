@@ -159,7 +159,7 @@ export async function recordAttendance(
         tx, payload, settings.storeProbeImages, callerId, member.id, date, shift.id,
       );
 
-      await data.writeCheckIn(tx, {
+      const written = await data.writeCheckIn(tx, {
         memberId: member.id,
         branchId: member.branchId,
         date,
@@ -177,6 +177,10 @@ export async function recordAttendance(
         probePath,
         bypass: snapshot,
       });
+      // Lost a race with another request for the same slot. The domain already
+      // calls this `already_checked_in`; it simply could not see it from a read.
+      if (!written) throw new AttendanceRefused(refuse(409, 'already_checked_in'));
+
       await data.writeAudit(tx, callerId, 'check_in', {
         date, status, distance, shift: shift.name,
       });
