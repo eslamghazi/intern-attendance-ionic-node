@@ -130,7 +130,7 @@ export async function callFunction<T>(
 ): Promise<T> {
   const rows = await query<{ result: T }>(
     db,
-    sql`select ${sql.identifier('public')}.${sql.identifier(safeName(name))}(${joinArgs(args)}) as result`,
+    sql`select ${sql.identifier(safeName(name))}(${joinArgs(args)}) as result`,
   );
   return rows[0]!.result;
 }
@@ -143,7 +143,7 @@ export async function callTableFunction<T>(
 ): Promise<T[]> {
   return query<T>(
     db,
-    sql`select * from ${sql.identifier('public')}.${sql.identifier(safeName(name))}(${joinArgs(args)})`,
+    sql`select * from ${sql.identifier(safeName(name))}(${joinArgs(args)})`,
   );
 }
 
@@ -175,7 +175,7 @@ export function arrayOf<T>(values: readonly T[]) {
  * the driver rather than concatenated.
  */
 export function qualified(name: string) {
-  return sql`${sql.identifier('public')}.${sql.identifier(name)}`;
+  return sql`${sql.identifier(name)}`;
 }
 
 /** Every argument is bound, never interpolated. */
