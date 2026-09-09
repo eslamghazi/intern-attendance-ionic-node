@@ -1,8 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { Request } from 'express';
 import { ROLES_KEY } from '../decorators/roles.decorator.js';
-import type { AppRole } from '../../auth/jwt.js';
+import type { AppRole } from '../auth/jwt.js';
 import { unauthorized, forbidden } from '../../http/errors.js';
 
 @Injectable()
@@ -19,12 +18,13 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<Request>();
-    if (!request.caller) {
+    const request = context.switchToHttp().getRequest<any>();
+    const caller = request.caller ?? request.raw?.caller;
+    if (!caller) {
       throw unauthorized();
     }
 
-    if (!requiredRoles.includes(request.caller.role)) {
+    if (!requiredRoles.includes(caller.role)) {
       throw forbidden();
     }
 

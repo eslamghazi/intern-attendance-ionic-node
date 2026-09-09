@@ -1,5 +1,4 @@
 import { ExceptionFilter, Catch, ArgumentsHost } from '@nestjs/common';
-import type { Response, Request } from 'express';
 import { toApiError } from '../../http/errors.js';
 import { env } from '../../env.js';
 
@@ -7,8 +6,8 @@ import { env } from '../../env.js';
 export class ApiExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
+    const response = ctx.getResponse<any>();
+    const request = ctx.getRequest<any>();
 
     const api = toApiError(exception);
 
@@ -18,10 +17,11 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
     // Attendance refusals answer with their own `{ reason }` body
     if (api.payload) {
-      return response.status(api.status).json(api.payload);
+      return response.status(api.status).send(api.payload);
     }
 
-    return response.status(api.status).json({
+    return response.status(api.status).send({
+      ok: false,
       error: {
         code: api.code,
         message: api.status >= 500 && env.isProd ? 'internal server error' : api.message,

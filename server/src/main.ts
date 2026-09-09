@@ -1,9 +1,11 @@
 import { NestFactory } from '@nestjs/core';
-import type { NestExpressApplication } from '@nestjs/platform-express';
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
+import fastifyStatic from '@fastify/static';
+import fastifyHelmet from '@fastify/helmet';
+import fastifyCors from '@fastify/cors';
+import fastifyRateLimit from '@fastify/rate-limit';
+import { ValidationPipe } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { existsSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,58 +35,61 @@ function findClientDist(): string | null {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    bodyParser: true,
+  const adapter = new FastifyAdapter({
+    bodyLimit: 15 * 1024 * 1024,
+    trustProxy: true,
   });
 
-  const expressApp = app.getHttpAdapter().getInstance();
-  expressApp.set('trust proxy', true);
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter);
 
-  // Redact & Body limit
-  app.use(express.json({ limit: '15mb' }));
-  app.use(express.urlencoded({ limit: '15mb', extended: true }));
+  // Helmet Security Headers
+  await app.register(fastifyHelmet as any, {
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: false,
+  });
 
-  // Helmet
-  app.use(
-    helmet({
-      contentSecurityPolicy: false,
-      crossOriginResourcePolicy: false,
-    }),
-  );
-
-  // Rate Limiting
-  app.use(
-    rateLimit({
-      windowMs: 60 * 1000,
-      max: 300,
-      keyGenerator: (req: any) => req.caller?.id ?? req.ip,
-      standardHeaders: true,
-      legacyHeaders: false,
-    }),
-  );
-
-  // CORS
+  // CORS Configuration
   const corsOrigins = env.corsOrigins.includes('*') ? true : env.corsOrigins;
-  app.enableCors({
+  await app.register(fastifyCors as any, {
     origin: corsOrigins,
     credentials: true,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['authorization', 'content-type', 'x-client-info'],
   });
 
-  // Header hook for Cache-Control on API & health routes
-  app.use((req: any, res: any, next: any) => {
-    if (req.url.startsWith('/api/v1') || req.url.startsWith('/health')) {
-      res.setHeader('Cache-Control', 'no-store');
-    }
-    next();
+  // Rate Limiting
+  await app.register(fastifyRateLimit as any, {
+    max: 300,
+    timeWindow: '1 minute',
+    keyGenerator: (req: any) => req.raw?.caller?.id ?? req.caller?.id ?? req.ip,
   });
 
-  // Serve static assets & SPA history fallback
+  // Global Input Validation & Transformation
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: false,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  );
+
+  // Cache-Control Hook on API & Health routes
+  const fastifyInstance = app.getHttpAdapter().getInstance();
+  fastifyInstance.addHook('onSend', async (req: any, reply: any) => {
+    if (req.url.startsWith('/api/v1') || req.url.startsWith('/health')) {
+      reply.header('Cache-Control', 'no-store');
+    }
+  });
+
+  // Serve static client assets & SPA fallback
   const clientDist = findClientDist();
   if (clientDist) {
-    app.useStaticAssets(clientDist, {
-      setHeaders: (res, pathName) => {
+    await app.register(fastifyStatic as any, {
+      root: clientDist,
+      prefix: '/',
+      decorateReply: true,
+      setHeaders: (res: any, pathName: string) => {
         if (pathName.includes('/assets/')) {
           res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         } else if (
@@ -97,17 +102,33 @@ async function bootstrap() {
       },
     });
 
-    expressApp.get('*', (req: any, res: any, next: any) => {
-      if (req.url.startsWith('/api/v1') || req.url.startsWith('/health')) {
-        return next();
+    fastifyInstance.setNotFoundHandler((req: any, reply: any) => {
+      if (req.url.startsWith('/api') || req.url.startsWith('/health')) {
+        reply.status(404).send({
+          ok: false,
+          error: { code: 'not_found', message: 'Route not found' },
+        });
+        return;
       }
-      res.sendFile(join(clientDist, 'index.html'));
+      reply.sendFile('index.html');
     });
   }
 
-  const port = env.PORT || 3000;
-  await app.listen(port);
-  console.log(`[NestJS] Server listening on port ${port}`);
+  // Swagger Documentation Setup
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Intern Attendance API')
+    .setDescription('Production-grade modular monolith API for intern attendance')
+    .setVersion('2.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api/docs', app, document);
+
+  const port = env.PORT || 8787;
+  const host = env.HOST || '0.0.0.0';
+  await app.listen(port, host);
+  console.log(`[NestJS + Fastify] Server listening on http://${host}:${port}`);
+  console.log(`[Swagger] OpenAPI Docs available at http://${host}:${port}/api/docs`);
 }
 
 bootstrap();

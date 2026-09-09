@@ -1,6 +1,5 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
 import { unauthorized } from '../../http/errors.js';
 
@@ -18,8 +17,9 @@ export class AuthGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<Request>();
-    if (!request.caller) {
+    const request = context.switchToHttp().getRequest<any>();
+    const caller = request.caller ?? request.raw?.caller;
+    if (!caller) {
       throw unauthorized();
     }
 
