@@ -8,8 +8,9 @@ import {
   Query,
   Res,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { FastifyReply } from 'fastify';
 import { Public } from '../../common/decorators/public.decorator.js';
+
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Caller as CallerDecorator, Claims as ClaimsDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
@@ -98,8 +99,9 @@ export class StorageController {
   async getObject(
     @Param('category') categoryRaw: string,
     @Query() queryParams: unknown,
-    @Res() res: Response,
+    @Res() res: FastifyReply,
   ) {
+
     const params = categoryParamSchema.safeParse(categoryRaw);
     const parsedQuery = getObjectQuerySchema.safeParse(queryParams);
     if (!params.success || !parsedQuery.success) throw notFound('object not found');
