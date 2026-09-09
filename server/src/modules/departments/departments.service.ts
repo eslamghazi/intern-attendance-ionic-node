@@ -4,6 +4,10 @@ import { DepartmentsRepository } from './departments.repository.js';
 import type { Caller } from '../../domain/identity/role.js';
 import type { JwtClaims } from '../../db/context.js';
 import { notFound, forbidden } from '../../http/errors.js';
+import { BaseService } from '../../common/database/base.service.js';
+import { departments } from '../../db/schema/index.js';
+import { DepartmentDto } from './dto/department.dto.js';
+import { DepartmentsMapper } from './departments.mapper.js';
 
 export interface PutDepartmentPayload {
   id?: string;
@@ -19,27 +23,41 @@ export interface PutMemberDepartmentPayload {
 }
 
 @Injectable()
-export class DepartmentsService {
+export class DepartmentsService extends BaseService<
+  typeof departments.$inferSelect,
+  string,
+  typeof departments.$inferInsert,
+  Partial<typeof departments.$inferInsert>,
+  DepartmentDto
+> {
   constructor(
-    private readonly uow: UnitOfWorkService,
-    private readonly repo: DepartmentsRepository,
-  ) {}
+    uow: UnitOfWorkService,
+    repo: DepartmentsRepository,
+  ) {
+    super(uow, repo);
+  }
+
+  protected mapToResponse(entity: any): DepartmentDto {
+    return DepartmentsMapper.toDto(entity);
+  }
 
   async getDepartments(claims: JwtClaims) {
     return this.uow.asCaller(claims, async () => {
-      return this.repo.getDepartments();
+      const rows = await (this.repo as DepartmentsRepository).getDepartments();
+      return rows.map((r) => DepartmentsMapper.toDto(r));
     });
   }
 
   async getDepartmentsOptions(claims: JwtClaims, branchId?: string) {
     return this.uow.asCaller(claims, async () => {
-      return this.repo.getDepartmentsOptions(branchId);
+      const rows = await (this.repo as DepartmentsRepository).getDepartmentsOptions(branchId);
+      return rows.map((r) => DepartmentsMapper.toDto(r));
     });
   }
 
   async putDepartment(caller: Caller, claims: JwtClaims, d: PutDepartmentPayload) {
     return this.uow.asCaller(claims, async () => {
-      const { requireBranch, scopeOf } = await import('../../services/accessService.js');
+      const { requireBranch, scopeOf } = await import('../../common/auth/access.service.js');
 
       if (d.branch_id) {
         await requireBranch((this.repo as any).db, caller, d.branch_id);
@@ -47,15 +65,16 @@ export class DepartmentsService {
         throw forbidden('a faculty-wide department is not yours to create');
       }
 
-      return this.repo.upsertDepartment(d.id, d.name, d.branch_id);
+      const row = await (this.repo as DepartmentsRepository).upsertDepartment(d.id, d.name, d.branch_id);
+      return { ok: true, id: row?.id };
     });
   }
 
   async deleteDepartment(caller: Caller, claims: JwtClaims, id: string) {
     return this.uow.asCaller(claims, async () => {
-      const { requireBranch, scopeOf } = await import('../../services/accessService.js');
+      const { requireBranch, scopeOf } = await import('../../common/auth/access.service.js');
 
-      const existing = await this.repo.getDepartmentBranchId(id);
+      const existing = await (this.repo as DepartmentsRepository).getDepartmentBranchId(id);
       if (!existing) throw notFound();
 
       if (existing.branchId) {
@@ -64,25 +83,27 @@ export class DepartmentsService {
         throw forbidden('a faculty-wide department is not yours to delete');
       }
 
-      const deleted = await this.repo.deleteDepartment(id);
+      const deleted = await (this.repo as DepartmentsRepository).deleteDepartment(id);
       if (!deleted) throw notFound();
+      
+      return { ok: true };
     });
   }
 
   async getMemberDepartments(claims: JwtClaims, year: number, month: number) {
     return this.uow.asCaller(claims, async () => {
-      return this.repo.getMemberDepartments(year, month);
+      return (this.repo as DepartmentsRepository).getMemberDepartments(year, month);
     });
   }
 
   async putMemberDepartment(claims: JwtClaims, b: PutMemberDepartmentPayload) {
     return this.uow.asCaller(claims, async () => {
       if (!b.department_id) {
-        await this.repo.deleteMemberDepartment(b.member_id, b.year, b.month);
+        await (this.repo as DepartmentsRepository).deleteMemberDepartment(b.member_id, b.year, b.month);
         return { ok: true, cleared: true };
       }
       
-      await this.repo.upsertMemberDepartment(b.member_id, b.year, b.month, b.department_id);
+      await (this.repo as DepartmentsRepository).upsertMemberDepartment(b.member_id, b.year, b.month, b.department_id);
       return { ok: true };
     });
   }

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { BaseRepository } from '../../common/database/base.repository.js';
+import { GenericRepository } from '../../common/database/generic.repository.js';
 import { eq, sql, and, ne } from 'drizzle-orm';
 import { members, profiles } from '../../db/schema/index.js';
 
@@ -12,7 +12,16 @@ export interface ProfileEdit {
 }
 
 @Injectable()
-export class ProfileRepository extends BaseRepository {
+export class ProfileRepository extends GenericRepository<
+  typeof profiles.$inferSelect,
+  string,
+  typeof profiles.$inferInsert,
+  Partial<typeof profiles.$inferInsert>
+> {
+  constructor() {
+    super(profiles, profiles.id);
+  }
+
   async markEnrolled(profileId: string): Promise<void> {
     await this.db
       .update(members)

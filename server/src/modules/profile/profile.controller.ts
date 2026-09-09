@@ -1,58 +1,59 @@
 import { Controller, Post, Patch, Get, Body } from '@nestjs/common';
-import { z } from 'zod';
+import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Caller as CallerDecorator, Claims as ClaimsDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
 import type { JwtClaims } from '../../db/context.js';
 import { ProfileService } from './profile.service.js';
-import { badRequest } from '../../http/errors.js';
+import { ApiResponse } from '../../common/dto/api-response.dto.js';
+import { UpdateProfileDto, MemberCodeResponseDto } from './dto/profile.dto.js';
 
-const updateBody = z.object({
-  full_name: z.string().trim().min(1),
-  phone: z.string().nullish(),
-  email: z.string().nullish(),
-  national_id: z.string().trim(),
-  avatar_url: z.string().nullish(),
-});
-
+@ApiTags('Profile')
+@ApiBearerAuth()
 @Controller('api/v1/profile')
 export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
 
   @Post('mark-enrolled')
-  async markEnrolled(@CallerDecorator() caller: Caller) {
-    await this.profileService.markEnrolled(caller);
-    return { ok: true };
+  @ApiOperation({ summary: 'Mark caller as biometric face enrolled' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
+  async markEnrolled(@CallerDecorator() caller: Caller | null): Promise<ApiResponse<{ ok: true }>> {
+    await this.profileService.markEnrolled(caller!);
+    return new ApiResponse({ ok: true });
   }
 
   @Post('mark-password-changed')
-  async markPasswordChanged(@CallerDecorator() caller: Caller) {
-    await this.profileService.markPasswordChanged(caller);
-    return { ok: true };
+  @ApiOperation({ summary: 'Mark caller password as updated from initial' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
+  async markPasswordChanged(@CallerDecorator() caller: Caller | null): Promise<ApiResponse<{ ok: true }>> {
+    await this.profileService.markPasswordChanged(caller!);
+    return new ApiResponse({ ok: true });
   }
 
   @Patch('me')
+  @ApiOperation({ summary: 'Update caller own profile info' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
   async updateMe(
-    @CallerDecorator() caller: Caller,
-    @Body() body: unknown,
-  ) {
-    const parsed = updateBody.safeParse(body);
-    if (!parsed.success) throw badRequest('invalid', 'invalid profile payload');
-    const p = parsed.data;
-    await this.profileService.updateOwnProfile(caller, {
-      fullName: p.full_name,
-      phone: p.phone ?? '',
-      email: p.email ?? '',
-      nationalId: p.national_id,
-      avatarUrl: p.avatar_url ?? null,
+    @CallerDecorator() caller: Caller | null,
+    @Body() body: UpdateProfileDto,
+  ): Promise<ApiResponse<{ ok: true }>> {
+    await this.profileService.updateOwnProfile(caller!, {
+      fullName: body.full_name,
+      phone: body.phone ?? '',
+      email: body.email ?? '',
+      nationalId: body.national_id,
+      avatarUrl: body.avatar_url ?? null,
     });
-    return { ok: true };
+    return new ApiResponse({ ok: true });
   }
 
   @Get('member-code')
+  @ApiOperation({ summary: 'Get caller member numeric code' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<MemberCodeResponseDto> })
   async getMemberCode(
-    @CallerDecorator() caller: Caller,
+    @CallerDecorator() caller: Caller | null,
     @ClaimsDecorator() claims: JwtClaims,
-  ) {
-    return this.profileService.getMemberCode(claims, caller.id);
+  ): Promise<ApiResponse<MemberCodeResponseDto>> {
+    const data = await this.profileService.getMemberCode(claims, caller!.id);
+    return new ApiResponse(data);
   }
 }

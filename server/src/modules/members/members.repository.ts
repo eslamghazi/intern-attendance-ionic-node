@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { BaseRepository } from '../../common/database/base.repository.js';
+import { GenericRepository } from '../../common/database/generic.repository.js';
 import { members, profiles, memberDirectory } from '../../db/schema/index.js';
 import { eq, sql, inArray, count, and } from 'drizzle-orm';
 import { parseNationalId } from '../../domain/identity/nationalId.js';
@@ -54,7 +54,11 @@ export interface MemberInput {
 }
 
 @Injectable()
-export class MembersRepository extends BaseRepository {
+export class MembersRepository extends GenericRepository<typeof members.$inferSelect, string, typeof members.$inferInsert, Partial<typeof members.$inferInsert>> {
+  constructor() {
+    super(members, members.id);
+  }
+
   async getFrozenAt(profileId: string): Promise<Date | null> {
     const rows = await this.db
       .select({ frozen_at: members.frozenAt })

@@ -5,6 +5,10 @@ import type { Caller } from '../../common/types.js';
 import { coversUnit } from '../../domain/access/scope.js';
 import type { JwtClaims } from '../../db/context.js';
 import { type MemberFilters } from '../../domain/member/filter.js';
+import { BaseService } from '../../common/database/base.service.js';
+import { members } from '../../db/schema/index.js';
+import { MemberDto } from './dto/member.dto.js';
+import { MembersMapper } from './members.mapper.js';
 
 function toMemberRow(r: DirectoryRow) {
   return {
@@ -48,14 +52,26 @@ const MEMBER_COLUMNS = [
 ] as const;
 
 @Injectable()
-export class MembersService {
+export class MembersService extends BaseService<
+  typeof members.$inferSelect,
+  string,
+  typeof members.$inferInsert,
+  Partial<typeof members.$inferInsert>,
+  MemberDto
+> {
   constructor(
-    private readonly uow: UnitOfWorkService,
-    private readonly repo: MembersRepository,
-  ) {}
+    uow: UnitOfWorkService,
+    repo: MembersRepository,
+  ) {
+    super(uow, repo);
+  }
+
+  protected mapToResponse(entity: any): MemberDto {
+    return MembersMapper.toDto(entity);
+  }
 
   async createMembers(caller: Caller, items: MemberInput[]) {
-    const { scopeOf } = await import('../../services/accessService.js');
+    const { scopeOf } = await import('../../common/auth/access.service.js');
     
     // Explicitly type scope as any or the correct type to avoid TS2345
     const scope: any = await this.uow.asService(async () => scopeOf((this.repo as any).db, caller));
@@ -74,7 +90,7 @@ export class MembersService {
       try {
         results.push(
           await this.uow.asService(async () => {
-            return this.repo.upsertMember(caller.id, item);
+            return (this.repo as MembersRepository).upsertMember(caller.id, item);
           }),
         );
       } catch (err) {
@@ -96,13 +112,13 @@ export class MembersService {
 
   async getNationalIds(claims: JwtClaims) {
     return this.uow.asCaller(claims, async () => {
-      return this.repo.getNationalIds();
+      return (this.repo as MembersRepository).getNationalIds();
     });
   }
 
   async getMembers(claims: JwtClaims, filters: MemberFilters, pageSize: number, offset: number) {
     return this.uow.asCaller(claims, async () => {
-      const rows = await this.repo.getMembersDirectory(filters, pageSize, offset);
+      const rows = await (this.repo as MembersRepository).getMembersDirectory(filters, pageSize, offset);
       return {
         rows: rows.map(toMemberRow),
         total: rows.length ? Number(rows[0]!.total) : 0,
@@ -112,7 +128,7 @@ export class MembersService {
 
   async getMembersPage(claims: JwtClaims, filters: MemberFilters, pageSize: number, offset: number) {
     return this.uow.asCaller(claims, async () => {
-      const rows = await this.repo.getMembersPage(filters, pageSize, offset);
+      const rows = await (this.repo as MembersRepository).getMembersPage(filters, pageSize, offset);
       return {
         items: rows.map(({ total: _total, ...item }) => item),
         total: rows.length ? Number(rows[0]!.total) : 0,
@@ -122,19 +138,19 @@ export class MembersService {
 
   async getFlagStats(claims: JwtClaims, filters: MemberFilters) {
     return this.uow.asCaller(claims, async () => {
-      return this.repo.getFlagStats(filters);
+      return (this.repo as MembersRepository).getFlagStats(filters);
     });
   }
 
   async getCountActive(claims: JwtClaims) {
     return this.uow.asCaller(claims, async () => {
-      return this.repo.getCountActive();
+      return (this.repo as MembersRepository).getCountActive();
     });
   }
 
   async getByProfile(claims: JwtClaims, profileId: string) {
     return this.uow.asCaller(claims, async () => {
-      const id = await this.repo.getMemberIdByProfileId(profileId);
+      const id = await (this.repo as MembersRepository).getMemberIdByProfileId(profileId);
       return { id };
     });
   }
@@ -148,11 +164,11 @@ export class MembersService {
         email: b.email || null,
       };
       if (b.avatar_url !== undefined) profileSet.avatar_url = b.avatar_url;
-      await this.repo.updateColumns('profiles', b.profile_id, profileSet);
+      await (this.repo as MembersRepository).updateColumns('profiles', b.profile_id, profileSet);
 
       const memberSet: Record<string, unknown> = {};
       for (const k of MEMBER_COLUMNS) if (b[k] !== undefined) memberSet[k] = b[k];
-      if (Object.keys(memberSet).length) await this.repo.updateColumns('members', id, memberSet);
+      if (Object.keys(memberSet).length) await (this.repo as MembersRepository).updateColumns('members', id, memberSet);
 
       return { ok: true };
     });
@@ -160,24 +176,24 @@ export class MembersService {
 
   async deleteByProfile(caller: Caller, claims: JwtClaims, profileId: string) {
     return this.uow.asCaller(claims, async () => {
-      const memberId = await this.repo.getMemberIdByProfileId(profileId);
+      const memberId = await (this.repo as MembersRepository).getMemberIdByProfileId(profileId);
       if (memberId) {
-        const { requireMember } = await import('../../services/accessService.js');
+        const { requireMember } = await import('../../common/auth/access.service.js');
         await requireMember((this.repo as any).db, caller, memberId);
       }
-      await this.repo.deleteProfile(profileId);
+      await (this.repo as MembersRepository).deleteProfile(profileId);
     });
   }
 
   async bulkUpdate(claims: JwtClaims, filters: MemberFilters, patch: Record<string, unknown>) {
     return this.uow.asCaller(claims, async () => {
-      return this.repo.bulkUpdateMembers(filters, patch);
+      return (this.repo as MembersRepository).bulkUpdateMembers(filters, patch);
     });
   }
 
   async bulkDelete(claims: JwtClaims, filters: MemberFilters) {
     return this.uow.asCaller(claims, async () => {
-      return this.repo.bulkDeleteProfiles(filters);
+      return (this.repo as MembersRepository).bulkDeleteProfiles(filters);
     });
   }
 }

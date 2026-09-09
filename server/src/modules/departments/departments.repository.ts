@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { BaseRepository } from '../../common/database/base.repository.js';
+import { GenericRepository } from '../../common/database/generic.repository.js';
 import { departments, branches, memberDepartments } from '../../db/schema/index.js';
 import { eq, and, asc } from 'drizzle-orm';
 
 @Injectable()
-export class DepartmentsRepository extends BaseRepository {
+export class DepartmentsRepository extends GenericRepository<typeof departments.$inferSelect, string, typeof departments.$inferInsert, Partial<typeof departments.$inferInsert>> {
+  constructor() {
+    super(departments, departments.id);
+  }
   async getDepartments() {
     return this.db
       .select({

@@ -7,169 +7,183 @@ import {
   Body,
   Param,
   Query,
-  HttpCode,
-  HttpStatus,
 } from '@nestjs/common';
-import { z } from 'zod';
+import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Caller as CallerDecorator, Claims as ClaimsDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
 import type { JwtClaims } from '../../db/context.js';
 import { MembersService } from './members.service.js';
-import { badRequest } from '../../http/errors.js';
-import { filterQuery, pageQuery, updateSchema, memberInput } from './members.controller.dto.js'; // I'll create this DTO file to store schemas
+import { ApiResponse, PaginatedResponse } from '../../common/dto/api-response.dto.js';
+import {
+  MemberDto,
+  CreateMemberInputDto,
+  CreateMembersBatchDto,
+  UpdateMemberDto,
+  MemberFilterQueryDto,
+} from './dto/member.dto.js';
 
+@ApiTags('Members')
+@ApiBearerAuth()
 @Controller('api/v1/members')
 export class MembersController {
   constructor(private readonly membersService: MembersService) {}
 
   @Roles('admin', 'superadmin')
   @Post()
+  @ApiOperation({ summary: 'Create member or batch of members' })
+  @SwaggerResponse({ status: 201, type: ApiResponse<unknown> })
   async createMembers(
-    @CallerDecorator() caller: Caller,
-    @Body() body: unknown,
-  ) {
-    const parsed = z
-      .union([z.object({ members: z.array(memberInput) }), memberInput])
-      .safeParse(body);
-    if (!parsed.success) throw badRequest('invalid', 'invalid member payload');
-    const items = 'members' in parsed.data ? parsed.data.members : [parsed.data];
-    return this.membersService.createMembers(caller, items);
+    @CallerDecorator() caller: Caller | null,
+    @Body() body: CreateMembersBatchDto | CreateMemberInputDto,
+  ): Promise<ApiResponse<unknown>> {
+    const items = 'members' in body && Array.isArray(body.members) ? body.members : [body as CreateMemberInputDto];
+    const data = await this.membersService.createMembers(caller!, items);
+    return new ApiResponse(data);
   }
 
   @Roles('admin', 'superadmin')
   @Get('national-ids')
-  async getNationalIds(@ClaimsDecorator() claims: JwtClaims) {
-    return this.membersService.getNationalIds(claims);
+  @ApiOperation({ summary: 'Get list of existing member national IDs' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<string[]> })
+  async getNationalIds(@ClaimsDecorator() claims: JwtClaims): Promise<ApiResponse<string[]>> {
+    const data = await this.membersService.getNationalIds(claims);
+    return new ApiResponse(data);
   }
 
   @Get()
+  @ApiOperation({ summary: 'List members with optional filters' })
+  @SwaggerResponse({ status: 200, type: PaginatedResponse<MemberDto> })
   async getMembers(
     @ClaimsDecorator() claims: JwtClaims,
-    @Query() queryParams: unknown,
-  ) {
-    const q = filterQuery.merge(pageQuery).safeParse(queryParams);
-    if (!q.success) throw badRequest('invalid', 'invalid query');
-    const { page, page_size: pageSize, ...filters } = q.data;
+    @Query() query: MemberFilterQueryDto,
+  ): Promise<PaginatedResponse<MemberDto>> {
+    const { page, page_size: pageSize, ...filters } = query;
     const offset = (page - 1) * pageSize;
-    return this.membersService.getMembers(claims, filters, pageSize, offset);
+    const result = await this.membersService.getMembers(claims, filters as any, pageSize, offset);
+    return new PaginatedResponse(result.rows as any, result.total);
   }
 
   @Get('page')
+  @ApiOperation({ summary: 'Paginated members list' })
+  @SwaggerResponse({ status: 200, type: PaginatedResponse<MemberDto> })
   async getMembersPage(
     @ClaimsDecorator() claims: JwtClaims,
-    @Query() queryParams: unknown,
-  ) {
-    const q = filterQuery.merge(pageQuery).safeParse(queryParams);
-    if (!q.success) throw badRequest('invalid', 'invalid query');
-    const { page, page_size: pageSize, ...filters } = q.data;
+    @Query() query: MemberFilterQueryDto,
+  ): Promise<PaginatedResponse<MemberDto>> {
+    const { page, page_size: pageSize, ...filters } = query;
     const offset = (page - 1) * pageSize;
-    return this.membersService.getMembersPage(claims, filters, pageSize, offset);
+    const result = await this.membersService.getMembersPage(claims, filters as any, pageSize, offset);
+    return new PaginatedResponse(result.items as any, result.total);
   }
 
   @Get('flag-stats')
+  @ApiOperation({ summary: 'Get summary statistics of flagged members' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
   async getFlagStats(
     @ClaimsDecorator() claims: JwtClaims,
-    @Query() queryParams: unknown,
-  ) {
-    const q = filterQuery.safeParse(queryParams);
-    if (!q.success) throw badRequest('invalid', 'invalid query');
-    return this.membersService.getFlagStats(claims, q.data);
+    @Query() query: MemberFilterQueryDto,
+  ): Promise<ApiResponse<unknown>> {
+    const data = await this.membersService.getFlagStats(claims, query as any);
+    return new ApiResponse(data);
   }
 
   @Get('count-active')
-  async getCountActive(@ClaimsDecorator() claims: JwtClaims) {
-    return this.membersService.getCountActive(claims);
+  @ApiOperation({ summary: 'Count active members' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<{ count: number }> })
+  async getCountActive(@ClaimsDecorator() claims: JwtClaims): Promise<ApiResponse<{ count: number }>> {
+    const data = await this.membersService.getCountActive(claims);
+    return new ApiResponse(data);
   }
 
   @Get('by-profile/:profileId')
+  @ApiOperation({ summary: 'Get member details by profile ID' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<MemberDto | null> })
   async getByProfile(
     @ClaimsDecorator() claims: JwtClaims,
     @Param('profileId') profileId: string,
-  ) {
-    return this.membersService.getByProfile(claims, profileId);
+  ): Promise<ApiResponse<MemberDto | null>> {
+    const data = await this.membersService.getByProfile(claims, profileId);
+    return new ApiResponse(data as any);
   }
 
   @Patch(':id')
+  @ApiOperation({ summary: 'Update a member profile and attendance rules' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
   async updateMember(
     @ClaimsDecorator() claims: JwtClaims,
     @Param('id') id: string,
-    @Body() body: unknown,
-  ) {
-    const parsed = updateSchema.safeParse(body);
-    if (!parsed.success) throw badRequest('invalid', 'invalid member payload');
-    return this.membersService.updateMember(claims, id, parsed.data);
+    @Body() body: UpdateMemberDto,
+  ): Promise<ApiResponse<{ ok: boolean }>> {
+    const data = await this.membersService.updateMember(claims, id, body as any);
+    return new ApiResponse(data);
   }
 
   @Roles('admin', 'superadmin')
   @Delete('by-profile/:profileId')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a member by profile ID' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
   async deleteByProfile(
-    @CallerDecorator() caller: Caller,
+    @CallerDecorator() caller: Caller | null,
     @ClaimsDecorator() claims: JwtClaims,
     @Param('profileId') profileId: string,
-  ) {
-    await this.membersService.deleteByProfile(caller, claims, profileId);
+  ): Promise<ApiResponse<{ ok: true }>> {
+    await this.membersService.deleteByProfile(caller!, claims, profileId);
+    return new ApiResponse({ ok: true });
   }
 
+  @Roles('admin', 'superadmin')
   @Post('bulk/flag')
+  @ApiOperation({ summary: 'Bulk update a boolean flag across members' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
   async bulkFlag(
     @ClaimsDecorator() claims: JwtClaims,
-    @Body() body: unknown,
-  ) {
-    const parsed = filterQuery
-      .extend({
-        flag: z.enum(['bypass_face', 'bypass_location']),
-        value: z.boolean(),
-      })
-      .safeParse(body);
-    if (!parsed.success) throw badRequest('invalid', 'invalid bulk payload');
-    const { flag, value, ...filters } = parsed.data;
-    return this.membersService.bulkUpdate(claims, filters, { [flag]: value });
+    @Body() body: Record<string, unknown>,
+  ): Promise<ApiResponse<unknown>> {
+    const { flag, value, ...filters } = body as any;
+    const data = await this.membersService.bulkUpdate(claims, filters, { [flag]: value });
+    return new ApiResponse(data);
   }
 
+  @Roles('admin', 'superadmin')
   @Post('bulk/frozen')
+  @ApiOperation({ summary: 'Bulk update frozen date across members' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
   async bulkFrozen(
     @ClaimsDecorator() claims: JwtClaims,
-    @Body() body: unknown,
-  ) {
-    const parsed = filterQuery
-      .extend({ frozen_at: z.string().nullable() })
-      .safeParse(body);
-    if (!parsed.success) throw badRequest('invalid', 'invalid bulk payload');
-    const { frozen_at: frozenAt, ...filters } = parsed.data;
-    return this.membersService.bulkUpdate(claims, filters, { frozen_at: frozenAt });
+    @Body() body: Record<string, unknown>,
+  ): Promise<ApiResponse<unknown>> {
+    const { frozen_at: frozenAt, ...filters } = body as any;
+    const data = await this.membersService.bulkUpdate(claims, filters, { frozen_at: frozenAt });
+    return new ApiResponse(data);
   }
 
+  @Roles('admin', 'superadmin')
   @Post('bulk/update')
+  @ApiOperation({ summary: 'Bulk update members assignments or active status' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
   async bulkUpdatePost(
     @ClaimsDecorator() claims: JwtClaims,
-    @Body() body: unknown,
-  ) {
-    const parsed = filterQuery
-      .extend({
-        group_id: z.string().uuid().optional(),
-        branch_id: z.string().uuid().optional(),
-        is_active: z.boolean().optional(),
-      })
-      .safeParse(body);
-    if (!parsed.success) throw badRequest('invalid', 'invalid bulk payload');
-    const { group_id: groupId, branch_id: branchId, is_active: isActive, ...filters } = parsed.data;
+    @Body() body: Record<string, unknown>,
+  ): Promise<ApiResponse<unknown>> {
+    const { group_id: groupId, branch_id: branchId, is_active: isActive, ...filters } = body as any;
     const patch: Record<string, unknown> = {};
     if (groupId) patch.group_id = groupId;
     if (branchId) patch.branch_id = branchId;
     if (isActive !== undefined) patch.is_active = isActive;
-    return this.membersService.bulkUpdate(claims, filters, patch);
+    const data = await this.membersService.bulkUpdate(claims, filters, patch);
+    return new ApiResponse(data);
   }
 
   @Roles('admin', 'superadmin')
   @Post('bulk/delete')
+  @ApiOperation({ summary: 'Bulk delete members matching filter criteria' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
   async bulkDelete(
     @ClaimsDecorator() claims: JwtClaims,
-    @Body() body: unknown,
-  ) {
-    const parsed = filterQuery.safeParse(body);
-    if (!parsed.success) throw badRequest('invalid', 'invalid bulk payload');
-    return this.membersService.bulkDelete(claims, parsed.data);
+    @Body() body: Record<string, unknown>,
+  ): Promise<ApiResponse<unknown>> {
+    const data = await this.membersService.bulkDelete(claims, body as any);
+    return new ApiResponse(data);
   }
 }
