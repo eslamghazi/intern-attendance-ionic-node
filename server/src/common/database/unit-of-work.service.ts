@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { AsyncLocalStorage } from 'async_hooks';
-import { asCaller, asService, type DbContext, type JwtClaims } from '../../db/context.js';
+import { asCaller, asService, dbContextStorage, type DbContext, type JwtClaims } from '../../db/context.js';
 
-export const dbContextStorage = new AsyncLocalStorage<DbContext>();
+export { dbContextStorage };
 
 @Injectable()
 export class UnitOfWorkService {
@@ -10,17 +9,13 @@ export class UnitOfWorkService {
    * Runs the given work within a database transaction under the caller's context.
    */
   async asCaller<T>(claims: JwtClaims | null, work: () => Promise<T>): Promise<T> {
-    return asCaller(claims, async (tx) => {
-      return dbContextStorage.run(tx, work);
-    });
+    return asCaller(claims, async () => work());
   }
 
   /**
    * Runs the given work within a database transaction under the service context (elevated privileges).
    */
   async asService<T>(work: () => Promise<T>): Promise<T> {
-    return asService(async (tx) => {
-      return dbContextStorage.run(tx, work);
-    });
+    return asService(async () => work());
   }
 }

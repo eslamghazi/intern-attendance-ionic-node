@@ -61,6 +61,10 @@ export interface JwtClaims {
 
 const root = drizzle(pool, { schema, casing: 'snake_case' });
 
+import { AsyncLocalStorage } from 'async_hooks';
+
+export const dbContextStorage = new AsyncLocalStorage<DbContext>();
+
 /**
  * Run `fn` as the caller. `claims === null` means an unauthenticated request,
  * which runs as `anon` — enough for the few things granted to it and nothing
@@ -76,6 +80,13 @@ export async function asCaller<T>(
   claims: JwtClaims | null,
   fn: (db: DbContext) => Promise<T>,
 ): Promise<T> {
+  const current = dbContextStorage.getStore();
+  if (current) {
+    await current.execute(
+      sql`select set_config('role', ${claims ? 'authenticated' : 'anon'}, true)`,
+    );
+    return fn(current);
+  }
   return root.transaction(async (tx) => {
     // Drop privileges for the rest of the transaction. `is_local => true`
     // unwinds it at COMMIT or ROLLBACK; a plain SET would outlive the
@@ -84,7 +95,7 @@ export async function asCaller<T>(
     await tx.execute(
       sql`select set_config('role', ${claims ? 'authenticated' : 'anon'}, true)`,
     );
-    return fn(tx);
+    return dbContextStorage.run(tx, () => fn(tx));
   });
 }
 
@@ -99,9 +110,14 @@ export async function asCaller<T>(
  * on the same pooled connection can never reach a SECURITY DEFINER function.
  */
 export async function asService<T>(fn: (db: DbContext) => Promise<T>): Promise<T> {
+  const current = dbContextStorage.getStore();
+  if (current) {
+    await current.execute(sql`select set_config('request.jwt.claims', '', true)`);
+    return fn(current);
+  }
   return root.transaction(async (tx) => {
     await tx.execute(sql`select set_config('request.jwt.claims', '', true)`);
-    return fn(tx);
+    return dbContextStorage.run(tx, () => fn(tx));
   });
 }
 
