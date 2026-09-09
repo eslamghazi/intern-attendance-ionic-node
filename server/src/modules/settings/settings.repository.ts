@@ -6,8 +6,10 @@ import { appSettings } from '../../db/schema/index.js';
 type AppSettings = typeof appSettings.$inferSelect;
 type AppSettingsInsert = typeof appSettings.$inferInsert;
 
+import type { ISettingsRepository } from './interfaces/settings.interface.js';
+
 @Injectable()
-export class SettingsRepository extends GenericRepository<AppSettings, number, AppSettingsInsert, Partial<AppSettingsInsert>> {
+export class SettingsRepository extends GenericRepository<AppSettings, number, AppSettingsInsert, Partial<AppSettingsInsert>> implements ISettingsRepository {
   constructor() {
     super(appSettings, appSettings.id);
   }

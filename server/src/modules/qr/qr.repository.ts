@@ -3,13 +3,15 @@ import { GenericRepository } from '../../common/database/generic.repository.js';
 import { appSettings, members, branches, qrTokens } from '../../db/schema/index.js';
 import { eq, lt, gt, and, isNull, or, not } from 'drizzle-orm';
 
+import type { IQrRepository } from './interfaces/qr.interface.js';
+
 @Injectable()
 export class QrRepository extends GenericRepository<
   typeof qrTokens.$inferSelect,
   string,
   typeof qrTokens.$inferInsert,
   Partial<typeof qrTokens.$inferInsert>
-> {
+> implements IQrRepository {
   constructor() {
     super(qrTokens, qrTokens.id);
   }

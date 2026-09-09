@@ -5,8 +5,10 @@ import type { Caller } from '../../domain/identity/role.js';
 import type { JwtClaims } from '../../db/context.js';
 import { FileManager, FileCategory } from '../../infrastructure/storage/file-manager.service.js';
 
+import type { IStorageService } from './interfaces/storage.interface.js';
+
 @Injectable()
-export class StorageService {
+export class StorageService implements IStorageService {
   constructor(
     private readonly uow: UnitOfWorkService,
     private readonly repo: StorageRepository,

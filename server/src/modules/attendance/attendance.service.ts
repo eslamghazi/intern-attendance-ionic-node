@@ -39,8 +39,10 @@ export class AttendanceRefused extends Error {
   }
 }
 
+import type { IAttendanceService } from './interfaces/attendance.interface.js';
+
 @Injectable()
-export class AttendanceService {
+export class AttendanceService implements IAttendanceService {
   constructor(
     private readonly uow: UnitOfWorkService,
     private readonly repo: AttendanceRepository,

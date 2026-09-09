@@ -5,8 +5,10 @@ import type { JwtClaims } from '../../db/context.js';
 import { monthBounds } from '../../domain/member/filter.js';
 import { monthStats } from '../../domain/report/rate.js';
 
+import type { IReportsService } from './interfaces/reports.interface.js';
+
 @Injectable()
-export class ReportsService {
+export class ReportsService implements IReportsService {
   constructor(
     private readonly uow: UnitOfWorkService,
     private readonly repo: ReportsRepository,

@@ -11,13 +11,15 @@ export interface ProfileEdit {
   avatarUrl: string | null;
 }
 
+import type { IProfileRepository } from './interfaces/profile.interface.js';
+
 @Injectable()
 export class ProfileRepository extends GenericRepository<
   typeof profiles.$inferSelect,
   string,
   typeof profiles.$inferInsert,
   Partial<typeof profiles.$inferInsert>
-> {
+> implements IProfileRepository {
   constructor() {
     super(profiles, profiles.id);
   }

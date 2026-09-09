@@ -25,8 +25,10 @@ function rules(s: any): QrRules {
   };
 }
 
+import type { IQrService } from './interfaces/qr.interface.js';
+
 @Injectable()
-export class QrService {
+export class QrService implements IQrService {
   constructor(
     private readonly uow: UnitOfWorkService,
     private readonly repo: QrRepository,

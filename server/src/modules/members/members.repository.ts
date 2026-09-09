@@ -53,8 +53,10 @@ export interface MemberInput {
   branch_id: string;
 }
 
+import type { IMembersRepository } from './interfaces/members.interface.js';
+
 @Injectable()
-export class MembersRepository extends GenericRepository<typeof members.$inferSelect, string, typeof members.$inferInsert, Partial<typeof members.$inferInsert>> {
+export class MembersRepository extends GenericRepository<typeof members.$inferSelect, string, typeof members.$inferInsert, Partial<typeof members.$inferInsert>> implements IMembersRepository {
   constructor() {
     super(members, members.id);
   }

@@ -17,13 +17,15 @@ import {
 } from 'drizzle-orm';
 import { directoryWhere } from '../../domain/member/filter.js';
 
+import type { IRosterRepository } from './interfaces/roster.interface.js';
+
 @Injectable()
 export class RosterRepository extends GenericRepository<
   typeof rosterDays.$inferSelect,
   string,
   typeof rosterDays.$inferInsert,
   Partial<typeof rosterDays.$inferInsert>
-> {
+> implements IRosterRepository {
   constructor() {
     super(rosterDays, rosterDays.id);
   }

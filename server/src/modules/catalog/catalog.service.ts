@@ -22,8 +22,10 @@ import type {
   ShiftKeyOptionResponseDto,
 } from './dto/catalog.dto.js';
 
+import type { ICatalogService } from './interfaces/catalog.interface.js';
+
 @Injectable()
-export class CatalogService {
+export class CatalogService implements ICatalogService {
   constructor(
     private readonly uow: UnitOfWorkService,
     private readonly repo: CatalogRepository,

@@ -7,6 +7,8 @@ import type { JwtClaims } from '../../db/context.js';
 import { BaseService } from '../../common/database/base.service.js';
 import { profiles } from '../../db/schema/index.js';
 
+import type { IProfileService } from './interfaces/profile.interface.js';
+
 @Injectable()
 export class ProfileService extends BaseService<
   typeof profiles.$inferSelect,
@@ -14,7 +16,7 @@ export class ProfileService extends BaseService<
   typeof profiles.$inferInsert,
   Partial<typeof profiles.$inferInsert>,
   any
-> {
+> implements IProfileService {
   constructor(
     uow: UnitOfWorkService,
     repo: ProfileRepository,

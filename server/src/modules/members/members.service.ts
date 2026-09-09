@@ -51,6 +51,8 @@ const MEMBER_COLUMNS = [
   'can_reset_face',
 ] as const;
 
+import type { IMembersService } from './interfaces/members.interface.js';
+
 @Injectable()
 export class MembersService extends BaseService<
   typeof members.$inferSelect,
@@ -58,7 +60,7 @@ export class MembersService extends BaseService<
   typeof members.$inferInsert,
   Partial<typeof members.$inferInsert>,
   MemberDto
-> {
+> implements IMembersService {
   constructor(
     uow: UnitOfWorkService,
     repo: MembersRepository,

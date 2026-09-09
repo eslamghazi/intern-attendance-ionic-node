@@ -1,13 +1,15 @@
 import { SQL, eq, sql } from 'drizzle-orm';
 import { PgTable, PgColumn } from 'drizzle-orm/pg-core';
 import { BaseRepository } from './base.repository.js';
+import type { IGenericRepository } from './interfaces/generic-repository.interface.js';
 
 export abstract class GenericRepository<
   TEntity,
   TId,
   TCreate,
   TUpdate
-> extends BaseRepository {
+> extends BaseRepository implements IGenericRepository<TEntity, TId, TCreate, TUpdate> {
+
   constructor(
     protected readonly table: PgTable,
     protected readonly primaryKeyColumn: PgColumn

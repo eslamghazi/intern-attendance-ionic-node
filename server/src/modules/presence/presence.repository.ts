@@ -3,13 +3,15 @@ import { GenericRepository } from '../../common/database/generic.repository.js';
 import { presenceChecks, presenceConfirmations, members, attendance, profiles, memberDepartments } from '../../db/schema/index.js';
 import { eq, inArray, isNull, isNotNull, and, desc, asc, notExists, exists, gt, arrayContains } from 'drizzle-orm';
 
+import type { IPresenceRepository } from './interfaces/presence.interface.js';
+
 @Injectable()
 export class PresenceRepository extends GenericRepository<
   typeof presenceChecks.$inferSelect,
   string,
   typeof presenceChecks.$inferInsert,
   Partial<typeof presenceChecks.$inferInsert>
-> {
+> implements IPresenceRepository {
   constructor() {
     super(presenceChecks, presenceChecks.id);
   }

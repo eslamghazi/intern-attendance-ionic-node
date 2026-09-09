@@ -58,13 +58,15 @@ export interface CheckOutWrite {
   bypass: Record<string, unknown> | null;
 }
 
+import type { IAttendanceRepository } from './interfaces/attendance.interface.js';
+
 @Injectable()
 export class AttendanceRepository extends GenericRepository<
   typeof attendance.$inferSelect,
   string,
   typeof attendance.$inferInsert,
   Partial<typeof attendance.$inferInsert>
-> {
+> implements IAttendanceRepository {
   constructor() {
     super(attendance, attendance.id);
   }

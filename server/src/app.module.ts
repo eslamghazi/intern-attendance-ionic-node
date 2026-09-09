@@ -23,11 +23,14 @@ import { RosterModule } from './modules/roster/roster.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
 import { DatabaseModule } from './common/database/database.module.js';
 import { FileManagerModule } from './infrastructure/storage/file-manager.module.js';
+import { I18nModule } from './common/i18n/i18n.module.js';
 
 @Module({
   imports: [
+    I18nModule,
     FileManagerModule,
     DatabaseModule,
+
     HealthModule,
     TimeModule,
     AuthModule,

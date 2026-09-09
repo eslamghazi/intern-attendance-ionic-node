@@ -3,8 +3,10 @@ import { BaseRepository } from '../../common/database/base.repository.js';
 import { faceTemplates, attendance } from '../../db/schema/index.js';
 import { inArray } from 'drizzle-orm';
 
+import type { IStorageRepository } from './interfaces/storage.interface.js';
+
 @Injectable()
-export class StorageRepository extends BaseRepository {
+export class StorageRepository extends BaseRepository implements IStorageRepository {
   async clearObjectPaths(paths: string[]) {
     await this.db
       .update(faceTemplates)

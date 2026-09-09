@@ -3,8 +3,10 @@ import { GenericRepository } from '../../common/database/generic.repository.js';
 import { eq, inArray, asc } from 'drizzle-orm';
 import { profiles, adminAssignments, groups, branches } from '../../db/schema/index.js';
 
+import type { IAdminsRepository } from './interfaces/admins.interface.js';
+
 @Injectable()
-export class AdminsRepository extends GenericRepository<typeof profiles.$inferSelect, string, typeof profiles.$inferInsert, Partial<typeof profiles.$inferInsert>> {
+export class AdminsRepository extends GenericRepository<typeof profiles.$inferSelect, string, typeof profiles.$inferInsert, Partial<typeof profiles.$inferInsert>> implements IAdminsRepository {
   constructor() {
     super(profiles, profiles.id);
   }

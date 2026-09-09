@@ -7,8 +7,10 @@ import { appSettings } from '../../db/schema/index.js';
 import { SettingsMapper } from './settings.mapper.js';
 import type { BrandingResponseDto, SettingsResponseDto, UpdateSettingsDto } from './dto/settings.dto.js';
 
+import type { ISettingsService } from './interfaces/settings.interface.js';
+
 @Injectable()
-export class SettingsService {
+export class SettingsService implements ISettingsService {
   constructor(
     private readonly uow: UnitOfWorkService,
     private readonly repo: SettingsRepository,

@@ -2,6 +2,7 @@ import { UnitOfWorkService } from './unit-of-work.service.js';
 import { GenericRepository } from './generic.repository.js';
 import type { JwtClaims } from '../../db/context.js';
 import type { SQL } from 'drizzle-orm';
+import type { IBaseService } from './interfaces/base-service.interface.js';
 
 export abstract class BaseService<
   TEntity,
@@ -9,7 +10,8 @@ export abstract class BaseService<
   TCreate,
   TUpdate,
   TResponse
-> {
+> implements IBaseService<TEntity, TId, TCreate, TUpdate, TResponse> {
+
   constructor(
     protected readonly uow: UnitOfWorkService,
     protected readonly repo: GenericRepository<TEntity, TId, TCreate, TUpdate>

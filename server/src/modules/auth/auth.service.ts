@@ -49,12 +49,15 @@ export interface NewStaff {
   assignments: { group_id?: string | null; branch_id?: string | null }[];
 }
 
+import type { IAuthService } from './interfaces/auth.interface.js';
+
 @Injectable()
-export class AuthService {
+export class AuthService implements IAuthService {
   constructor(
     private readonly uow: UnitOfWorkService,
     private readonly repo: AuthRepository,
   ) {}
+
 
   private mintRefreshToken(): string {
     return randomBytes(32).toString('base64url');

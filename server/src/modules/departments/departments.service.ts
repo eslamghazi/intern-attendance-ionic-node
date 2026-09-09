@@ -22,6 +22,8 @@ export interface PutMemberDepartmentPayload {
   department_id: string | null;
 }
 
+import type { IDepartmentsService } from './interfaces/departments.interface.js';
+
 @Injectable()
 export class DepartmentsService extends BaseService<
   typeof departments.$inferSelect,
@@ -29,7 +31,7 @@ export class DepartmentsService extends BaseService<
   typeof departments.$inferInsert,
   Partial<typeof departments.$inferInsert>,
   DepartmentDto
-> {
+> implements IDepartmentsService {
   constructor(
     uow: UnitOfWorkService,
     repo: DepartmentsRepository,

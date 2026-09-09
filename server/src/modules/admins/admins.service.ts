@@ -8,6 +8,8 @@ import { profiles } from '../../db/schema/index.js';
 import { AdminDto, AdminAssignmentResponseDto, UpdateAdminDto } from './dto/admin.dto.js';
 import { AdminsMapper } from './admins.mapper.js';
 
+import type { IAdminsService } from './interfaces/admins.interface.js';
+
 @Injectable()
 export class AdminsService extends BaseService<
   typeof profiles.$inferSelect,
@@ -15,7 +17,7 @@ export class AdminsService extends BaseService<
   typeof profiles.$inferInsert,
   Partial<typeof profiles.$inferInsert>,
   AdminDto
-> {
+> implements IAdminsService {
   constructor(
     uow: UnitOfWorkService,
     repo: AdminsRepository,

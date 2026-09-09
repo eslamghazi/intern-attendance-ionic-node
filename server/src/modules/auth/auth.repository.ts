@@ -4,6 +4,7 @@ import { eq, sql, isNull, and } from 'drizzle-orm';
 import { profiles, appSettings, refreshTokens, auditLog, adminAssignments, members, branches, groups, institutions } from '../../db/schema/index.js';
 import type { Role } from '../../domain/identity/role.js';
 import type { StoredRefreshToken } from '../../domain/auth/refresh.js';
+import type { IAuthRepository } from './interfaces/auth.interface.js';
 
 export interface Account {
   id: string;
@@ -25,7 +26,8 @@ export class AuthRepository extends GenericRepository<
   string,
   typeof profiles.$inferInsert,
   Partial<typeof profiles.$inferInsert>
-> {
+> implements IAuthRepository {
+
   constructor() {
     super(profiles, profiles.id);
   }

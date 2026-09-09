@@ -7,8 +7,10 @@ import { cairoNow } from '../../domain/clock.js';
 import { previousDate } from '../../domain/attendance/windows.js';
 import { ApiError, forbidden, notFound } from '../../http/errors.js';
 
+import type { IPresenceService } from './interfaces/presence.interface.js';
+
 @Injectable()
-export class PresenceService {
+export class PresenceService implements IPresenceService {
   constructor(
     private readonly uow: UnitOfWorkService,
     private readonly repo: PresenceRepository,

@@ -15,8 +15,10 @@ function sanitize(s: string): string {
     .replace(/^_+|_+$/g, '') || 'x';
 }
 
+import type { IFaceService } from './interfaces/face.interface.js';
+
 @Injectable()
-export class FaceService {
+export class FaceService implements IFaceService {
   constructor(
     private readonly uow: UnitOfWorkService,
     private readonly repo: FaceRepository,

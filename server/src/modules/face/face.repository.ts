@@ -3,13 +3,15 @@ import { GenericRepository } from '../../common/database/generic.repository.js';
 import { faceTemplates, members, memberDirectory, appSettings } from '../../db/schema/index.js';
 import { eq, inArray, isNotNull, and, sql } from 'drizzle-orm';
 
+import type { IFaceRepository } from './interfaces/face.interface.js';
+
 @Injectable()
 export class FaceRepository extends GenericRepository<
   typeof faceTemplates.$inferSelect,
   string,
   typeof faceTemplates.$inferInsert,
   Partial<typeof faceTemplates.$inferInsert>
-> {
+> implements IFaceRepository {
   constructor() {
     super(faceTemplates, faceTemplates.memberId);
   }

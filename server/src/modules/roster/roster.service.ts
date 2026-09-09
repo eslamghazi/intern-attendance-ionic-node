@@ -6,8 +6,10 @@ import { requireMember, scopeOf } from '../../common/auth/access.service.js';
 import { monthBounds, planBulk, rangeDates } from '../../domain/roster/bulk.js';
 import { dbContextStorage } from '../../common/database/unit-of-work.service.js';
 
+import type { IRosterService } from './interfaces/roster.interface.js';
+
 @Injectable()
-export class RosterService {
+export class RosterService implements IRosterService {
   constructor(
     private readonly uow: UnitOfWorkService,
     private readonly repo: RosterRepository,

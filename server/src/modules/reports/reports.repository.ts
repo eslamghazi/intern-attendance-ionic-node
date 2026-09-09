@@ -26,13 +26,15 @@ import {
 } from 'drizzle-orm';
 import { directoryWhere } from '../../domain/member/filter.js';
 
+import type { IReportsRepository } from './interfaces/reports.interface.js';
+
 @Injectable()
 export class ReportsRepository extends GenericRepository<
   typeof attendance.$inferSelect,
   string,
   typeof attendance.$inferInsert,
   Partial<typeof attendance.$inferInsert>
-> {
+> implements IReportsRepository {
   constructor() {
     super(attendance, attendance.id);
   }
