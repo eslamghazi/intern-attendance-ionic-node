@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { BaseRepository } from '../../common/database/base.repository.js';
+import { GenericRepository } from '../../common/database/generic.repository.js';
 import {
   rosterDays,
   memberDirectory,
@@ -18,7 +18,16 @@ import {
 import { directoryWhere } from '../../domain/member/filter.js';
 
 @Injectable()
-export class RosterRepository extends BaseRepository {
+export class RosterRepository extends GenericRepository<
+  typeof rosterDays.$inferSelect,
+  string,
+  typeof rosterDays.$inferInsert,
+  Partial<typeof rosterDays.$inferInsert>
+> {
+  constructor() {
+    super(rosterDays, rosterDays.id);
+  }
+
   async getRosterView(filters: any, year: number, month: number, first: string, last: string, pageSize: number, offset: number) {
     // We run the CTEs via query builder or execute
     // Since Drizzle JSON aggregation can be verbose, we can write a raw sql literal inside drizzle or split it.

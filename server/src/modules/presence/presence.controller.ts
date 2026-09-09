@@ -5,100 +5,116 @@ import {
   Delete,
   Param,
   Body,
-  HttpCode,
-  HttpStatus,
 } from '@nestjs/common';
-import { z } from 'zod';
+import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
 import { badRequest } from '../../http/errors.js';
 import { PresenceService } from './presence.service.js';
+import { ApiResponse } from '../../common/dto/api-response.dto.js';
+import {
+  CreatePresenceCheckDto,
+  ConfirmPresenceByAdminDto,
+  ResolvePresenceCheckDto,
+  ConfirmPresenceByMemberDto,
+  CreatePresenceCheckResponseDto,
+} from './dto/presence.dto.js';
+import { PresenceMapper } from './presence.mapper.js';
 
+@ApiTags('Presence')
+@ApiBearerAuth()
 @Controller('api/v1/presence')
 export class PresenceController {
   constructor(private readonly presenceService: PresenceService) {}
 
   @Roles('admin', 'superadmin')
   @Post('checks')
-  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create a new spot-check verification session (Admin only)' })
+  @SwaggerResponse({ status: 201, type: ApiResponse<CreatePresenceCheckResponseDto> })
   async createCheck(
-    @CallerDecorator() caller: Caller,
-    @Body() body: unknown,
-  ) {
-    const parsed = z
-      .object({
-        branch_id: z.string().uuid().nullish(),
-        group_id: z.string().uuid().nullish(),
-        department_id: z.string().uuid().nullish(),
-        shift_id: z.string().uuid().nullish(),
-        deadline_minutes: z.coerce.number().int().default(10),
-      })
-      .safeParse(body ?? {});
-    if (!parsed.success) throw badRequest('invalid', 'invalid spot-check payload');
-    
-    return this.presenceService.createCheck(caller, parsed.data);
+    @CallerDecorator() caller: Caller | null,
+    @Body() body: CreatePresenceCheckDto,
+  ): Promise<ApiResponse<CreatePresenceCheckResponseDto>> {
+    const data = await this.presenceService.createCheck(caller!, {
+      branch_id: body?.branch_id,
+      group_id: body?.group_id,
+      department_id: body?.department_id,
+      shift_id: body?.shift_id,
+      deadline_minutes: body?.deadline_minutes ?? 10,
+    });
+    return new ApiResponse(PresenceMapper.toCreateCheckResponse(data));
   }
 
   @Roles('admin', 'superadmin')
   @Get('checks')
-  async getChecks(@CallerDecorator() caller: Caller) {
-    return this.presenceService.getChecks(caller.id);
+  @ApiOperation({ summary: 'Get active and recent spot-checks created by admin' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  async getChecks(@CallerDecorator() caller: Caller | null): Promise<ApiResponse<unknown>> {
+    const data = await this.presenceService.getChecks(caller!.id);
+    return new ApiResponse(data);
   }
 
   @Roles('admin', 'superadmin')
   @Delete('checks/:id')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Cancel or delete an active spot-check session' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
   async deleteCheck(
-    @CallerDecorator() caller: Caller,
+    @CallerDecorator() caller: Caller | null,
     @Param('id') id: string,
-  ) {
-    await this.presenceService.deleteCheck(caller.id, id);
+  ): Promise<ApiResponse<{ ok: true }>> {
+    await this.presenceService.deleteCheck(caller!.id, id);
+    return new ApiResponse({ ok: true });
   }
 
   @Roles('admin', 'superadmin')
   @Post('checks/:id/confirm')
+  @ApiOperation({ summary: 'Manually confirm a member presence during a spot-check (Admin only)' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
   async confirmByAdmin(
-    @CallerDecorator() caller: Caller,
+    @CallerDecorator() caller: Caller | null,
     @Param('id') id: string,
-    @Body() body: unknown,
-  ) {
-    const parsed = z.object({ member_id: z.string().uuid() }).safeParse(body);
-    if (!parsed.success) throw badRequest('missing', 'member_id is required');
+    @Body() body: ConfirmPresenceByAdminDto,
+  ): Promise<ApiResponse<unknown>> {
+    if (!body?.member_id) throw badRequest('invalid_body', 'member_id is required');
 
-    return this.presenceService.confirmByAdmin(caller.id, id, parsed.data.member_id);
+    const data = await this.presenceService.confirmByAdmin(caller!.id, id, body.member_id);
+    return new ApiResponse(data);
   }
 
   @Roles('admin', 'superadmin')
   @Post('checks/:id/resolve')
+  @ApiOperation({ summary: 'Resolve an expired or completed spot-check' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
   async resolveCheck(
-    @CallerDecorator() caller: Caller,
+    @CallerDecorator() caller: Caller | null,
     @Param('id') id: string,
-    @Body() body: unknown,
-  ) {
-    const parsed = z
-      .object({ decision: z.enum(['keep', 'left_work']).default('keep') })
-      .safeParse(body ?? {});
-    if (!parsed.success) throw badRequest('invalid', 'invalid decision');
-
-    return this.presenceService.resolveCheck(caller.id, id, parsed.data.decision);
+    @Body() body: ResolvePresenceCheckDto,
+  ): Promise<ApiResponse<unknown>> {
+    const data = await this.presenceService.resolveCheck(caller!.id, id, body?.decision ?? 'keep');
+    return new ApiResponse(data);
   }
 
   @Roles('member')
   @Get('pending')
-  async getPending(@CallerDecorator() caller: Caller) {
-    return this.presenceService.getPending(caller.id);
+  @ApiOperation({ summary: 'Check if caller has pending spot-checks needing confirmation' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  async getPending(@CallerDecorator() caller: Caller | null): Promise<ApiResponse<unknown>> {
+    const data = await this.presenceService.getPending(caller!.id);
+    return new ApiResponse(data);
   }
 
   @Roles('member')
   @Post('confirm')
+  @ApiOperation({ summary: 'Confirm presence for a spot-check (Member self-report)' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
   async confirmByMember(
-    @CallerDecorator() caller: Caller,
-    @Body() body: unknown,
-  ) {
-    const parsed = z.object({ check_id: z.string().uuid() }).safeParse(body);
-    if (!parsed.success) throw badRequest('missing', 'check_id is required');
+    @CallerDecorator() caller: Caller | null,
+    @Body() body: ConfirmPresenceByMemberDto,
+  ): Promise<ApiResponse<unknown>> {
+    if (!body?.check_id) throw badRequest('invalid_body', 'check_id is required');
 
-    return this.presenceService.confirmByMember(caller.id, parsed.data.check_id);
+    const data = await this.presenceService.confirmByMember(caller!.id, body.check_id);
+    return new ApiResponse(data);
   }
 }

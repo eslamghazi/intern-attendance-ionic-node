@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { UnitOfWorkService } from '../../common/database/unit-of-work.service.js';
 import { PresenceRepository } from './presence.repository.js';
 import type { Caller } from '../../common/types.js';
-import { requireFilter } from '../../services/accessService.js';
+import { requireFilter } from '../../common/auth/access.service.js';
 import { cairoNow } from '../../domain/clock.js';
 import { previousDate } from '../../domain/attendance/windows.js';
 import { ApiError, forbidden, notFound } from '../../http/errors.js';

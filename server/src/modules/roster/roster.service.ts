@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { UnitOfWorkService } from '../../common/database/unit-of-work.service.js';
 import { RosterRepository } from './roster.repository.js';
 import type { Caller } from '../../domain/identity/role.js';
-import { requireMember, scopeOf } from '../../services/accessService.js';
+import { requireMember, scopeOf } from '../../common/auth/access.service.js';
 import { monthBounds, planBulk, rangeDates } from '../../domain/roster/bulk.js';
 import { dbContextStorage } from '../../common/database/unit-of-work.service.js';
 

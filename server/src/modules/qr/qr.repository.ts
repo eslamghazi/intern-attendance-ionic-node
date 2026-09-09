@@ -1,10 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { BaseRepository } from '../../common/database/base.repository.js';
+import { GenericRepository } from '../../common/database/generic.repository.js';
 import { appSettings, members, branches, qrTokens } from '../../db/schema/index.js';
 import { eq, lt, gt, and, isNull, or, not } from 'drizzle-orm';
 
 @Injectable()
-export class QrRepository extends BaseRepository {
+export class QrRepository extends GenericRepository<
+  typeof qrTokens.$inferSelect,
+  string,
+  typeof qrTokens.$inferInsert,
+  Partial<typeof qrTokens.$inferInsert>
+> {
+  constructor() {
+    super(qrTokens, qrTokens.id);
+  }
+
   async getSettings() {
     const rows = await this.db
       .select({

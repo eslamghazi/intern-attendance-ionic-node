@@ -1,10 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { BaseRepository } from '../../common/database/base.repository.js';
+import { GenericRepository } from '../../common/database/generic.repository.js';
 import { presenceChecks, presenceConfirmations, members, attendance, profiles, memberDepartments } from '../../db/schema/index.js';
 import { eq, inArray, isNull, isNotNull, and, desc, asc, notExists, exists, gt, arrayContains } from 'drizzle-orm';
 
 @Injectable()
-export class PresenceRepository extends BaseRepository {
+export class PresenceRepository extends GenericRepository<
+  typeof presenceChecks.$inferSelect,
+  string,
+  typeof presenceChecks.$inferInsert,
+  Partial<typeof presenceChecks.$inferInsert>
+> {
+  constructor() {
+    super(presenceChecks, presenceChecks.id);
+  }
+
   async getOwnedCheck(checkId: string, callerId: string) {
     const rows = await this.db
       .select()

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { UnitOfWorkService } from '../../common/database/unit-of-work.service.js';
 import { QrRepository } from './qr.repository.js';
 import type { Caller } from '../../common/types.js';
-import { requireBranch } from '../../services/accessService.js';
+import { requireBranch } from '../../common/auth/access.service.js';
 import { cairoNow } from '../../domain/clock.js';
 import {
   bypassMinutes,

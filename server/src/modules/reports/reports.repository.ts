@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { BaseRepository } from '../../common/database/base.repository.js';
+import { GenericRepository } from '../../common/database/generic.repository.js';
 import {
   attendance,
   members,
@@ -27,7 +27,16 @@ import {
 import { directoryWhere } from '../../domain/member/filter.js';
 
 @Injectable()
-export class ReportsRepository extends BaseRepository {
+export class ReportsRepository extends GenericRepository<
+  typeof attendance.$inferSelect,
+  string,
+  typeof attendance.$inferInsert,
+  Partial<typeof attendance.$inferInsert>
+> {
+  constructor() {
+    super(attendance, attendance.id);
+  }
+
   async getPresent(dates: string[]) {
     return this.db
       .select({
