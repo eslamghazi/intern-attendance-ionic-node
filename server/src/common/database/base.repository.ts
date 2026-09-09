@@ -1,5 +1,5 @@
 import { dbContextStorage } from './unit-of-work.service.js';
-import { type DbContext } from '../../db/context.js';
+import type { DbContext } from '../../db/context.js';
 
 export abstract class BaseRepository {
   /**
