@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { BaseRepository } from '../../common/database/base.repository.js';
+import { GenericRepository } from '../../common/database/generic.repository.js';
 import { eq, sql, isNull, and } from 'drizzle-orm';
 import { profiles, appSettings, refreshTokens, auditLog, adminAssignments, members, branches, groups, institutions } from '../../db/schema/index.js';
 import type { Role } from '../../domain/identity/role.js';
@@ -20,7 +20,16 @@ export interface StoredToken extends StoredRefreshToken {
 }
 
 @Injectable()
-export class AuthRepository extends BaseRepository {
+export class AuthRepository extends GenericRepository<
+  typeof profiles.$inferSelect,
+  string,
+  typeof profiles.$inferInsert,
+  Partial<typeof profiles.$inferInsert>
+> {
+  constructor() {
+    super(profiles, profiles.id);
+  }
+
   private toAccount(r: any): Account {
     return {
       id: r.id,

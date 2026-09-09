@@ -13,7 +13,7 @@ import {
   type Role,
 } from '../../domain/identity/role.js';
 import { parseNationalId } from '../../domain/identity/nationalId.js';
-import { signProfileJwt } from '../../auth/jwt.js';
+import { signProfileJwt } from '../../common/auth/jwt.js';
 import { env } from '../../env.js';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '../../http/errors.js';
 
