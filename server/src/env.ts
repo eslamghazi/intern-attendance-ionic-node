@@ -21,6 +21,11 @@ if (!process.env.DATABASE_URL && process.env.POSTGRES_PASSWORD) {
   process.env.DATABASE_URL = `postgres://${user}:${process.env.POSTGRES_PASSWORD}@${host}:${port}/${db}`;
 }
 
+// Fallback PORT to WEB_PORT if specified (common in aaPanel/Docker setups)
+if (!process.env.PORT && process.env.WEB_PORT) {
+  process.env.PORT = process.env.WEB_PORT;
+}
+
 const schema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   DATABASE_SSL: z.enum(['0', '1']).default('0'),

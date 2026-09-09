@@ -13,6 +13,10 @@ coverage/
 
 # build output
 dist/
+public/
+server/public/
+deploy-aapanel/
+deploy-aapanel.zip
 
 # local env (keep .env.example tracked)
 .env

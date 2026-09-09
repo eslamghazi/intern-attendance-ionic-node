@@ -72,9 +72,10 @@ export async function buildApp(): Promise<FastifyInstance> {
   };
 
   const app = Fastify({
-    logger: env.isProd
-      ? { level: 'info', redact }
-      : { level: 'debug', redact, transport: { target: 'pino-pretty' } },
+    logger: {
+      level: env.isProd ? 'info' : 'debug',
+      redact,
+    },
     trustProxy: true, // sits behind nginx; needed for real client IPs in the audit log
     bodyLimit: 15 * 1024 * 1024, // face captures are posted as base64 JPEG
   });
