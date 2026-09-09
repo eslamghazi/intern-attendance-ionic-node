@@ -12,9 +12,9 @@ import {
 } from '../../domain/attendance/types.js';
 import { notFound, forbidden } from '../../http/errors.js';
 import type { Caller } from '../../domain/identity/role.js';
-import { scopeOf } from '../../services/accessService.js';
+import { scopeOf } from '../../common/auth/access.service.js';
 import { coversUnit } from '../../domain/access/scope.js';
-import { BUCKETS, decodeBase64Image, putObject } from '../../storage/objects.js';
+import { FileCategory, FileManager } from '../../infrastructure/storage/file-manager.service.js';
 
 export interface SetAttendanceInput {
   memberId: string;
@@ -44,6 +44,7 @@ export class AttendanceService {
   constructor(
     private readonly uow: UnitOfWorkService,
     private readonly repo: AttendanceRepository,
+    private readonly fileManager: FileManager,
   ) {}
 
   private async storeProbe(
@@ -56,16 +57,15 @@ export class AttendanceService {
   ): Promise<string | null> {
     if (!keep || !payload.probeBase64) return payload.probePath;
     try {
-      const bytes = decodeBase64Image(payload.probeBase64);
+      const bytes = this.fileManager.decodeBase64Image(payload.probeBase64);
       if (!bytes) return payload.probePath;
       const naming = await this.repo.probeNaming(profileId);
       const folder = naming?.groupYear ? String(naming.groupYear) : 'group';
       const code = String(naming?.code ?? memberId).replace(/[^A-Za-z0-9_-]+/g, '_');
       const path = `${folder}/${code}/${date}-${shiftId}-${payload.type}.jpg`;
       
-      // We pass the raw db connection to putObject so it runs in the same transaction
-      await putObject({
-        bucket: BUCKETS.probes,
+      await this.fileManager.upload({
+        category: FileCategory.PROBE,
         path,
         body: bytes,
         contentType: 'image/jpeg',
@@ -220,7 +220,7 @@ export class AttendanceService {
 
   async setAttendanceManually(caller: Caller, input: SetAttendanceInput): Promise<{ ok: true; cleared?: true }> {
     return this.uow.asCaller(caller as any, async () => {
-      const scope = await scopeOf(null as any, caller);
+      const scope = await scopeOf((this.repo as any).db, caller);
       
       const member = await this.repo.getMemberBranch(input.memberId);
       if (!member) throw notFound('member_not_found');

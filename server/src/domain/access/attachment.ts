@@ -24,7 +24,7 @@
 // orphan every file already on disk.
 import { isStaff, type Role } from '../identity/role.js';
 
-export type AttachmentBucket = 'faces' | 'probes' | 'avatars';
+export type AttachmentBucket = string;
 export type AttachmentAction = 'read' | 'write' | 'delete';
 
 /**

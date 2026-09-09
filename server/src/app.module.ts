@@ -22,9 +22,11 @@ import { AttendanceModule } from './modules/attendance/attendance.module.js';
 import { RosterModule } from './modules/roster/roster.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
 import { DatabaseModule } from './common/database/database.module.js';
+import { FileManagerModule } from './infrastructure/storage/file-manager.module.js';
 
 @Module({
   imports: [
+    FileManagerModule,
     DatabaseModule,
     HealthModule,
     TimeModule,

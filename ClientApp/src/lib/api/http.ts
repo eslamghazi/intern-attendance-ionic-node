@@ -196,6 +196,22 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     );
   }
 
+  // Auto-unwrap new backend architecture envelopes
+  if (payload && typeof payload === 'object' && 'ok' in payload && (payload as any).ok === true) {
+    if ('total' in payload && Array.isArray((payload as any).data)) {
+      // Map PaginatedResponse safely to all expected legacy formats
+      return { 
+        data: (payload as any).data,
+        items: (payload as any).data,
+        rows: (payload as any).data,
+        total: (payload as any).total,
+        meta: (payload as any).meta 
+      } as T;
+    }
+    // Map ApiResponse
+    return (payload as any).data as T;
+  }
+
   return payload as T;
 }
 
