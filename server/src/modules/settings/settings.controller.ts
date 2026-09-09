@@ -1,5 +1,5 @@
 import { Controller, Get, Patch, Put, Body } from '@nestjs/common';
-import { z } from 'zod';
+import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Caller as CallerDecorator, Claims as ClaimsDecorator } from '../../common/decorators/caller.decorator.js';
@@ -7,8 +7,16 @@ import type { Caller } from '../../common/types.js';
 import type { JwtClaims } from '../../db/context.js';
 import { AuthService } from '../auth/auth.service.js';
 import { SettingsService } from './settings.service.js';
-import { badRequest } from '../../http/errors.js';
+import { ApiResponse } from '../../common/dto/api-response.dto.js';
+import {
+  BrandingResponseDto,
+  SettingsResponseDto,
+  UpdateSettingsDto,
+  MasterPasswordStatusResponseDto,
+  SetMasterPasswordDto,
+} from './dto/settings.dto.js';
 
+@ApiTags('Settings')
 @Controller('api/v1/settings')
 export class SettingsController {
   constructor(
@@ -18,41 +26,56 @@ export class SettingsController {
 
   @Public()
   @Get()
+  @ApiOperation({ summary: 'Get application settings' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<SettingsResponseDto | null> })
   async getSettings(
     @CallerDecorator() caller: Caller | null,
     @ClaimsDecorator() claims: JwtClaims | null,
-  ) {
-    if (!caller) return null;
-    return this.settingsService.getSettings(claims);
+  ): Promise<ApiResponse<SettingsResponseDto | null>> {
+    if (!caller) return new ApiResponse(null);
+    const data = await this.settingsService.getSettings(claims);
+    return new ApiResponse(data);
   }
 
   @Public()
   @Get('branding')
-  async getBranding() {
-    return this.settingsService.getBranding();
+  @ApiOperation({ summary: 'Get public branding settings' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<BrandingResponseDto | null> })
+  async getBranding(): Promise<ApiResponse<BrandingResponseDto | null>> {
+    const data = await this.settingsService.getBranding();
+    return new ApiResponse(data);
   }
 
+  @ApiBearerAuth()
   @Roles('superadmin', 'admin')
   @Patch()
+  @ApiOperation({ summary: 'Update system settings (Admin only)' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
   async updateSettings(
     @ClaimsDecorator() claims: JwtClaims,
-    @Body() body: unknown,
-  ) {
-    const b = (body ?? {}) as Record<string, unknown>;
-    return this.settingsService.updateSettings(claims, b);
+    @Body() body: UpdateSettingsDto,
+  ): Promise<ApiResponse<{ ok: true }>> {
+    const data = await this.settingsService.updateSettings(claims, body);
+    return new ApiResponse(data);
   }
 
+  @ApiBearerAuth()
+  @Roles('superadmin', 'admin')
   @Get('master-password')
-  async getMasterPassword() {
-    return { configured: await this.authService.masterPasswordIsSet() };
+  @ApiOperation({ summary: 'Check if master password is configured' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<MasterPasswordStatusResponseDto> })
+  async getMasterPassword(): Promise<ApiResponse<MasterPasswordStatusResponseDto>> {
+    const configured = await this.authService.masterPasswordIsSet();
+    return new ApiResponse(new MasterPasswordStatusResponseDto(configured));
   }
 
+  @ApiBearerAuth()
   @Roles('superadmin')
   @Put('master-password')
-  async setMasterPassword(@Body() body: unknown) {
-    const parsed = z.object({ password: z.string() }).safeParse(body);
-    if (!parsed.success) throw badRequest('invalid', 'password is required');
-    await this.authService.setMasterPassword(parsed.data.password);
-    return { ok: true };
+  @ApiOperation({ summary: 'Set or change master password (Superadmin only)' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
+  async setMasterPassword(@Body() body: SetMasterPasswordDto): Promise<ApiResponse<{ ok: true }>> {
+    await this.authService.setMasterPassword(body.password);
+    return new ApiResponse({ ok: true });
   }
 }

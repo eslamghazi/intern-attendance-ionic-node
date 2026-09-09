@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { UnitOfWorkService } from '../../common/database/unit-of-work.service.js';
 import { SettingsRepository } from './settings.repository.js';
-import type { Caller } from '../../domain/identity/role.js';
 import type { JwtClaims } from '../../db/context.js';
 import { badRequest } from '../../http/errors.js';
 import { appSettings } from '../../db/schema/index.js';
+import { SettingsMapper } from './settings.mapper.js';
+import type { BrandingResponseDto, SettingsResponseDto, UpdateSettingsDto } from './dto/settings.dto.js';
 
 @Injectable()
 export class SettingsService {
@@ -13,26 +14,21 @@ export class SettingsService {
     private readonly repo: SettingsRepository,
   ) {}
 
-  async getSettings(claims: JwtClaims | null) {
+  async getSettings(claims: JwtClaims | null): Promise<SettingsResponseDto | null> {
     return this.uow.asCaller(claims, async () => {
-      return this.repo.getSettings();
+      const row = await this.repo.getSettings();
+      return SettingsMapper.toResponseDto(row);
     });
   }
 
-  async getBranding() {
+  async getBranding(): Promise<BrandingResponseDto | null> {
     return this.uow.asService(async () => {
       const row = await this.repo.getBranding();
-      if (!row) return null;
-      return {
-        org_name: row.orgName,
-        org_logo_url: row.orgLogoUrl,
-        terminology: row.terminology,
-        member_photos: row.memberPhotos,
-      };
+      return SettingsMapper.toBrandingDto(row);
     });
   }
 
-  async updateSettings(claims: JwtClaims, b: Record<string, unknown>) {
+  async updateSettings(claims: JwtClaims, dto: UpdateSettingsDto): Promise<{ ok: true }> {
     const snakeToCamel: Record<string, keyof typeof appSettings.$inferInsert> = {
       face_match_threshold: 'faceMatchThreshold',
       liveness_required: 'livenessRequired',
@@ -65,9 +61,9 @@ export class SettingsService {
     };
 
     const updateObj: Record<string, unknown> = {};
-    for (const [snakeKey, val] of Object.entries(b)) {
-      const camelKey = snakeToCamel[snakeKey];
-      if (camelKey && val !== undefined) {
+    for (const [key, val] of Object.entries(dto)) {
+      const camelKey = snakeToCamel[key] ?? key;
+      if (val !== undefined) {
         updateObj[camelKey] = val;
       }
     }

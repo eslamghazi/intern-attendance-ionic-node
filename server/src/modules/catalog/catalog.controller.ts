@@ -6,215 +6,242 @@ import {
   Delete,
   Body,
   Param,
-  HttpCode,
-  HttpStatus,
 } from '@nestjs/common';
-import { z } from 'zod';
+import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Claims as ClaimsDecorator } from '../../common/decorators/caller.decorator.js';
 import type { JwtClaims } from '../../db/context.js';
-import { badRequest } from '../../http/errors.js';
 import { CatalogService } from './catalog.service.js';
+import { ApiResponse } from '../../common/dto/api-response.dto.js';
+import {
+  CreateInstitutionDto,
+  UpdateInstitutionDto,
+  InstitutionResponseDto,
+  CreateBranchDto,
+  UpdateBranchDto,
+  BranchResponseDto,
+  BranchOptionResponseDto,
+  CreateGroupDto,
+  UpdateGroupDto,
+  GroupResponseDto,
+  GroupOptionResponseDto,
+  CreateShiftDto,
+  UpdateShiftDto,
+  ShiftResponseDto,
+  ShiftKeyOptionResponseDto,
+} from './dto/catalog.dto.js';
 
-const uuid = z.string().uuid();
-
-const institutionBody = z.object({
-  name: z.string().trim().min(1),
-  code: z.coerce.number().int().default(0),
-});
-
-const branchBody = z.object({
-  name: z.string().trim().min(1),
-  address: z.string().nullish(),
-  latitude: z.number(),
-  longitude: z.number(),
-  radius_meters: z.coerce.number().int(),
-  area_coords: z.array(z.unknown()).nullish(),
-  institution_id: uuid.nullish(),
-  bypass_face: z.boolean().default(false),
-  bypass_location: z.boolean().default(false),
-  bypass_checkout_window: z.boolean().default(false),
-  require_qr: z.boolean().default(false),
-  qr_enabled: z.boolean().default(true),
-  block_checkin: z.boolean().default(false),
-});
-
-const groupBody = z.object({
-  name: z.string().trim().min(1),
-  year: z.coerce.number().int(),
-  institution_id: uuid.nullish(),
-  branch_id: uuid.nullish(),
-  start_date: z.string().nullish(),
-  end_date: z.string().nullish(),
-  bypass_face: z.boolean().default(false),
-  bypass_location: z.boolean().default(false),
-  bypass_checkout_window: z.boolean().default(false),
-});
-
-const shiftBody = z.object({
-  name: z.string().trim().min(1),
-  key: z.string().nullish(),
-  checkin_open: z.string().nullish(),
-  checkin_late: z.string().nullish(),
-  checkin_close: z.string().nullish(),
-  checkout_open: z.string().nullish(),
-  checkout_close: z.string().nullish(),
-  start_time: z.string(),
-  end_time: z.string(),
-});
-
+@ApiTags('Catalog')
+@ApiBearerAuth()
 @Controller('api/v1')
 export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}
 
+  /* Institutions */
   @Get('institutions')
-  async getInstitutions(@ClaimsDecorator() claims: JwtClaims) {
-    return this.catalogService.getInstitutions(claims);
+  @ApiOperation({ summary: 'Get all institutions' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<InstitutionResponseDto[]> })
+  async getInstitutions(@ClaimsDecorator() claims: JwtClaims): Promise<ApiResponse<InstitutionResponseDto[]>> {
+    const data = await this.catalogService.getInstitutions(claims);
+    return new ApiResponse(data);
   }
 
-  @Get('branches')
-  async getBranches(@ClaimsDecorator() claims: JwtClaims) {
-    return this.catalogService.getBranches(claims);
-  }
-
-  @Get('groups')
-  async getGroups(@ClaimsDecorator() claims: JwtClaims) {
-    return this.catalogService.getGroups(claims);
-  }
-
-  @Get('shifts')
-  async getShifts(@ClaimsDecorator() claims: JwtClaims) {
-    return this.catalogService.getShifts(claims);
-  }
-
-  @Get('branches/options')
-  async getBranchesOptions(@ClaimsDecorator() claims: JwtClaims) {
-    return this.catalogService.getBranchesOptions(claims);
-  }
-
-  @Get('groups/options')
-  async getGroupsOptions(@ClaimsDecorator() claims: JwtClaims) {
-    return this.catalogService.getGroupsOptions(claims);
-  }
-
-  @Get('shifts/keys')
-  async getShiftsKeys(@ClaimsDecorator() claims: JwtClaims) {
-    return this.catalogService.getShiftsKeys(claims);
-  }
-
-  /* Institutions CRUD */
-  @Roles('superadmin')
+  @Roles('superadmin', 'admin')
   @Post('institutions')
-  @HttpCode(HttpStatus.CREATED)
-  async createInstitution(@ClaimsDecorator() claims: JwtClaims, @Body() body: unknown) {
-    const parsed = institutionBody.safeParse(body);
-    if (!parsed.success) throw badRequest('invalid', 'invalid institutions payload');
-    return this.catalogService.createInstitution(claims, parsed.data);
+  @ApiOperation({ summary: 'Create an institution' })
+  @SwaggerResponse({ status: 201, type: ApiResponse<InstitutionResponseDto> })
+  async createInstitution(
+    @ClaimsDecorator() claims: JwtClaims,
+    @Body() body: CreateInstitutionDto,
+  ): Promise<ApiResponse<InstitutionResponseDto>> {
+    const data = await this.catalogService.createInstitution(claims, body);
+    return new ApiResponse(data);
   }
 
-  @Roles('superadmin')
+  @Roles('superadmin', 'admin')
   @Patch('institutions/:id')
+  @ApiOperation({ summary: 'Update an institution' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<InstitutionResponseDto> })
   async updateInstitution(
     @ClaimsDecorator() claims: JwtClaims,
     @Param('id') id: string,
-    @Body() body: unknown,
-  ) {
-    const parsed = institutionBody.safeParse(body);
-    if (!parsed.success) throw badRequest('invalid', 'invalid institutions payload');
-    return this.catalogService.updateInstitution(claims, id, parsed.data);
+    @Body() body: UpdateInstitutionDto,
+  ): Promise<ApiResponse<InstitutionResponseDto>> {
+    const data = await this.catalogService.updateInstitution(claims, id, body);
+    return new ApiResponse(data);
   }
 
-  @Roles('superadmin')
+  @Roles('superadmin', 'admin')
   @Delete('institutions/:id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteInstitution(@ClaimsDecorator() claims: JwtClaims, @Param('id') id: string) {
+  @ApiOperation({ summary: 'Delete an institution' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
+  async deleteInstitution(
+    @ClaimsDecorator() claims: JwtClaims,
+    @Param('id') id: string,
+  ): Promise<ApiResponse<{ ok: true }>> {
     await this.catalogService.deleteInstitution(claims, id);
+    return new ApiResponse({ ok: true });
   }
 
-  /* Branches CRUD */
-  @Roles('superadmin')
+  /* Branches */
+  @Get('branches')
+  @ApiOperation({ summary: 'Get all branches' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<BranchResponseDto[]> })
+  async getBranches(@ClaimsDecorator() claims: JwtClaims): Promise<ApiResponse<BranchResponseDto[]>> {
+    const data = await this.catalogService.getBranches(claims);
+    return new ApiResponse(data);
+  }
+
+  @Get('branches/options')
+  @ApiOperation({ summary: 'Get lightweight branch options for dropdowns' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<BranchOptionResponseDto[]> })
+  async getBranchesOptions(@ClaimsDecorator() claims: JwtClaims): Promise<ApiResponse<BranchOptionResponseDto[]>> {
+    const data = await this.catalogService.getBranchesOptions(claims);
+    return new ApiResponse(data);
+  }
+
+  @Roles('superadmin', 'admin')
   @Post('branches')
-  @HttpCode(HttpStatus.CREATED)
-  async createBranch(@ClaimsDecorator() claims: JwtClaims, @Body() body: unknown) {
-    const parsed = branchBody.safeParse(body);
-    if (!parsed.success) throw badRequest('invalid', 'invalid branches payload');
-    return this.catalogService.createBranch(claims, parsed.data);
+  @ApiOperation({ summary: 'Create a branch with geofence settings' })
+  @SwaggerResponse({ status: 201, type: ApiResponse<BranchResponseDto> })
+  async createBranch(
+    @ClaimsDecorator() claims: JwtClaims,
+    @Body() body: CreateBranchDto,
+  ): Promise<ApiResponse<BranchResponseDto>> {
+    const data = await this.catalogService.createBranch(claims, body);
+    return new ApiResponse(data);
   }
 
-  @Roles('superadmin')
+  @Roles('superadmin', 'admin')
   @Patch('branches/:id')
+  @ApiOperation({ summary: 'Update a branch' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<BranchResponseDto> })
   async updateBranch(
     @ClaimsDecorator() claims: JwtClaims,
     @Param('id') id: string,
-    @Body() body: unknown,
-  ) {
-    const parsed = branchBody.safeParse(body);
-    if (!parsed.success) throw badRequest('invalid', 'invalid branches payload');
-    return this.catalogService.updateBranch(claims, id, parsed.data);
+    @Body() body: UpdateBranchDto,
+  ): Promise<ApiResponse<BranchResponseDto>> {
+    const data = await this.catalogService.updateBranch(claims, id, body);
+    return new ApiResponse(data);
   }
 
-  @Roles('superadmin')
+  @Roles('superadmin', 'admin')
   @Delete('branches/:id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteBranch(@ClaimsDecorator() claims: JwtClaims, @Param('id') id: string) {
+  @ApiOperation({ summary: 'Delete a branch' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
+  async deleteBranch(
+    @ClaimsDecorator() claims: JwtClaims,
+    @Param('id') id: string,
+  ): Promise<ApiResponse<{ ok: true }>> {
     await this.catalogService.deleteBranch(claims, id);
+    return new ApiResponse({ ok: true });
   }
 
-  /* Groups CRUD */
-  @Roles('superadmin')
+  /* Groups */
+  @Get('groups')
+  @ApiOperation({ summary: 'Get all groups' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<GroupResponseDto[]> })
+  async getGroups(@ClaimsDecorator() claims: JwtClaims): Promise<ApiResponse<GroupResponseDto[]>> {
+    const data = await this.catalogService.getGroups(claims);
+    return new ApiResponse(data);
+  }
+
+  @Get('groups/options')
+  @ApiOperation({ summary: 'Get lightweight group options for dropdowns' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<GroupOptionResponseDto[]> })
+  async getGroupsOptions(@ClaimsDecorator() claims: JwtClaims): Promise<ApiResponse<GroupOptionResponseDto[]>> {
+    const data = await this.catalogService.getGroupsOptions(claims);
+    return new ApiResponse(data);
+  }
+
+  @Roles('superadmin', 'admin')
   @Post('groups')
-  @HttpCode(HttpStatus.CREATED)
-  async createGroup(@ClaimsDecorator() claims: JwtClaims, @Body() body: unknown) {
-    const parsed = groupBody.safeParse(body);
-    if (!parsed.success) throw badRequest('invalid', 'invalid groups payload');
-    return this.catalogService.createGroup(claims, parsed.data);
+  @ApiOperation({ summary: 'Create a group' })
+  @SwaggerResponse({ status: 201, type: ApiResponse<GroupResponseDto> })
+  async createGroup(
+    @ClaimsDecorator() claims: JwtClaims,
+    @Body() body: CreateGroupDto,
+  ): Promise<ApiResponse<GroupResponseDto>> {
+    const data = await this.catalogService.createGroup(claims, body);
+    return new ApiResponse(data);
   }
 
-  @Roles('superadmin')
+  @Roles('superadmin', 'admin')
   @Patch('groups/:id')
+  @ApiOperation({ summary: 'Update a group' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<GroupResponseDto> })
   async updateGroup(
     @ClaimsDecorator() claims: JwtClaims,
     @Param('id') id: string,
-    @Body() body: unknown,
-  ) {
-    const parsed = groupBody.safeParse(body);
-    if (!parsed.success) throw badRequest('invalid', 'invalid groups payload');
-    return this.catalogService.updateGroup(claims, id, parsed.data);
+    @Body() body: UpdateGroupDto,
+  ): Promise<ApiResponse<GroupResponseDto>> {
+    const data = await this.catalogService.updateGroup(claims, id, body);
+    return new ApiResponse(data);
   }
 
-  @Roles('superadmin')
+  @Roles('superadmin', 'admin')
   @Delete('groups/:id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteGroup(@ClaimsDecorator() claims: JwtClaims, @Param('id') id: string) {
+  @ApiOperation({ summary: 'Delete a group' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
+  async deleteGroup(
+    @ClaimsDecorator() claims: JwtClaims,
+    @Param('id') id: string,
+  ): Promise<ApiResponse<{ ok: true }>> {
     await this.catalogService.deleteGroup(claims, id);
+    return new ApiResponse({ ok: true });
   }
 
-  /* Shifts CRUD */
-  @Roles('superadmin')
+  /* Shifts */
+  @Get('shifts')
+  @ApiOperation({ summary: 'Get all shifts' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<ShiftResponseDto[]> })
+  async getShifts(@ClaimsDecorator() claims: JwtClaims): Promise<ApiResponse<ShiftResponseDto[]>> {
+    const data = await this.catalogService.getShifts(claims);
+    return new ApiResponse(data);
+  }
+
+  @Get('shifts/keys')
+  @ApiOperation({ summary: 'Get shift keys list' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<ShiftKeyOptionResponseDto[]> })
+  async getShiftsKeys(@ClaimsDecorator() claims: JwtClaims): Promise<ApiResponse<ShiftKeyOptionResponseDto[]>> {
+    const data = await this.catalogService.getShiftsKeys(claims);
+    return new ApiResponse(data);
+  }
+
+  @Roles('superadmin', 'admin')
   @Post('shifts')
-  @HttpCode(HttpStatus.CREATED)
-  async createShift(@ClaimsDecorator() claims: JwtClaims, @Body() body: unknown) {
-    const parsed = shiftBody.safeParse(body);
-    if (!parsed.success) throw badRequest('invalid', 'invalid shifts payload');
-    return this.catalogService.createShift(claims, parsed.data);
+  @ApiOperation({ summary: 'Create a shift' })
+  @SwaggerResponse({ status: 201, type: ApiResponse<ShiftResponseDto> })
+  async createShift(
+    @ClaimsDecorator() claims: JwtClaims,
+    @Body() body: CreateShiftDto,
+  ): Promise<ApiResponse<ShiftResponseDto>> {
+    const data = await this.catalogService.createShift(claims, body);
+    return new ApiResponse(data);
   }
 
-  @Roles('superadmin')
+  @Roles('superadmin', 'admin')
   @Patch('shifts/:id')
+  @ApiOperation({ summary: 'Update a shift' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<ShiftResponseDto> })
   async updateShift(
     @ClaimsDecorator() claims: JwtClaims,
     @Param('id') id: string,
-    @Body() body: unknown,
-  ) {
-    const parsed = shiftBody.safeParse(body);
-    if (!parsed.success) throw badRequest('invalid', 'invalid shifts payload');
-    return this.catalogService.updateShift(claims, id, parsed.data);
+    @Body() body: UpdateShiftDto,
+  ): Promise<ApiResponse<ShiftResponseDto>> {
+    const data = await this.catalogService.updateShift(claims, id, body);
+    return new ApiResponse(data);
   }
 
-  @Roles('superadmin')
+  @Roles('superadmin', 'admin')
   @Delete('shifts/:id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteShift(@ClaimsDecorator() claims: JwtClaims, @Param('id') id: string) {
+  @ApiOperation({ summary: 'Delete a shift' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
+  async deleteShift(
+    @ClaimsDecorator() claims: JwtClaims,
+    @Param('id') id: string,
+  ): Promise<ApiResponse<{ ok: true }>> {
     await this.catalogService.deleteShift(claims, id);
+    return new ApiResponse({ ok: true });
   }
 }

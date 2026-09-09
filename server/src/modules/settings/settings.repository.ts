@@ -1,13 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { BaseRepository } from '../../common/database/base.repository.js';
+import { GenericRepository } from '../../common/database/generic.repository.js';
 import { eq } from 'drizzle-orm';
 import { appSettings } from '../../db/schema/index.js';
 
+type AppSettings = typeof appSettings.$inferSelect;
+type AppSettingsInsert = typeof appSettings.$inferInsert;
+
 @Injectable()
-export class SettingsRepository extends BaseRepository {
+export class SettingsRepository extends GenericRepository<AppSettings, number, AppSettingsInsert, Partial<AppSettingsInsert>> {
+  constructor() {
+    super(appSettings, appSettings.id);
+  }
+
   async getSettings() {
-    const rows = await this.db.select().from(appSettings).where(eq(appSettings.id, 1));
-    return rows[0] ?? null;
+    return this.findById(1);
   }
 
   async getBranding() {
@@ -23,7 +29,7 @@ export class SettingsRepository extends BaseRepository {
     return rows[0] ?? null;
   }
 
-  async updateSettings(updateObj: Record<string, unknown>) {
-    await this.db.update(appSettings).set(updateObj).where(eq(appSettings.id, 1));
+  async updateSettings(updateObj: Partial<AppSettingsInsert>) {
+    await this.update(1, updateObj);
   }
 }

@@ -3,7 +3,7 @@ import { UnitOfWorkService } from '../../common/database/unit-of-work.service.js
 import { MembersRepository } from '../members/members.repository.js';
 import type { Caller } from '../../common/types.js';
 import { cairoDate, cairoTime } from '../../domain/clock.js';
-import type { ServerNow } from './time.controller.js';
+import type { ServerNow } from './dto/time-response.dto.js';
 
 @Injectable()
 export class TimeService {
