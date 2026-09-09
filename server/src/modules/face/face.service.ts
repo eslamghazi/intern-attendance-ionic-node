@@ -3,10 +3,11 @@ import { UnitOfWorkService } from '../../common/database/unit-of-work.service.js
 import { FaceRepository } from './face.repository.js';
 import type { Caller } from '../../common/types.js';
 import type { JwtClaims } from '../../db/context.js';
-import { BUCKETS, decodeBase64Image, putObject, removeObjects } from '../../storage/objects.js';
-import { requireMember } from '../../services/accessService.js';
+import { FileCategory, FileManager } from '../../infrastructure/storage/file-manager.service.js';
+import { requireMember } from '../../common/auth/access.service.js';
 import { isStaff } from '../../domain/identity/role.js';
 import { badRequest, forbidden, notFound } from '../../http/errors.js';
+import { MembersRepository } from '../members/members.repository.js';
 
 function sanitize(s: string): string {
   return String(s ?? '')
@@ -19,6 +20,8 @@ export class FaceService {
   constructor(
     private readonly uow: UnitOfWorkService,
     private readonly repo: FaceRepository,
+    private readonly membersRepo: MembersRepository,
+    private readonly fileManager: FileManager,
   ) {}
 
   private async clearEnrolment(memberId: string, profileId: string): Promise<void> {
@@ -33,7 +36,7 @@ export class FaceService {
     // The previous code passed tx. We can just call removeObjects without tx if it's using the global db or context
     // Actually, removeObjects supports an optional tx parameter. Since we use ALS, we can pass nothing or the uow proxy.
     // wait, we can pass (this.repo as any).db as tx.
-    await removeObjects(BUCKETS.faces, paths, (this.repo as any).db);
+    await this.fileManager.delete(FileCategory.FACE, paths, (this.repo as any).db);
   }
 
   private async resolveScope(caller: { id: string; role: string }): Promise<{ branchId: string | null }> {
@@ -47,7 +50,7 @@ export class FaceService {
   }
 
   async enrollPhoto(caller: Caller, base64: string) {
-    const bytes = decodeBase64Image(base64);
+    const bytes = this.fileManager.decodeBase64Image(base64);
     if (!bytes) throw badRequest('bad_base64', 'could not decode the image');
 
     return this.uow.asService(async () => {
@@ -63,8 +66,8 @@ export class FaceService {
 
       if (!member.member_id) throw notFound('member_not_found');
 
-      await putObject({
-        bucket: BUCKETS.faces,
+      await this.fileManager.upload({
+        category: FileCategory.FACE,
         path,
         body: bytes,
         contentType: 'image/jpeg',

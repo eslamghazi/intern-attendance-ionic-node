@@ -1,10 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { BaseRepository } from '../../common/database/base.repository.js';
+import { GenericRepository } from '../../common/database/generic.repository.js';
 import { faceTemplates, members, memberDirectory, appSettings } from '../../db/schema/index.js';
 import { eq, inArray, isNotNull, and, sql } from 'drizzle-orm';
 
 @Injectable()
-export class FaceRepository extends BaseRepository {
+export class FaceRepository extends GenericRepository<
+  typeof faceTemplates.$inferSelect,
+  string,
+  typeof faceTemplates.$inferInsert,
+  Partial<typeof faceTemplates.$inferInsert>
+> {
+  constructor() {
+    super(faceTemplates, faceTemplates.memberId);
+  }
+
   async getSettingsStoreFaceImages() {
     const rows = await this.db
       .select({ storeFaceImages: appSettings.storeFaceImages })

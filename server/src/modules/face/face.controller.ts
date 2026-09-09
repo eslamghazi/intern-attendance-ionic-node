@@ -6,104 +6,136 @@ import {
   Param,
   Body,
 } from '@nestjs/common';
-import { z } from 'zod';
+import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Caller as CallerDecorator, Claims as ClaimsDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
 import type { JwtClaims } from '../../db/context.js';
 import { badRequest } from '../../http/errors.js';
 import { FaceService } from './face.service.js';
+import { ApiResponse } from '../../common/dto/api-response.dto.js';
+import {
+  EnrollPhotoDto,
+  ResetFaceDto,
+  LookupFaceDto,
+  PutTemplateDto,
+  GetTemplatePhotosDto,
+  ToolResetDto,
+  LookupFaceResponseDto,
+  TemplateResponseDto,
+  TemplatePhotoItemDto,
+} from './dto/face.dto.js';
+import { FaceMapper } from './face.mapper.js';
 
+@ApiTags('Face')
+@ApiBearerAuth()
 @Controller('api/v1/face')
 export class FaceController {
   constructor(private readonly faceService: FaceService) {}
 
   @Roles('member')
   @Post('enroll-photo')
+  @ApiOperation({ summary: 'Enroll face photo for member' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: boolean; path?: string; skipped?: boolean }> })
   async enrollPhoto(
-    @CallerDecorator() caller: Caller,
-    @Body() body: unknown,
-  ) {
-    const parsed = z.object({ image_base64: z.string() }).safeParse(body);
-    if (!parsed.success) throw badRequest('missing_image', 'image_base64 is required');
+    @CallerDecorator() caller: Caller | null,
+    @Body() body: EnrollPhotoDto,
+  ): Promise<ApiResponse<{ ok: boolean; path?: string; skipped?: boolean }>> {
+    if (!body?.image_base64) throw badRequest('invalid_body', 'image_base64 is required');
 
-    return this.faceService.enrollPhoto(caller, parsed.data.image_base64);
+    const data = await this.faceService.enrollPhoto(caller!, body.image_base64);
+    return new ApiResponse(data);
   }
 
   @Roles('admin', 'superadmin')
   @Post('reset')
+  @ApiOperation({ summary: 'Reset face biometrics for a member (Admin only)' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: boolean }> })
   async resetFace(
-    @CallerDecorator() caller: Caller,
-    @Body() body: unknown,
-  ) {
-    const parsed = z.object({ member_id: z.string().uuid() }).safeParse(body);
-    if (!parsed.success) throw badRequest('missing', 'member_id is required');
+    @CallerDecorator() caller: Caller | null,
+    @Body() body: ResetFaceDto,
+  ): Promise<ApiResponse<{ ok: boolean }>> {
+    if (!body?.member_id) throw badRequest('invalid_body', 'member_id is required');
 
-    return this.faceService.resetFace(caller, parsed.data.member_id);
+    const data = await this.faceService.resetFace(caller!, body.member_id);
+    return new ApiResponse(data);
   }
 
   @Post('lookup')
+  @ApiOperation({ summary: 'Lookup member biometric status by numeric code' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<LookupFaceResponseDto> })
   async lookup(
-    @CallerDecorator() caller: Caller,
-    @Body() body: unknown,
-  ) {
-    const parsed = z.object({ code: z.string().trim().min(1) }).safeParse(body);
-    if (!parsed.success) throw badRequest('missing', 'code is required');
+    @CallerDecorator() caller: Caller | null,
+    @Body() body: LookupFaceDto,
+  ): Promise<ApiResponse<LookupFaceResponseDto>> {
+    if (!body?.code) throw badRequest('invalid_body', 'code is required');
 
-    return this.faceService.lookup(caller, parsed.data.code);
+    const data = await this.faceService.lookup(caller!, body.code);
+    return new ApiResponse(FaceMapper.toLookupResponse(data));
   }
 
   @Get('templates/:memberId')
+  @ApiOperation({ summary: 'Get face embedding template for member' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<TemplateResponseDto> })
   async getTemplate(
     @ClaimsDecorator() claims: JwtClaims,
     @Param('memberId') memberId: string,
-  ) {
-    return this.faceService.getTemplate(claims, memberId);
+  ): Promise<ApiResponse<TemplateResponseDto>> {
+    const data = await this.faceService.getTemplate(claims, memberId);
+    return new ApiResponse(data);
   }
 
   @Put('templates/:memberId')
+  @ApiOperation({ summary: 'Upsert face embedding template' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: boolean }> })
   async putTemplate(
     @ClaimsDecorator() claims: JwtClaims,
     @Param('memberId') memberId: string,
-    @Body() body: unknown,
-  ) {
-    const parsed = z
-      .object({
-        embedding: z.string().min(3),
-        photo_path: z.string().nullish(),
-        quality_score: z.number().nullish(),
-      })
-      .safeParse(body);
-    if (!parsed.success) throw badRequest('invalid', 'invalid template payload');
+    @Body() body: PutTemplateDto,
+  ): Promise<ApiResponse<{ ok: boolean }>> {
+    if (!body?.embedding) throw badRequest('invalid_body', 'embedding is required');
 
-    return this.faceService.putTemplate(claims, memberId, parsed.data);
+    const data = await this.faceService.putTemplate(claims, memberId, {
+      embedding: body.embedding,
+      photo_path: body.photo_path ?? null,
+      quality_score: body.quality_score ?? null,
+    });
+    return new ApiResponse(data);
   }
 
   @Post('templates/photos')
+  @ApiOperation({ summary: 'Get photo paths for list of members' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<TemplatePhotoItemDto[]> })
   async getTemplatePhotos(
     @ClaimsDecorator() claims: JwtClaims,
-    @Body() body: unknown,
-  ) {
-    const parsed = z.object({ member_ids: z.array(z.string().uuid()) }).safeParse(body);
-    if (!parsed.success) throw badRequest('invalid', 'member_ids is required');
+    @Body() body: GetTemplatePhotosDto,
+  ): Promise<ApiResponse<TemplatePhotoItemDto[]>> {
+    if (!body?.member_ids) throw badRequest('invalid_body', 'member_ids is required');
 
-    return this.faceService.getTemplatePhotos(claims, parsed.data.member_ids);
+    const rows = await this.faceService.getTemplatePhotos(claims, body.member_ids);
+    return new ApiResponse(FaceMapper.toPhotoItems(rows));
   }
 
   @Roles('admin', 'superadmin')
   @Get('templates/photo-paths')
-  async getTemplatePhotoPaths(@ClaimsDecorator() claims: JwtClaims) {
-    return this.faceService.getTemplatePhotoPaths(claims);
+  @ApiOperation({ summary: 'Get all enrolled face template photo paths (Admin only)' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<(string | null)[]> })
+  async getTemplatePhotoPaths(@ClaimsDecorator() claims: JwtClaims): Promise<ApiResponse<(string | null)[]>> {
+    const data = await this.faceService.getTemplatePhotoPaths(claims);
+    return new ApiResponse(data);
   }
 
   @Post('tool-reset')
+  @ApiOperation({ summary: 'Reset face biometrics using tool kiosk' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: boolean }> })
   async toolReset(
-    @CallerDecorator() caller: Caller,
-    @Body() body: unknown,
-  ) {
-    const parsed = z.object({ member_id: z.string().uuid() }).safeParse(body);
-    if (!parsed.success) throw badRequest('missing', 'member_id is required');
+    @CallerDecorator() caller: Caller | null,
+    @Body() body: ToolResetDto,
+  ): Promise<ApiResponse<{ ok: boolean }>> {
+    if (!body?.member_id) throw badRequest('invalid_body', 'member_id is required');
 
-    return this.faceService.toolReset(caller, parsed.data.member_id);
+    const data = await this.faceService.toolReset(caller!, body.member_id);
+    return new ApiResponse(data);
   }
+
 }
