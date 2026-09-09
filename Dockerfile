@@ -35,5 +35,5 @@ USER node
 
 EXPOSE 8787
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/main.js"]
 
