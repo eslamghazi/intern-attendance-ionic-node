@@ -1,5 +1,5 @@
 import { Controller, Post, Body } from '@nestjs/common';
-import { z } from 'zod';
+import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
@@ -7,16 +7,20 @@ import { ApiError, badRequest } from '../../http/errors.js';
 import type { CheckPayload } from '../../domain/attendance/types.js';
 import { AttendanceService, AttendanceRefused } from './attendance.service.js';
 import { ApiResponse } from '../../common/dto/api-response.dto.js';
-import { recordAttendanceSchema, setManualAttendanceSchema } from './dto/attendance.dto.js';
+import {
+  RecordAttendanceDto,
+  SetManualAttendanceDto,
+  AttendanceResultDto,
+} from './dto/attendance.dto.js';
 
-function toPayload(b: z.infer<typeof recordAttendanceSchema>): CheckPayload {
+function toPayload(b: RecordAttendanceDto): CheckPayload {
   return {
     type: b.type,
     lat: b.lat,
     lng: b.lng,
     accuracy: b.accuracy,
-    isMock: b.is_mock,
-    livenessPassed: b.liveness_passed,
+    isMock: Boolean(b.is_mock),
+    livenessPassed: Boolean(b.liveness_passed),
     faceScore: b.face_score ?? null,
     probePath: b.probe_path ?? null,
     probeBase64: b.probe_base64 ?? null,
@@ -25,20 +29,26 @@ function toPayload(b: z.infer<typeof recordAttendanceSchema>): CheckPayload {
   };
 }
 
+
+@ApiTags('Attendance')
+@ApiBearerAuth()
 @Controller('api/v1/attendance')
 export class AttendanceController {
   constructor(private readonly service: AttendanceService) {}
 
   @Post('record')
+  @ApiOperation({ summary: 'Record biometric and geofenced check-in or check-out' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<AttendanceResultDto> })
   async record(
     @CallerDecorator() caller: Caller | null,
-    @Body() body: unknown,
-  ) {
-    const parsed = recordAttendanceSchema.safeParse(body);
-    if (!parsed.success) throw badRequest('invalid_type', 'invalid attendance payload');
+    @Body() body: RecordAttendanceDto,
+  ): Promise<ApiResponse<unknown>> {
+    if (!body?.type || body.lat === undefined || body.lng === undefined) {
+      throw badRequest('invalid_type', 'invalid attendance payload');
+    }
 
     try {
-      const data = await this.service.recordAttendance(caller!.id, toPayload(parsed.data));
+      const data = await this.service.recordAttendance(caller!.id, toPayload(body));
       return new ApiResponse(data);
     } catch (err) {
       if (!(err instanceof AttendanceRefused)) throw err;
@@ -52,19 +62,22 @@ export class AttendanceController {
 
   @Roles('admin', 'superadmin')
   @Post('set')
+  @ApiOperation({ summary: 'Manually record or override member attendance (Admin only)' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
   async setManual(
     @CallerDecorator() caller: Caller | null,
-    @Body() body: unknown,
-  ) {
-    const parsed = setManualAttendanceSchema.safeParse(body);
-    if (!parsed.success) throw badRequest('missing', 'member_id and date are required');
-    const b = parsed.data;
+    @Body() body: SetManualAttendanceDto,
+  ): Promise<ApiResponse<unknown>> {
+    if (!body?.member_id || !body?.date) {
+      throw badRequest('missing', 'member_id and date are required');
+    }
+
     const data = await this.service.setAttendanceManually(caller!, {
-      memberId: b.member_id,
-      date: b.date,
-      status: b.status as any,
-      clear: Boolean(b.clear),
-      shiftId: b.shift_id ?? null,
+      memberId: body.member_id,
+      date: body.date,
+      status: body.status as any,
+      clear: Boolean(body.clear),
+      shiftId: body.shift_id ?? null,
     });
     return new ApiResponse(data);
   }

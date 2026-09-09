@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { BaseRepository } from '../../common/database/base.repository.js';
+import { GenericRepository } from '../../common/database/generic.repository.js';
 import {
   attendance,
   members,
@@ -59,7 +59,16 @@ export interface CheckOutWrite {
 }
 
 @Injectable()
-export class AttendanceRepository extends BaseRepository {
+export class AttendanceRepository extends GenericRepository<
+  typeof attendance.$inferSelect,
+  string,
+  typeof attendance.$inferInsert,
+  Partial<typeof attendance.$inferInsert>
+> {
+  constructor() {
+    super(attendance, attendance.id);
+  }
+
   async loadMemberContext(profileId: string): Promise<MemberContext | null> {
     const rows = await this.db
       .select({
