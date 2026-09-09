@@ -1,6 +1,6 @@
 # Deploying to a Hostinger VPS with aaPanel
 
-The whole stack is four containers and one nginx vhost. aaPanel's job here is
+The stack runs with Postgres and a unified fullstack Node application container (which serves both the frontend and the API) behind an Nginx vhost. aaPanel's job here is
 narrow: it terminates TLS, renews the certificate, and proxies to the app. It
 does **not** run the database, PHP, or anything else this project needs — those
 are in Docker, which is what makes the deployment reproducible and the rollback

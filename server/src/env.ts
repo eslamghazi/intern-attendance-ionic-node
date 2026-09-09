@@ -1,9 +1,25 @@
 // Validated, centralised environment access. Fail loudly at boot rather than
 // with a confusing 500 on the first request — a missing APP_JWT_SECRET would
 // otherwise reject every member token at runtime.
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+dotenv.config();
+dotenv.config({ path: resolve(__dirname, '../../.env') });
+dotenv.config({ path: resolve(__dirname, '../.env') });
+
+// If DATABASE_URL is unset, automatically construct fallback from POSTGRES_PASSWORD
+if (!process.env.DATABASE_URL && process.env.POSTGRES_PASSWORD) {
+  const host = process.env.POSTGRES_HOST || '127.0.0.1';
+  const port = process.env.POSTGRES_PORT || '5432';
+  const user = process.env.POSTGRES_USER || 'attendance';
+  const db = process.env.POSTGRES_DB || 'attendance';
+  process.env.DATABASE_URL = `postgres://${user}:${process.env.POSTGRES_PASSWORD}@${host}:${port}/${db}`;
+}
 
 const schema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
@@ -49,6 +65,8 @@ const schema = z.object({
   // Prefix the API is reachable under, so a signed URL a phone receives is
   // absolute enough to fetch. Empty when the app and API share an origin.
   API_PUBLIC_PATH: z.string().default('/api/v1'),
+  // Optional path to the built frontend client assets (e.g. ClientApp/dist or public).
+  CLIENT_DIST_PATH: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);

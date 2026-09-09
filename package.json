@@ -1,0 +1,21 @@
+{
+  "name": "intern-attendance",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Intern Attendance Fullstack System (Ionic React + Fastify Node)",
+  "scripts": {
+    "install:all": "npm install --prefix server && npm install --prefix ClientApp",
+    "build:client": "npm run build --prefix ClientApp",
+    "build:server": "npm run build --prefix server",
+    "build": "npm run build:client && npm run build:server",
+    "start": "node server/dist/index.js",
+    "dev:client": "npm run dev --prefix ClientApp",
+    "dev:server": "npm run dev --prefix server",
+    "test:server": "npm test --prefix server"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
+

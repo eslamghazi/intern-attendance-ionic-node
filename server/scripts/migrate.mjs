@@ -207,7 +207,7 @@ async function main() {
   const { rows: schemaPresent } = await client.query(
     `select to_regclass('public.profiles') is not null as present`,
   );
-  const preexisting = modelApplied[0].n === 0 && schemaPresent[0].present;
+  const preexisting = names.length > 0 && modelApplied[0].n === 0 && schemaPresent[0].present;
 
   if (preexisting && !flag('adopt-baseline')) {
     console.error(
@@ -225,9 +225,12 @@ async function main() {
 
   try {
     /* ------------------------------------------------------------- 1. prelude */
-    process.stdout.write('  prelude ... ');
-    await applyFile(client, readFileSync(join(DB_DIR, 'prelude.sql'), 'utf8'));
-    console.log('ok');
+    const preludePath = join(DB_DIR, 'prelude.sql');
+    if (existsSync(preludePath)) {
+      process.stdout.write('  prelude ... ');
+      await applyFile(client, readFileSync(preludePath, 'utf8'));
+      console.log('ok');
+    }
 
     /* --------------------------------------------- 2. functions, unvalidated */
     const fnFile = join(DB_DIR, 'functions', '010_functions.sql');

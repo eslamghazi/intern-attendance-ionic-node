@@ -2,6 +2,10 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
+import { existsSync } from 'node:fs';
+import { dirname, resolve, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { env } from './env.js';
 import { authPlugin } from './auth/plugin.js';
 import { toApiError } from './http/errors.js';
@@ -23,6 +27,28 @@ import { rosterRoutes } from './routes/roster.js';
 import { reportRoutes } from './routes/reports.js';
 
 export const API_PREFIX = '/api/v1';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+function findClientDist(): string | null {
+  const candidates = [
+    env.CLIENT_DIST_PATH,
+    resolve(__dirname, '../../ClientApp/dist'),
+    resolve(__dirname, '../public'),
+    resolve(__dirname, './public'),
+    resolve(process.cwd(), 'ClientApp/dist'),
+    resolve(process.cwd(), 'public'),
+    resolve(process.cwd(), '../ClientApp/dist'),
+    resolve(process.cwd(), 'server/public'),
+  ].filter((p): p is string => Boolean(p));
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate) && existsSync(join(candidate, 'index.html'))) {
+      return candidate;
+    }
+  }
+  return null;
+}
 
 export async function buildApp(): Promise<FastifyInstance> {
   // Anything that could carry a student identifier or a credential, gone
@@ -85,8 +111,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   // The client sets cache:'no-store' on reads for a reason: an export taken
   // right after an edit must never return pre-edit rows. Say it on the server
   // too, so no proxy in between decides otherwise.
-  app.addHook('onSend', async (_req, reply, payload) => {
-    reply.header('Cache-Control', 'no-store');
+  // Apply only to API & health endpoints so static frontend assets can be cached.
+  app.addHook('onSend', async (req, reply, payload) => {
+    if (req.url.startsWith(API_PREFIX) || req.url.startsWith('/health')) {
+      reply.header('Cache-Control', 'no-store');
+    }
     return payload;
   });
 
@@ -118,10 +147,6 @@ export async function buildApp(): Promise<FastifyInstance> {
     });
   });
 
-  app.setNotFoundHandler((req, reply) => {
-    reply.code(404).send({ error: { code: 'not_found', message: `no route for ${req.url}` } });
-  });
-
   await app.register(
     async (api) => {
       await api.register(healthRoutes);
@@ -146,6 +171,44 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // Keep /health reachable without the prefix too — uptime probes are simpler.
   await app.register(healthRoutes);
+
+  // Frontend static assets (if client dist directory exists)
+  const clientDist = findClientDist();
+  if (clientDist) {
+    app.log.info({ clientDist }, 'serving frontend static assets');
+    await app.register(fastifyStatic, {
+      root: clientDist,
+      prefix: '/',
+      wildcard: false,
+      setHeaders: (res, pathName) => {
+        if (pathName.includes('/assets/')) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else if (
+          pathName.endsWith('index.html') ||
+          pathName.endsWith('sw.js') ||
+          pathName.endsWith('manifest.webmanifest')
+        ) {
+          res.setHeader('Cache-Control', 'no-cache');
+        }
+      },
+    });
+  } else {
+    app.log.warn('no frontend client dist found; running API only');
+  }
+
+  app.setNotFoundHandler((req, reply) => {
+    // SPA history fallback: serve index.html for non-API, non-health GET requests
+    if (
+      clientDist &&
+      req.method === 'GET' &&
+      !req.url.startsWith(API_PREFIX) &&
+      !req.url.startsWith('/health')
+    ) {
+      return reply.sendFile('index.html');
+    }
+
+    reply.code(404).send({ error: { code: 'not_found', message: `no route for ${req.url}` } });
+  });
 
   return app;
 }
