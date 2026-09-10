@@ -1,4 +1,4 @@
-import { cpSync, existsSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, rmSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
@@ -18,16 +18,44 @@ const tempDir = join(tmpdir(), `intern-attendance-prod-${randomUUID()}`);
 console.log(`==> Staging production branch in isolated environment: ${tempDir}`);
 
 try {
-  // 1. Copy deploy files
+  // 1. Check if production branch exists locally or remotely to preserve history
+  let hasProduction = false;
+  try {
+    execSync('git rev-parse --verify production', { cwd: root, stdio: 'pipe' });
+    hasProduction = true;
+  } catch {
+    try {
+      execSync('git rev-parse --verify origin/production', { cwd: root, stdio: 'pipe' });
+      execSync('git branch production origin/production', { cwd: root, stdio: 'pipe' });
+      hasProduction = true;
+    } catch {}
+  }
+
+  if (hasProduction) {
+    // Clone existing branch with its commit history
+    execSync(`git clone --single-branch --branch production "${root.replace(/\\/g, '/')}" "${tempDir}"`, { stdio: 'pipe' });
+    // Clean old files while preserving .git
+    for (const item of readdirSync(tempDir)) {
+      if (item === '.git') continue;
+      rmSync(join(tempDir, item), { recursive: true, force: true });
+    }
+  } else {
+    // First time setup only
+    mkdirSync(tempDir, { recursive: true });
+    execSync('git init', { cwd: tempDir, stdio: 'pipe' });
+    execSync('git checkout -b production', { cwd: tempDir, stdio: 'pipe' });
+  }
+
+  // 2. Copy fresh deploy package
   cpSync(deployDir, tempDir, { recursive: true });
 
-  // 2. Remove sensitive local .env (keep .env.example)
+  // 3. Remove local .env (keep .env.example)
   const localEnv = join(tempDir, '.env');
   if (existsSync(localEnv)) {
     rmSync(localEnv, { force: true });
   }
 
-  // 3. Create production .gitignore
+  // 4. Create production .gitignore
   const gitignoreContent = `# Production runtime ignores
 node_modules/
 .env
@@ -39,26 +67,28 @@ storage-data/
 `;
   writeFileSync(join(tempDir, '.gitignore'), gitignoreContent, 'utf8');
 
-  // 4. Initialize git and commit in temporary directory
-  execSync('git init', { cwd: tempDir, stdio: 'pipe' });
+  // 5. Commit with continuous history
   execSync('git config user.name "Deployment Agent"', { cwd: tempDir, stdio: 'pipe' });
   execSync('git config user.email "deploy@interns.local"', { cwd: tempDir, stdio: 'pipe' });
-  execSync('git checkout -b production', { cwd: tempDir, stdio: 'pipe' });
   execSync('git add -A', { cwd: tempDir, stdio: 'pipe' });
-  
-  const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
-  execSync(`git commit -m "release: production build ${timestamp}"`, { cwd: tempDir, stdio: 'pipe' });
 
-  // 5. Push production branch back to main repository without affecting current working tree
-  console.log('==> Updating local "production" branch...');
-  execSync(`git remote add target "${root.replace(/\\/g, '/')}"`, { cwd: tempDir, stdio: 'pipe' });
-  execSync('git push -f target production:production', { cwd: tempDir, stdio: 'pipe' });
+  const status = execSync('git status --porcelain', { cwd: tempDir, encoding: 'utf8' }).trim();
+  if (status) {
+    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    execSync(`git commit -m "release: production build ${timestamp}"`, { cwd: tempDir, stdio: 'pipe' });
 
-  console.log('\n[SUCCESS] Production branch created/updated successfully!');
-  console.log('You can inspect it with:');
-  console.log('  git log production -n 1');
-  console.log('To push to your remote repository:');
-  console.log('  git push -u origin production');
+    console.log('==> Updating local "production" branch with continuous history...');
+    if (!hasProduction) {
+      execSync(`git remote add target "${root.replace(/\\/g, '/')}"`, { cwd: tempDir, stdio: 'pipe' });
+    } else {
+      // Remote "origin" inside the clone already points to root
+    }
+    const remoteName = hasProduction ? 'origin' : 'target';
+    execSync(`git push ${remoteName} production:production`, { cwd: tempDir, stdio: 'pipe' });
+    console.log('[SUCCESS] Production branch updated linearly (no force push needed)!');
+  } else {
+    console.log('[INFO] No changes detected in deploy package; production branch is up to date.');
+  }
 } finally {
   if (existsSync(tempDir)) {
     try {

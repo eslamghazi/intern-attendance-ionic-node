@@ -11,7 +11,7 @@
     "build": "npm run build --prefix ClientApp && npm run build --prefix server && node scripts/copy-client.mjs",
     "start": "node server/dist/main.js",
     "package": "node scripts/package-aapanel.mjs",
-    "ship": "node scripts/publish-production-branch.mjs && git push -f origin production",
+    "ship": "node scripts/publish-production-branch.mjs && git push origin production",
     "save": "node scripts/git-push.mjs",
     "migrate": "npm --prefix server run migrate",
     "migrate:status": "npm --prefix server run migrate:status",
