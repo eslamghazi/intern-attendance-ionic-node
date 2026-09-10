@@ -26,24 +26,19 @@ docker-compose.yml    Postgres (PostGIS + pgvector + pg_cron) and API stack
 
 ---
 
-## ⚡ Quick CLI Commands
+## ⚡ الأوامر السريعة (Quick CLI Commands)
 
-Use these convenient root commands for daily development and deployment:
-
-| Command | Description |
+| الأمر (Command) | الوظيفة (Description) |
 | :--- | :--- |
-| `npm run setup` | Install all dependencies for both `server` and `ClientApp` |
-| `npm run dev` | Start backend server in development mode (`tsx watch`) |
-| `npm run dev:client` | Start frontend client in development mode (Vite dev server) |
-| `npm run build` | Full clean build (client + server + static assets sync) |
-| `npm start` | Start compiled production server (`dist/main.js`) |
-| `npm run clean` | Clean all build artifacts, caches, and temp files |
-| `npm run package` | Generate aaPanel production archive (`deploy-aapanel.zip`) |
-| `npm run branch:prod` | Update isolated `production` branch with fresh build artifacts |
-| `npm run save [msg]` | Stage, commit, and push changes to `main` branch |
-| `npm run ship` | Build, update `production` branch, and push directly to GitHub |
-| `npm run db:migrate` | Run database migrations via Umzug |
-| `npm run db:seed` | Seed default superadmin account |
+| `npm run dev:client` | تشغيل الواجهة الأمامية في وضع التطوير (Vite Dev Server) |
+| `npm run dev:server` | تشغيل خادم الباك إند في وضع التطوير (`tsx watch`) |
+| `npm run build` | بناء المشروع كاملاً (فرونت + باك + مزامنة ملفات العرض) |
+| `npm start` | تشغيل السيرفر المترجم في وضع الإنتاج (`dist/main.js`) |
+| `npm run save [msg]` | حفظ ورفع جميع التغييرات إلى GitHub على فرع `main` |
+| `npm run package` | توليد حزمة الإنتاج المضغوطة للاستضافة (`deploy-aapanel.zip`) |
+| `npm run ship` | تحديث فرع الإنتاج `production` ورفعه مباشرة إلى GitHub |
+| `npm run clean` | تنظيف الكاش والملفات المؤقتة ومخرجات البناء |
+| `npm run setup` | تثبيت معتمدات الفرونت والباك دفعة واحدة |
 
 ---
 
