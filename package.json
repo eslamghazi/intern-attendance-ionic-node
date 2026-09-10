@@ -11,6 +11,7 @@
     "build:server": "npm run build --prefix server",
     "build": "npm run build:client && npm run build:server && node scripts/copy-client.mjs",
     "package:aapanel": "node scripts/package-aapanel.mjs",
+    "branch:production": "node scripts/publish-production-branch.mjs",
     "start": "node server/dist/main.js",
     "dev:client": "npm run dev --prefix ClientApp",
     "dev:server": "npm run dev --prefix server",
