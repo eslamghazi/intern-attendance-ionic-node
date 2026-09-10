@@ -1,0 +1,31 @@
+-- migrate:no-transaction
+-- ============================================================================
+-- NOT part of the original migration history — added because that history is
+-- INCOMPLETE and cannot rebuild the schema without it.
+--
+-- `attendance_status` is created in ..._schema.sql as
+--     ('present', 'late', 'early_leave', 'absent')
+-- and no migration ever adds to it. Yet:
+--
+--   ..._029_attendance_rules.sql   creates mark_left_work(), which does
+--                                  `set status = 'left_work'`
+--   ..._030_shift_windows.sql      rewrites it, still comparing to 'left_work'
+--   ..._061_checkout_flex.sql      runs `where status = 'left_work'`
+--
+-- The first two hide inside plpgsql bodies, which Postgres does not validate at
+-- CREATE FUNCTION time — so they only ever failed when the pg_cron job fired.
+-- The third is a plain statement and fails immediately:
+--     invalid input value for enum attendance_status: "left_work"
+--
+-- The hosted database therefore has this value, added by hand outside the
+-- migrations. Adding it here is what makes a rebuilt database match production,
+-- and what makes `npm run migrate` work at all on an empty one.
+--
+-- From ..._063_left_work_checkout_dim.sql onwards nothing writes it to `status`
+-- any more — the job moved to the `checkout_status` dimension — but the value
+-- must stay: migration 61 backfills FROM it, and historical rows still carry it.
+--
+-- Placed at 029a so it lands right after the first use and well before 061.
+-- ============================================================================
+
+alter type public.attendance_status add value if not exists 'left_work';

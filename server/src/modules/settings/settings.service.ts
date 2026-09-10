@@ -5,7 +5,8 @@ import type { JwtClaims } from '../../db/context.js';
 import { badRequest } from '../../http/errors.js';
 import { appSettings } from '../../db/schema/index.js';
 import { SettingsMapper } from './settings.mapper.js';
-import type { BrandingResponseDto, SettingsResponseDto, UpdateSettingsDto } from './dto/settings.dto.js';
+import { BrandingResponseDto } from './dto/settings.dto.js';
+import type { SettingsResponseDto, UpdateSettingsDto } from './dto/settings.dto.js';
 
 import type { ISettingsService } from './interfaces/settings.interface.js';
 
@@ -24,10 +25,20 @@ export class SettingsService implements ISettingsService {
   }
 
   async getBranding(): Promise<BrandingResponseDto | null> {
-    return this.uow.asService(async () => {
-      const row = await this.repo.getBranding();
-      return SettingsMapper.toBrandingDto(row);
-    });
+    try {
+      return await this.uow.asService(async () => {
+        const row = await this.repo.getBranding();
+        return SettingsMapper.toBrandingDto(row);
+      });
+    } catch (err) {
+      console.error('[SettingsService] getBranding fallback on error:', err);
+      const fallback = new BrandingResponseDto();
+      fallback.org_name = 'نظام الحضور والتدريب الإكلينيكي';
+      fallback.org_logo_url = null;
+      fallback.terminology = 'intern';
+      fallback.member_photos = true;
+      return fallback;
+    }
   }
 
   async updateSettings(claims: JwtClaims, dto: UpdateSettingsDto): Promise<{ ok: true }> {
