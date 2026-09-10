@@ -54,7 +54,9 @@ const schema = z.object({
   // with a CORS error on the very first request.
   CORS_ORIGINS: z
     .string()
-    .default('http://localhost:5173,https://localhost,capacitor://localhost'),
+    .default(
+      'http://localhost:5173,http://localhost:3000,http://localhost:8100,http://127.0.0.1:5173,http://127.0.0.1:8100,https://localhost,capacitor://localhost',
+    ),
 
   // Where the image files live. MUST NOT be inside a web root: these are
   // biometric images, and a directory nginx can serve directly makes every

@@ -105,6 +105,23 @@ export function toApiError(err: unknown): ApiError {
     statusCode?: number;
   };
 
+  // NestJS HttpException (ValidationPipe, BadRequestException, UnauthorizedException, etc.)
+  if (typeof (err as any)?.getStatus === 'function') {
+    const status = (err as any).getStatus();
+    const response = (err as any).getResponse?.();
+    const message =
+      typeof response === 'object' && response !== null && 'message' in response
+        ? Array.isArray((response as any).message)
+          ? (response as any).message.join(', ')
+          : String((response as any).message)
+        : (err as any).message || 'request rejected';
+    const code =
+      typeof response === 'object' && response !== null && 'error' in response
+        ? String((response as any).error).toLowerCase().replace(/\s+/g, '_')
+        : (err as any).code ?? 'bad_request';
+    return new ApiError(status, code, message);
+  }
+
   // Fastify core and plugin errors already carry the right status: rate limit
   // (429), malformed JSON (400), payload too large (413), bad content type
   // (415). Collapsing those into a 500 is not just a wrong code — the client

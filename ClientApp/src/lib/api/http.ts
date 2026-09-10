@@ -113,7 +113,10 @@ export async function renewSession(): Promise<boolean> {
         cache: 'no-store',
       });
       if (!res.ok) return false;
-      const next = (await res.json()) as { access_token: string; refresh_token: string };
+      const raw = await res.json();
+      const next = (raw && typeof raw === 'object' && 'data' in raw && (raw as any).data)
+        ? (raw as any).data
+        : raw;
       if (!next?.access_token || !next?.refresh_token) return false;
       await setSession(next);
       return true;
@@ -141,7 +144,12 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   const { method = 'GET', body, anonymous = false, signal } = options;
 
   const send = async (): Promise<Response> => {
-    const headers: Record<string, string> = { Accept: 'application/json' };
+    const activeLang = typeof localStorage !== 'undefined' ? localStorage.getItem('lang') || 'ar' : 'ar';
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+      'Accept-Language': activeLang,
+      'x-language': activeLang,
+    };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (!anonymous && token) headers.Authorization = `Bearer ${token}`;
     return fetch(`${env.apiUrl}${path}`, {
@@ -187,11 +195,12 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 
   if (!res.ok) {
     const e = (payload as { error?: { code?: string; message?: string; pg?: { code?: string; details?: string } } })?.error;
+    const directMsg = (payload as { message?: string })?.message;
     throw new ApiError(
       res.status,
       // Prefer the Postgres SQLSTATE so describeDbError() recognises 23503/23505.
-      e?.pg?.code ?? e?.code ?? 'unknown',
-      e?.message ?? res.statusText,
+      e?.pg?.code ?? e?.code ?? (payload as any)?.code ?? 'unknown',
+      e?.message ?? directMsg ?? res.statusText,
       e?.pg?.details,
     );
   }

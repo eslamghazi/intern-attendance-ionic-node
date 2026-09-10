@@ -69,6 +69,19 @@ export default defineConfig({
       devOptions: { enabled: true, type: 'module' },
     }),
   ],
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8787',
+        changeOrigin: true,
+      },
+      '/health': {
+        target: 'http://localhost:8787',
+        changeOrigin: true,
+      },
+    },
+  },
   build: {
     target: 'es2020',
     chunkSizeWarningLimit: 3000,

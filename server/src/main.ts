@@ -54,7 +54,14 @@ async function bootstrap() {
     origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['authorization', 'content-type', 'x-client-info'],
+    allowedHeaders: [
+      'authorization',
+      'content-type',
+      'x-client-info',
+      'accept-language',
+      'x-language',
+      'x-lang',
+    ],
   });
 
   // Rate Limiting
