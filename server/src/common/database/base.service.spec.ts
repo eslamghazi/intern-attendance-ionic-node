@@ -4,6 +4,7 @@ import { UnitOfWorkService } from './unit-of-work.service.js';
 import { GenericRepository } from './generic.repository.js';
 import type { JwtClaims } from '../../db/context.js';
 import { sql } from 'drizzle-orm';
+import { Role } from '../../common/enums/index.js';
 
 interface TestEntity {
   id: string;
@@ -34,7 +35,7 @@ describe('BaseService', () => {
     sub: 'user-1',
     aud: 'authenticated',
     role: 'authenticated',
-    user_role: 'admin',
+    user_role: Role.ADMIN,
   };
 
   beforeEach(() => {

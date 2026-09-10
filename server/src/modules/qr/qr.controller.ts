@@ -8,6 +8,7 @@ import { QrService } from './qr.service.js';
 import { ApiResponse } from '../../common/dto/api-response.dto.js';
 import { MintQrDto, RedeemQrDto, MintQrResponseDto, RedeemQrResponseDto } from './dto/qr.dto.js';
 import { QrMapper } from './qr.mapper.js';
+import { Role } from '../../common/enums/index.js';
 
 @ApiTags('QR')
 @ApiBearerAuth()
@@ -32,7 +33,7 @@ export class QrController {
     return new ApiResponse(QrMapper.toMintResponse(data));
   }
 
-  @Roles('member')
+  @Roles(Role.MEMBER)
   @Post('redeem')
   @ApiOperation({ summary: 'Redeem a QR code to unlock location bypass for check-in' })
   @SwaggerResponse({ status: 200, type: ApiResponse<RedeemQrResponseDto> })

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsUUID, IsOptional, IsInt, Min, IsNotEmpty, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PresenceDecision } from '../../../common/enums/index.js';
 
 export class CreatePresenceCheckDto {
   @ApiPropertyOptional({ description: 'Target branch UUID' })
@@ -39,10 +40,10 @@ export class ConfirmPresenceByAdminDto {
 }
 
 export class ResolvePresenceCheckDto {
-  @ApiPropertyOptional({ description: 'Resolution decision', enum: ['keep', 'left_work'], default: 'keep' })
-  @IsIn(['keep', 'left_work'])
+  @ApiPropertyOptional({ description: 'Resolution decision', enum: PresenceDecision, default: PresenceDecision.RESOLVED })
+  @IsIn(Object.values(PresenceDecision))
   @IsOptional()
-  decision?: 'keep' | 'left_work' = 'keep';
+  decision?: PresenceDecision = PresenceDecision.RESOLVED;
 }
 
 export class ConfirmPresenceByMemberDto {

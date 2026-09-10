@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { GenericRepository } from '../../common/database/generic.repository.js';
 import { presenceChecks, presenceConfirmations, members, attendance, profiles, memberDepartments } from '../../db/schema/index.js';
 import { eq, inArray, isNull, isNotNull, and, desc, asc, notExists, exists, gt, arrayContains } from 'drizzle-orm';
+import { PresenceStatus, PresenceDecision, CheckoutStatus } from '../../common/enums/index.js';
 
 import type { IPresenceRepository } from './interfaces/presence.interface.js';
 
@@ -102,7 +103,7 @@ export class PresenceRepository extends GenericRepository<
         date: data.date,
         deadline: data.deadline,
         targetMemberIds: data.targetMemberIds,
-        status: 'open',
+        status: PresenceStatus.OPEN,
       })
       .returning();
     return rows[0]!;
@@ -179,7 +180,7 @@ export class PresenceRepository extends GenericRepository<
 
     await this.db
       .update(attendance)
-      .set({ checkoutStatus: 'left_work' })
+      .set({ checkoutStatus: CheckoutStatus.LEFT_WORK })
       .where(and(...conditions));
   }
 
@@ -187,7 +188,7 @@ export class PresenceRepository extends GenericRepository<
     await this.db
       .update(presenceChecks)
       .set({
-        status: 'resolved',
+        status: PresenceStatus.RESOLVED,
         decision,
         resolvedAt: new Date().toISOString(),
       })
@@ -209,7 +210,7 @@ export class PresenceRepository extends GenericRepository<
       .from(presenceChecks)
       .where(
         and(
-          eq(presenceChecks.status, 'open'),
+          eq(presenceChecks.status, PresenceStatus.OPEN),
           gt(presenceChecks.deadline, new Date().toISOString()),
           arrayContains(presenceChecks.targetMemberIds, [memberId]),
           notExists(

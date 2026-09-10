@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { GenericRepository } from '../../common/database/generic.repository.js';
 import { faceTemplates, members, memberDirectory, appSettings } from '../../db/schema/index.js';
 import { eq, inArray, isNotNull, and, sql } from 'drizzle-orm';
+import { EnrollmentStatus } from '../../common/enums/index.js';
 
 import type { IFaceRepository } from './interfaces/face.interface.js';
 
@@ -77,7 +78,7 @@ export class FaceRepository extends GenericRepository<
   async setEnrollmentPending(memberId: string) {
     await this.db
       .update(members)
-      .set({ enrollmentStatus: 'pending' })
+      .set({ enrollmentStatus: EnrollmentStatus.PENDING })
       .where(eq(members.id, memberId));
   }
 

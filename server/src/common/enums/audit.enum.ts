@@ -1,0 +1,17 @@
+export enum AuditEvent {
+  LOGIN = 'login',
+  PASSWORD_CHANGED = 'password_changed',
+  FACE_ENROLLED = 'face_enrolled',
+  MOCK_LOCATION_DETECTED = 'mock_location_detected',
+  OUT_OF_RANGE = 'out_of_range',
+  LOW_ACCURACY = 'low_accuracy',
+  FACE_MISMATCH = 'face_mismatch',
+  LIVENESS_FAILED = 'liveness_failed',
+  INTEGRITY_FAILED = 'integrity_failed',
+  CHECK_IN = 'check_in',
+  CHECK_OUT = 'check_out',
+  MASTER_LOGIN = 'master_login',
+  STAFF_DELETED = 'staff_deleted',
+  OUTSIDE_WINDOW = 'outside_window',
+  CHECKOUT_BLOCKED = 'checkout_blocked',
+}

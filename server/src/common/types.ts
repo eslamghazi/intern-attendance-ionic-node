@@ -1,17 +1,15 @@
-import type { AppRole } from './auth/jwt.js';
 import type { JwtClaims } from '../db/context.js';
+import { Role } from './enums/index.js';
 
+/** The signed-in person, as every handler sees them. Matches domain/identity/role.ts Caller exactly. */
 export interface Caller {
   id: string;
-  role: AppRole;
+  role: Role;
   nationalId?: string;
 }
 
-export enum UserRole {
-  SUPERADMIN = 'superadmin',
-  ADMIN = 'admin',
-  MEMBER = 'member',
-}
+// Re-export for backward compatibility — prefer importing from common/enums directly.
+export { Role as UserRole };
 
 declare global {
   namespace Express {

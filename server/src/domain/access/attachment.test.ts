@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mayTouchAttachment, pathOwner, type AttachmentBucket } from './attachment.js';
+import { Role } from '../../common/enums/index.js';
 
 const A = 'aaaaaaaa-0000-0000-0000-00000000000a';
 const B = 'bbbbbbbb-0000-0000-0000-00000000000b';
@@ -9,7 +10,7 @@ const may = (
   path: string,
   action: 'read' | 'write' | 'delete',
   callerId: string,
-  role: 'member' | 'admin' | 'superadmin' = 'member',
+  role: Role = Role.MEMBER,
 ) => mayTouchAttachment({ bucket, path, action, callerId, role });
 
 describe('pathOwner', () => {
@@ -40,8 +41,8 @@ describe('faces and probes', () => {
     });
 
     it(`${bucket}: staff read anyone's`, () => {
-      expect(may(bucket, `${B}/x.jpg`, 'read', A, 'admin')).toBe(true);
-      expect(may(bucket, `${B}/x.jpg`, 'read', A, 'superadmin')).toBe(true);
+      expect(may(bucket, `${B}/x.jpg`, 'read', A, Role.ADMIN)).toBe(true);
+      expect(may(bucket, `${B}/x.jpg`, 'read', A, Role.SUPERADMIN)).toBe(true);
     });
 
     it(`${bucket}: a member writes only into their own folder`, () => {
@@ -52,12 +53,12 @@ describe('faces and probes', () => {
     it(`${bucket}: staff do NOT get a client-supplied write`, () => {
       // Enrolling someone else's face goes through the privileged server-side
       // path, not through a path the caller chose.
-      expect(may(bucket, `${B}/x.jpg`, 'write', A, 'admin')).toBe(false);
+      expect(may(bucket, `${B}/x.jpg`, 'write', A, Role.ADMIN)).toBe(false);
     });
 
     it(`${bucket}: only staff delete`, () => {
       expect(may(bucket, `${A}/x.jpg`, 'delete', A)).toBe(false);
-      expect(may(bucket, `${A}/x.jpg`, 'delete', A, 'admin')).toBe(true);
+      expect(may(bucket, `${A}/x.jpg`, 'delete', A, Role.ADMIN)).toBe(true);
     });
 
     it(`${bucket}: a path with no folder is refused for everything private`, () => {
@@ -75,13 +76,13 @@ describe('avatars', () => {
   it('are written by their owner or by staff', () => {
     expect(may('avatars', `${A}.jpg`, 'write', A)).toBe(true);
     expect(may('avatars', `${B}.jpg`, 'write', A)).toBe(false);
-    expect(may('avatars', `${B}.jpg`, 'write', A, 'admin')).toBe(true);
+    expect(may('avatars', `${B}.jpg`, 'write', A, Role.ADMIN)).toBe(true);
   });
 
   it('are deleted by their owner or by staff', () => {
     expect(may('avatars', `${A}.jpg`, 'delete', A)).toBe(true);
     expect(may('avatars', `${B}.jpg`, 'delete', A)).toBe(false);
-    expect(may('avatars', `${B}.jpg`, 'delete', A, 'admin')).toBe(true);
+    expect(may('avatars', `${B}.jpg`, 'delete', A, Role.ADMIN)).toBe(true);
   });
 
   it('with an unownable name cannot be written by a member', () => {

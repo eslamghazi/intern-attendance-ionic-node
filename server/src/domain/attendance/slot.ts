@@ -15,6 +15,12 @@ import {
   type CheckOutDecision,
   type Decided,
 } from './types.js';
+import {
+  AttendanceStatus,
+  CheckoutStatus,
+  AttendanceRefusalReason,
+  AuditEvent,
+} from '../../common/enums/index.js';
 
 export interface SlotContext {
   settings: AttendanceSettings;
@@ -41,7 +47,7 @@ export function decideCheckIn(
     todayAttendance.filter((a) => a.checkInAt).map((a) => a.shiftId),
   );
   const candidates = rostered.filter((s) => !checkedIn.has(s.id));
-  if (!candidates.length) return rejected(refuse(409, 'already_checked_in'));
+  if (!candidates.length) return rejected(refuse(409, AttendanceRefusalReason.ALREADY_CHECKED_IN));
 
   const win = (s: ShiftRow) => placeWindow(s, ctx.minutesOfDay, ctx.defaults);
 
@@ -52,7 +58,7 @@ export function decideCheckIn(
       return w.nowP >= w.ciOpenP && w.nowP <= w.ciCloseP;
     });
     if (!open.length) {
-      return rejected(refuse(422, 'checkin_closed', { audit: 'outside_window' }));
+      return rejected(refuse(422, AttendanceRefusalReason.CHECKIN_CLOSED, { audit: AuditEvent.OUTSIDE_WINDOW }));
     }
     // More than one window open at once: take the earliest to open.
     open.sort((a, b) => win(a).ciOpenP - win(b).ciOpenP);
@@ -62,7 +68,7 @@ export function decideCheckIn(
   }
 
   const w = win(shift);
-  return decided({ shift, status: w.nowP > w.ciLateP ? 'late' : 'present' });
+  return decided({ shift, status: w.nowP > w.ciLateP ? AttendanceStatus.LATE : AttendanceStatus.PRESENT });
 }
 
 export interface OpenSlot {
@@ -86,7 +92,7 @@ export function decideCheckOut(
 ): Decided<CheckOutDecision> {
   const overnightOnly = yesterdayOpen.filter((o) => o.record.shift && isOvernight(o.record.shift));
   const open = [...todayOpen, ...overnightOnly];
-  if (!open.length) return rejected(refuse(409, 'not_checked_in'));
+  if (!open.length) return rejected(refuse(409, AttendanceRefusalReason.NOT_CHECKED_IN));
 
   const win = (s: ShiftRow) => placeWindow(s, ctx.minutesOfDay, ctx.defaults);
 
@@ -99,7 +105,7 @@ export function decideCheckOut(
       return w.nowP >= w.coOpenP && w.nowP <= w.coCloseP;
     });
     if (!inWindow.length) {
-      return rejected(refuse(422, 'checkout_closed', { audit: 'outside_window' }));
+      return rejected(refuse(422, 'checkout_closed', { audit: AuditEvent.OUTSIDE_WINDOW }));
     }
     chosen = inWindow[0]!;
   } else {
@@ -111,8 +117,8 @@ export function decideCheckOut(
 
   // A member marked "left work" by a failed presence spot-check has had their
   // check-out closed deliberately.
-  if (chosen.record.checkoutStatus === 'left_work') {
-    return rejected(refuse(422, 'checkout_blocked', { audit: 'checkout_blocked' }));
+  if (chosen.record.checkoutStatus === CheckoutStatus.LEFT_WORK) {
+    return rejected(refuse(422, 'checkout_blocked', { audit: AuditEvent.CHECKOUT_BLOCKED }));
   }
 
   const w = chosen.record.shift ? win(chosen.record.shift) : null;
@@ -122,6 +128,6 @@ export function decideCheckOut(
     shift: chosen.record.shift,
     // Leaving before the window opens is only reachable because a bypass
     // allowed it, and it is recorded as such rather than as a normal exit.
-    checkoutStatus: w && w.nowP < w.coOpenP ? 'early_leave' : 'checked_out',
+    checkoutStatus: w && w.nowP < w.coOpenP ? CheckoutStatus.EARLY_LEAVE : CheckoutStatus.CHECKED_OUT,
   });
 }

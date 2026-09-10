@@ -14,6 +14,12 @@ import {
   type MemberContext,
   type Refusal,
 } from './types.js';
+import {
+  CheckinMethod,
+  AuditEvent,
+  EnrollmentStatus,
+  AttendanceRefusalReason,
+} from '../../common/enums/index.js';
 
 /** Any TRUE across global, member, branch and group turns a bypass on. */
 function anyOn(
@@ -46,10 +52,10 @@ export function resolveBypass({ settings, member, now, qrAccepted }: BypassInput
   const branch = member.branch;
   const group = member.group;
 
-  const method = settings.checkinMethod || 'both';
-  const blocked = method === 'none' || Boolean(branch?.blockCheckin);
-  const requireQr = method === 'qr' || Boolean(branch?.requireQr);
-  const qrEnabled = (method === 'qr' || method === 'both') && branch?.qrEnabled !== false;
+  const method = settings.checkinMethod || CheckinMethod.BOTH;
+  const blocked = method === CheckinMethod.NONE || Boolean(branch?.blockCheckin);
+  const requireQr = method === CheckinMethod.QR || Boolean(branch?.requireQr);
+  const qrEnabled = (method === CheckinMethod.QR || method === CheckinMethod.BOTH) && branch?.qrEnabled !== false;
 
   const face = anyOn(
     settings.bypassFace,
@@ -144,58 +150,58 @@ export function checkGates(
     audit: event ? { event, detail } : null,
   });
 
-  if (bypass.blocked) return fail(refuse(403, 'branch_blocked'));
+  if (bypass.blocked) return fail(refuse(403, AttendanceRefusalReason.BRANCH_BLOCKED));
 
   // Proximity is not accepted at this branch and nothing has cleared location.
   if (bypass.requireQr && !bypass.location) {
-    return fail(refuse(422, 'qr_required'), 'out_of_range', { require_qr: true });
+    return fail(refuse(422, AttendanceRefusalReason.QR_REQUIRED), AuditEvent.OUT_OF_RANGE, { require_qr: true });
   }
 
   // Enrolment only matters when the face gate is actually enforced.
-  if (!bypass.face && member.enrollmentStatus !== 'enrolled') {
-    return fail(refuse(422, 'not_enrolled'));
+  if (!bypass.face && member.enrollmentStatus !== EnrollmentStatus.ENROLLED) {
+    return fail(refuse(422, AttendanceRefusalReason.NOT_ENROLLED));
   }
 
   if (!integrityOk(payload.integrityToken, settings.requirePlayIntegrity)) {
-    return fail(refuse(422, 'integrity_failed'), 'integrity_failed', { type: payload.type });
+    return fail(refuse(422, AttendanceRefusalReason.INTEGRITY_FAILED), AuditEvent.INTEGRITY_FAILED, { type: payload.type });
   }
 
   let distance = 0;
   if (!bypass.location) {
     if (payload.isMock === true) {
-      return fail(refuse(422, 'mock'), 'mock_location_detected', {
+      return fail(refuse(422, AttendanceRefusalReason.MOCK), AuditEvent.MOCK_LOCATION_DETECTED, {
         lat: payload.lat,
         lng: payload.lng,
       });
     }
     if (typeof payload.accuracy === 'number' && payload.accuracy > settings.maxAccuracyMeters) {
-      return fail(refuse(422, 'low_accuracy', { accuracy: payload.accuracy }), 'low_accuracy', {
+      return fail(refuse(422, AttendanceRefusalReason.LOW_ACCURACY, { accuracy: payload.accuracy }), AuditEvent.LOW_ACCURACY, {
         accuracy: payload.accuracy,
       });
     }
-    if (!geofence) return fail(refuse(500, 'geofence_error'));
+    if (!geofence) return fail(refuse(500, AttendanceRefusalReason.GEOFENCE_ERROR));
     distance = Math.round(geofence.distanceM);
     if (!geofence.within) {
       return {
-        refusal: refuse(422, 'out_of_range', { distance, radius: geofence.radiusM }),
+        refusal: refuse(422, AttendanceRefusalReason.OUT_OF_RANGE, { distance, radius: geofence.radiusM }),
         distance,
-        audit: { event: 'out_of_range', detail: { distance, radius: geofence.radiusM } },
+        audit: { event: AuditEvent.OUT_OF_RANGE, detail: { distance, radius: geofence.radiusM } },
       };
     }
   }
 
   if (!bypass.face) {
     if (settings.livenessRequired && !payload.livenessPassed) {
-      return { refusal: refuse(422, 'liveness'), distance, audit: { event: 'liveness_failed', detail: { type: payload.type } } };
+      return { refusal: refuse(422, AttendanceRefusalReason.LIVENESS), distance, audit: { event: AuditEvent.LIVENESS_FAILED, detail: { type: payload.type } } };
     }
     if (typeof payload.faceScore !== 'number') {
-      return { refusal: refuse(422, 'face_required'), distance, audit: null };
+      return { refusal: refuse(422, AttendanceRefusalReason.FACE_REQUIRED), distance, audit: null };
     }
     if (payload.faceScore < settings.faceMatchThreshold) {
       return {
-        refusal: refuse(422, 'face_mismatch', { score: payload.faceScore }),
+        refusal: refuse(422, AttendanceRefusalReason.FACE_MISMATCH, { score: payload.faceScore }),
         distance,
-        audit: { event: 'face_mismatch', detail: { score: payload.faceScore } },
+        audit: { event: AuditEvent.FACE_MISMATCH, detail: { score: payload.faceScore } },
       };
     }
   }

@@ -16,10 +16,8 @@
  * old create-staff Edge Function accepted it — inserting one always raised
  * invalid_text_representation, so the feature never worked.
  */
-export const ROLES = ['superadmin', 'admin', 'member'] as const;
-export type Role = (typeof ROLES)[number];
-
-export const STAFF_ROLES: readonly Role[] = ['superadmin', 'admin'];
+import { Role, ROLES, STAFF_ROLES } from '../../common/enums/index.js';
+export { Role, ROLES, STAFF_ROLES };
 
 export function isRole(value: unknown): value is Role {
   return typeof value === 'string' && (ROLES as readonly string[]).includes(value);
@@ -45,22 +43,22 @@ export interface Caller {
  * every other account is a single point of total compromise.
  */
 export function masterPasswordMayOpen(role: Role): boolean {
-  return role !== 'superadmin';
+  return role !== Role.SUPERADMIN;
 }
 
 /** Only a superadmin may reset another superadmin's password. */
 export function mayResetPasswordOf(actor: Role, target: Role): boolean {
-  if (target === 'superadmin') return actor === 'superadmin';
+  if (target === Role.SUPERADMIN) return actor === Role.SUPERADMIN;
   return isStaff(actor);
 }
 
 /** Deleting staff is superadmin-only, and nobody deletes themselves. */
 export function mayDeleteStaff(actor: Caller, targetId: string, targetRole: Role): boolean {
-  if (actor.role !== 'superadmin') return false;
+  if (actor.role !== Role.SUPERADMIN) return false;
   if (actor.id === targetId) return false;
   // Only plain admin accounts are deletable: a superadmin must be demoted
   // deliberately rather than removed in passing.
-  return targetRole === 'admin';
+  return targetRole === Role.ADMIN;
 }
 
 /**
@@ -86,6 +84,6 @@ export function privilegeScope(
   ownBranchId: string | null,
 ): { allowed: boolean; branchId: string | null } {
   if (isStaff(role)) return { allowed: true, branchId: null };
-  if (role !== 'member' || !granted) return { allowed: false, branchId: null };
+  if (role !== Role.MEMBER || !granted) return { allowed: false, branchId: null };
   return { allowed: true, branchId: ownBranchId };
 }

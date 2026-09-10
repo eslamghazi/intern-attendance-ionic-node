@@ -8,6 +8,7 @@ import { requireMember } from '../../common/auth/access.service.js';
 import { isStaff } from '../../domain/identity/role.js';
 import { badRequest, forbidden, notFound } from '../../http/errors.js';
 import { MembersRepository } from '../members/members.repository.js';
+import { Role } from '../../common/enums/index.js';
 
 function sanitize(s: string): string {
   return String(s ?? '')
@@ -42,8 +43,8 @@ export class FaceService implements IFaceService {
   }
 
   private async resolveScope(caller: { id: string; role: string }): Promise<{ branchId: string | null }> {
-    if (caller.role === 'admin' || caller.role === 'superadmin') return { branchId: null };
-    if (caller.role !== 'member') throw forbidden();
+    if (caller.role === Role.ADMIN || caller.role === Role.SUPERADMIN) return { branchId: null };
+    if (caller.role !== Role.MEMBER) throw forbidden();
     
     const scope = await this.repo.getMemberScope(caller.id);
     if (!scope?.canResetFace) throw forbidden();

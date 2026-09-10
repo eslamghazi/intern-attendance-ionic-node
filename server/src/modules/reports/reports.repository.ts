@@ -25,6 +25,7 @@ import {
   sql,
 } from 'drizzle-orm';
 import { directoryWhere } from '../../domain/member/filter.js';
+import { CheckType } from '../../common/enums/index.js';
 
 import type { IReportsRepository } from './interfaces/reports.interface.js';
 
@@ -419,7 +420,7 @@ export class ReportsRepository extends GenericRepository<
         member_id: attendance.memberId,
         date: attendance.date,
         shift_name: attendance.shiftName,
-        type: sql<string>`'check_in'`.as('type'),
+        type: sql<string>`${CheckType.CHECK_IN}`.as('type'),
         path: attendance.checkInProbePath,
         at: attendance.checkInAt,
         face_score: attendance.checkInFaceScore,
@@ -438,7 +439,7 @@ export class ReportsRepository extends GenericRepository<
         member_id: attendance.memberId,
         date: attendance.date,
         shift_name: attendance.shiftName,
-        type: sql<string>`'check_out'`.as('type'),
+        type: sql<string>`${CheckType.CHECK_OUT}`.as('type'),
         path: attendance.checkOutProbePath,
         at: attendance.checkOutAt,
         face_score: attendance.checkOutFaceScore,

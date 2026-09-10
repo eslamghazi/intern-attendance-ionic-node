@@ -28,6 +28,7 @@ import {
   LoginResultDto,
 } from './dto/auth.dto.js';
 import { AuthMapper } from './auth.mapper.js';
+import { Role } from '../../common/enums/index.js';
 
 @ApiTags('Auth')
 @Controller('api/v1/auth')
@@ -140,7 +141,7 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('members/reset-password')
   @ApiOperation({ summary: 'Reset a member password (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true; password: string }> })
@@ -162,7 +163,7 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('staff/reset-password')
   @ApiOperation({ summary: 'Reset a staff password (Admin/Superadmin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true; password: string }> })
@@ -183,7 +184,7 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
-  @Roles('superadmin')
+  @Roles(Role.SUPERADMIN)
   @Post('staff')
   @ApiOperation({ summary: 'Create new staff member (Superadmin only)' })
   @SwaggerResponse({ status: 201, type: ApiResponse<{ ok: true; id: string; password: string }> })
@@ -200,14 +201,14 @@ export class AuthController {
       full_name: body.full_name,
       phone: body.phone,
       password: body.password,
-      role: body.role ?? 'admin',
+      role: body.role ?? Role.ADMIN,
       assignments: body.assignments ?? [],
     });
     return new ApiResponse({ ok: true, id: created.id, password: created.password });
   }
 
   @ApiBearerAuth()
-  @Roles('superadmin')
+  @Roles(Role.SUPERADMIN)
   @Delete('staff/:id')
   @ApiOperation({ summary: 'Delete staff account (Superadmin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })

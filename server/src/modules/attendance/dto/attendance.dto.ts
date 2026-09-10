@@ -10,11 +10,12 @@ import {
   Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { CheckType, AttendanceStatus } from '../../../common/enums/index.js';
 
 export class RecordAttendanceDto {
-  @ApiProperty({ enum: ['check_in', 'check_out'], description: 'Type of check operation' })
-  @IsIn(['check_in', 'check_out'])
-  type!: 'check_in' | 'check_out';
+  @ApiProperty({ enum: CheckType, description: 'Type of check operation' })
+  @IsIn(Object.values(CheckType))
+  type!: CheckType;
 
   @ApiProperty({ description: 'GPS latitude', example: 30.0444 })
   @Type(() => Number)
@@ -88,11 +89,11 @@ export class SetManualAttendanceDto {
 
   @ApiPropertyOptional({
     description: 'Attendance status',
-    enum: ['present', 'late', 'absent', 'early_leave'],
+    enum: AttendanceStatus,
   })
-  @IsIn(['present', 'late', 'absent', 'early_leave'])
+  @IsIn(Object.values(AttendanceStatus))
   @IsOptional()
-  status?: 'present' | 'late' | 'absent' | 'early_leave';
+  status?: AttendanceStatus;
 
   @ApiPropertyOptional({ description: 'Whether to clear manual attendance record', default: false })
   @Type(() => Boolean)

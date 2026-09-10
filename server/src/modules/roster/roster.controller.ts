@@ -21,6 +21,7 @@ import {
   PostRosterDaysDto,
   BulkRosterDto,
 } from './dto/roster.dto.js';
+import { Role } from '../../common/enums/index.js';
 
 @ApiTags('Roster')
 @ApiBearerAuth()
@@ -28,7 +29,7 @@ import {
 export class RosterController {
   constructor(private readonly service: RosterService) {}
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Get('view')
   @ApiOperation({ summary: 'Get monthly roster grid view with pagination (Admin only)' })
   @SwaggerResponse({ status: 200, type: PaginatedResponse<unknown> })
@@ -44,7 +45,7 @@ export class RosterController {
     return new PaginatedResponse(data.rows, data.total, { page, pageSize });
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Get('totals')
   @ApiOperation({ summary: 'Get monthly roster totals (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
@@ -72,7 +73,7 @@ export class RosterController {
     return new ApiResponse(data);
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('existing-keys')
   @ApiOperation({ summary: 'Query existing roster schedule keys for members (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })

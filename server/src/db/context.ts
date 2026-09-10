@@ -33,6 +33,7 @@ import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { sql, type SQL } from 'drizzle-orm';
 import { pool } from './pool.js';
 import * as schema from './schema/index.js';
+import { Role } from '../common/enums/index.js';
 
 export type Schema = typeof schema;
 
@@ -53,7 +54,7 @@ export interface JwtClaims {
    * in the claim set because the two must not disagree, and because a token
    * whose role is missing would be indistinguishable from one that never had it.
    */
-  user_role: 'superadmin' | 'admin' | 'member';
+  user_role: Role;
   national_id?: string;
   iat?: number;
   exp?: number;

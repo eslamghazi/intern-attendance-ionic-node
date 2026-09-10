@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { asService } from '../../db/context.js';
 import * as schema from '../../db/schema/index.js';
 import { bearerToken, verifyToken } from '../auth/jwt.js';
+import { Role } from '../enums/index.js';
 
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {
@@ -38,10 +39,10 @@ export class AuthMiddleware implements NestMiddleware {
       if (profile && profile.isActive !== false) {
         const caller = {
           id: claims.sub,
-          role: profile.role,
+          role: profile.role as Role,
           nationalId: claims.national_id,
         };
-        const claimsWithRole = { ...claims, user_role: profile.role };
+        const claimsWithRole = { ...claims, user_role: profile.role as Role };
 
         req.caller = caller;
         req.claims = claimsWithRole;

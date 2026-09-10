@@ -10,6 +10,7 @@ import {
   IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { Role } from '../../../common/enums/index.js';
 
 export class LoginDto {
   @ApiProperty({ description: 'National ID number (login identifier)', example: '29001011234567' })
@@ -118,10 +119,10 @@ export class CreateStaffDto {
   @IsOptional()
   password?: string;
 
-  @ApiPropertyOptional({ enum: ['admin'], default: 'admin' })
-  @IsIn(['admin'])
+  @ApiPropertyOptional({ enum: [Role.ADMIN], default: Role.ADMIN })
+  @IsIn([Role.ADMIN])
   @IsOptional()
-  role?: 'admin' = 'admin';
+  role?: Role = Role.ADMIN;
 
   @ApiPropertyOptional({ type: [StaffAssignmentInputDto] })
   @IsArray()

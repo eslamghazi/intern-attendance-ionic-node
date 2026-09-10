@@ -22,6 +22,7 @@ import {
   UpdateMemberDto,
   MemberFilterQueryDto,
 } from './dto/member.dto.js';
+import { Role } from '../../common/enums/index.js';
 
 @ApiTags('Members')
 @ApiBearerAuth()
@@ -29,7 +30,7 @@ import {
 export class MembersController {
   constructor(private readonly membersService: MembersService) {}
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post()
   @ApiOperation({ summary: 'Create member or batch of members' })
   @SwaggerResponse({ status: 201, type: ApiResponse<unknown> })
@@ -42,7 +43,7 @@ export class MembersController {
     return new ApiResponse(data);
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Get('national-ids')
   @ApiOperation({ summary: 'Get list of existing member national IDs' })
   @SwaggerResponse({ status: 200, type: ApiResponse<string[]> })
@@ -119,7 +120,7 @@ export class MembersController {
     return new ApiResponse(data);
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Delete('by-profile/:profileId')
   @ApiOperation({ summary: 'Delete a member by profile ID' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -132,7 +133,7 @@ export class MembersController {
     return new ApiResponse({ ok: true });
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('bulk/flag')
   @ApiOperation({ summary: 'Bulk update a boolean flag across members' })
   @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
@@ -145,7 +146,7 @@ export class MembersController {
     return new ApiResponse(data);
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('bulk/frozen')
   @ApiOperation({ summary: 'Bulk update frozen date across members' })
   @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
@@ -158,7 +159,7 @@ export class MembersController {
     return new ApiResponse(data);
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('bulk/update')
   @ApiOperation({ summary: 'Bulk update members assignments or active status' })
   @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
@@ -175,7 +176,7 @@ export class MembersController {
     return new ApiResponse(data);
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('bulk/delete')
   @ApiOperation({ summary: 'Bulk delete members matching filter criteria' })
   @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })

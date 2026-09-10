@@ -14,6 +14,7 @@
 import jwt from 'jsonwebtoken';
 import { env } from '../../env.js';
 import type { JwtClaims } from '../../db/context.js';
+import { Role } from '../enums/index.js';
 
 export type AppRole = JwtClaims['user_role'];
 
@@ -38,7 +39,7 @@ export function signProfileJwt(profileId: string, nationalId: string, role: AppR
 
 /** Mint a token for a member (the common case). */
 export function signMemberJwt(profileId: string, nationalId: string): string {
-  return signProfileJwt(profileId, nationalId, 'member');
+  return signProfileJwt(profileId, nationalId, Role.MEMBER);
 }
 
 /**

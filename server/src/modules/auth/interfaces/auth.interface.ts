@@ -3,6 +3,7 @@ import type { LoginResult } from '../auth.service.js';
 import type { Account, StoredToken } from '../auth.repository.js';
 import type { IGenericRepository } from '../../../common/database/interfaces/generic-repository.interface.js';
 import { profiles } from '../../../db/schema/index.js';
+import type { Role } from '../../../common/enums/index.js';
 
 export interface IAuthService {
   login(nationalId: string, password?: string, userAgent?: string | null): Promise<LoginResult>;
@@ -61,7 +62,7 @@ export interface IAuthRepository extends IGenericRepository<
       national_id: string;
       full_name: string;
       phone?: string | null;
-      role: 'admin';
+      role: Role;
     },
     passwordHash: string,
   ): Promise<void>;

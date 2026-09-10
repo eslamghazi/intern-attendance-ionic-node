@@ -10,8 +10,8 @@ import {
   mayResetPasswordOf,
   mayChangePasswordWithoutCurrent,
   type Caller,
-  type Role,
 } from '../../domain/identity/role.js';
+import { Role, AuditEvent } from '../../common/enums/index.js';
 import { parseNationalId } from '../../domain/identity/nationalId.js';
 import { signProfileJwt } from '../../common/auth/jwt.js';
 import { env } from '../../env.js';
@@ -45,7 +45,7 @@ export interface NewStaff {
   full_name: string;
   phone?: string | null;
   password?: string;
-  role: 'admin';
+  role: Role;
   assignments: { group_id?: string | null; branch_id?: string | null }[];
 }
 
@@ -116,7 +116,7 @@ export class AuthService implements IAuthService {
     } catch (err) {
       if (err instanceof MasterPasswordRefused) {
         await this.uow.asService(() =>
-          this.repo.audit(err.profileId, 'master_login', { role: err.role, refused: true }),
+          this.repo.audit(err.profileId, AuditEvent.MASTER_LOGIN, { role: err.role, refused: true }),
         );
         throw forbidden('forbidden');
       }
@@ -142,7 +142,7 @@ export class AuthService implements IAuthService {
         throw new MasterPasswordRefused(account.id, account.role);
       }
       if (verdict === 'master') {
-        await this.repo.audit(account.id, 'master_login', { role: account.role });
+        await this.repo.audit(account.id, AuditEvent.MASTER_LOGIN, { role: account.role });
       }
 
       const pair = await this.issuePair(account, randomUUID(), userAgent);
@@ -163,7 +163,7 @@ export class AuthService implements IAuthService {
       const profile = await this.repo.getProfile(caller.id);
       if (!profile) return { profile: null, member: null, is_enrolled: false };
 
-      if (caller.role !== 'member') {
+      if (caller.role !== Role.MEMBER) {
         return { profile, member: null, is_enrolled: false };
       }
 
@@ -229,7 +229,7 @@ export class AuthService implements IAuthService {
       await this.uow.asService(async () => {
         await this.repo.revokeFamily(revokeFamilyId);
         if (auditProfileId) {
-          await this.repo.audit(auditProfileId, 'login', {
+          await this.repo.audit(auditProfileId, AuditEvent.LOGIN, {
             event: 'refresh_token_reuse',
             family: revokeFamilyId,
           });
@@ -310,10 +310,10 @@ export class AuthService implements IAuthService {
         : await this.repo.findAccountByNationalId(target.nationalId!);
       if (!account) throw notFound();
 
-      if (target.expect === 'member' && account.role !== 'member') {
+      if (target.expect === 'member' && account.role !== Role.MEMBER) {
         throw badRequest('not_a_member', 'not a member');
       }
-      if (target.expect === 'staff' && account.role === 'member') {
+      if (target.expect === 'staff' && account.role === Role.MEMBER) {
         throw badRequest('not_staff', 'not a staff account');
       }
       if (!mayResetPasswordOf(actor.role, account.role)) throw forbidden();
@@ -321,7 +321,7 @@ export class AuthService implements IAuthService {
       const password = this.defaultPassword(account, target.password);
       await this.repo.storePasswordHash(account.id, await this.hash(password), true);
       await this.repo.revokeAllForProfile(account.id);
-      await this.repo.audit(actor.id, 'password_changed', {
+      await this.repo.audit(actor.id, AuditEvent.PASSWORD_CHANGED, {
         reset_for: account.id,
         by: actor.id,
       });
@@ -365,7 +365,7 @@ export class AuthService implements IAuthService {
       }
 
       await this.repo.deleteProfile(id);
-      await this.repo.audit(actor.id, 'staff_deleted', { profile_id: id });
+      await this.repo.audit(actor.id, AuditEvent.STAFF_DELETED, { profile_id: id });
     });
   }
 

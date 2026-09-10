@@ -19,6 +19,7 @@ import {
   CreateAdminAssignmentDto,
   AdminAssignmentResponseDto,
 } from './dto/admin.dto.js';
+import { Role } from '../../common/enums/index.js';
 
 @ApiTags('Admins')
 @ApiBearerAuth()
@@ -26,7 +27,7 @@ import {
 export class AdminsController {
   constructor(private readonly adminsService: AdminsService) {}
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Get()
   @ApiOperation({ summary: 'Get all admins (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<AdminDto[]> })
@@ -35,7 +36,7 @@ export class AdminsController {
     return new ApiResponse(data);
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Get('assignments')
   @ApiOperation({ summary: 'Get all admin branch/group assignments (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<AdminAssignmentResponseDto[]> })
@@ -44,7 +45,7 @@ export class AdminsController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin')
+  @Roles(Role.SUPERADMIN)
   @Patch(':id')
   @ApiOperation({ summary: 'Update admin profile and permissions (Superadmin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -57,7 +58,7 @@ export class AdminsController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin')
+  @Roles(Role.SUPERADMIN)
   @Post('assignments')
   @ApiOperation({ summary: 'Assign admin to branch or group (Superadmin only)' })
   @SwaggerResponse({ status: 201, type: ApiResponse<AdminAssignmentResponseDto> })
@@ -74,7 +75,7 @@ export class AdminsController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin')
+  @Roles(Role.SUPERADMIN)
   @Delete('assignments/:id')
   @ApiOperation({ summary: 'Delete admin assignment (Superadmin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })

@@ -16,6 +16,7 @@ import { badRequest } from '../../http/errors.js';
 import { DepartmentsService } from './departments.service.js';
 import { ApiResponse } from '../../common/dto/api-response.dto.js';
 import { DepartmentDto, UpdateDepartmentDto, PutMemberDepartmentDto } from './dto/department.dto.js';
+import { Role } from '../../common/enums/index.js';
 
 @ApiTags('Departments')
 @ApiBearerAuth()
@@ -43,7 +44,7 @@ export class DepartmentsController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Put()
   @ApiOperation({ summary: 'Upsert a department' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true; id?: string }> })
@@ -60,7 +61,7 @@ export class DepartmentsController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a department' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -73,7 +74,7 @@ export class DepartmentsController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Get('members')
   @ApiOperation({ summary: 'Get member-department mappings for month/year' })
   @ApiQuery({ name: 'year', required: true, type: Number })
@@ -92,7 +93,7 @@ export class DepartmentsController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Put('members')
   @ApiOperation({ summary: 'Assign or clear member department for month/year' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true; cleared?: boolean }> })
@@ -116,7 +117,7 @@ export class DepartmentsController {
 export class MemberDepartmentsController {
   constructor(private readonly departmentsService: DepartmentsService) {}
 
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Get()
   @ApiOperation({ summary: 'Get member-department mappings for month/year' })
   @ApiQuery({ name: 'year', required: true, type: Number })
@@ -135,7 +136,7 @@ export class MemberDepartmentsController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Put()
   @ApiOperation({ summary: 'Assign or clear member department for month/year' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true; cleared?: boolean }> })

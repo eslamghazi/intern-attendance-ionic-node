@@ -5,6 +5,7 @@ import { eq, sql, inArray, count, and } from 'drizzle-orm';
 import { parseNationalId } from '../../domain/identity/nationalId.js';
 import { directoryWhere, filteredMemberIds, filteredProfileIds, type MemberFilters } from '../../domain/member/filter.js';
 import { notFound } from '../../http/errors.js';
+import { Role } from '../../common/enums/index.js';
 
 export interface DirectoryRow {
   member_id: string;
@@ -98,7 +99,7 @@ export class MembersRepository extends GenericRepository<typeof members.$inferSe
     const existing = existingRows[0];
 
     if (existing) {
-      if (existing.role !== 'member') {
+      if (existing.role !== Role.MEMBER) {
         return { national_id: nid, ok: false, error: 'national_id_belongs_to_staff' };
       }
       
@@ -125,7 +126,7 @@ export class MembersRepository extends GenericRepository<typeof members.$inferSe
     const createdRows = await this.db
       .insert(profiles)
       .values({
-        role: 'member',
+        role: Role.MEMBER,
         fullName: input.full_name,
         nationalId: nid,
         phone: input.phone ?? null,
@@ -152,7 +153,7 @@ export class MembersRepository extends GenericRepository<typeof members.$inferSe
     const rows = await this.db
       .select({ national_id: profiles.nationalId })
       .from(profiles)
-      .where(and(eq(profiles.role, 'member'), sql`national_id is not null`))
+      .where(and(eq(profiles.role, Role.MEMBER), sql`national_id is not null`))
       .orderBy(profiles.id);
     return rows.map((r) => r.national_id);
   }

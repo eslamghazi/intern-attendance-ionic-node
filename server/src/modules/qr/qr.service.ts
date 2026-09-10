@@ -15,6 +15,7 @@ import {
   type QrSettings as QrRules,
 } from '../../domain/qr/token.js';
 import { badRequest, forbidden, ApiError } from '../../http/errors.js';
+import { Role } from '../../common/enums/index.js';
 
 function rules(s: any): QrRules {
   return {
@@ -42,7 +43,7 @@ export class QrService implements IQrService {
       let branchId = parsed.branch_id ?? '';
       let memberIsGenerator = false;
 
-      if (caller.role === 'member') {
+      if (caller.role === Role.MEMBER) {
         const member = await this.repo.getMemberByProfileId(caller.id);
         if (!member?.can_generate_qr) throw forbidden();
         

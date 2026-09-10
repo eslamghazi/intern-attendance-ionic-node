@@ -15,6 +15,7 @@ import {
   MasterPasswordStatusResponseDto,
   SetMasterPasswordDto,
 } from './dto/settings.dto.js';
+import { Role } from '../../common/enums/index.js';
 
 @ApiTags('Settings')
 @Controller('api/v1/settings')
@@ -47,7 +48,7 @@ export class SettingsController {
   }
 
   @ApiBearerAuth()
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Patch()
   @ApiOperation({ summary: 'Update system settings (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -60,7 +61,7 @@ export class SettingsController {
   }
 
   @ApiBearerAuth()
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Get('master-password')
   @ApiOperation({ summary: 'Check if master password is configured' })
   @SwaggerResponse({ status: 200, type: ApiResponse<MasterPasswordStatusResponseDto> })
@@ -70,7 +71,7 @@ export class SettingsController {
   }
 
   @ApiBearerAuth()
-  @Roles('superadmin')
+  @Roles(Role.SUPERADMIN)
   @Put('master-password')
   @ApiOperation({ summary: 'Set or change master password (Superadmin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })

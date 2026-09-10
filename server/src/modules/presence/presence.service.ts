@@ -6,6 +6,7 @@ import { requireFilter } from '../../common/auth/access.service.js';
 import { cairoNow } from '../../domain/clock.js';
 import { previousDate } from '../../domain/attendance/windows.js';
 import { ApiError, forbidden, notFound } from '../../http/errors.js';
+import { PresenceStatus, PresenceDecision } from '../../common/enums/index.js';
 
 import type { IPresenceService } from './interfaces/presence.interface.js';
 
@@ -128,7 +129,7 @@ export class PresenceService implements IPresenceService {
   async confirmByAdmin(callerId: string, id: string, memberId: string) {
     return this.uow.asService(async () => {
       const check = await this.ownedCheck(id, callerId);
-      if (check.status !== 'open') throw new ApiError(409, 'not_open', 'this check is closed');
+      if (check.status !== PresenceStatus.OPEN) throw new ApiError(409, 'not_open', 'this check is closed');
       
       if (!(check.targetMemberIds ?? []).includes(memberId)) {
         throw forbidden('not_targeted');
@@ -143,11 +144,11 @@ export class PresenceService implements IPresenceService {
     return this.uow.asService(async () => {
       const check = await this.ownedCheck(id, callerId);
       
-      if (check.status === 'resolved') {
+      if (check.status === PresenceStatus.RESOLVED) {
         throw new ApiError(409, 'already_resolved', 'this check is already resolved');
       }
 
-      if (decision === 'left_work') {
+      if (decision === PresenceDecision.LEFT_WORK) {
         await this.repo.resolveLeftWork(
           id,
           check.date,
@@ -179,7 +180,7 @@ export class PresenceService implements IPresenceService {
 
       const check = await this.repo.getCheck(checkId);
       if (!check) throw notFound();
-      if (check.status !== 'open') throw new ApiError(409, 'not_open', 'this check is closed');
+      if (check.status !== PresenceStatus.OPEN) throw new ApiError(409, 'not_open', 'this check is closed');
       
       const isExpired = new Date(check.deadline).getTime() < Date.now();
       if (isExpired) throw new ApiError(410, 'deadline_passed', 'the deadline has passed');

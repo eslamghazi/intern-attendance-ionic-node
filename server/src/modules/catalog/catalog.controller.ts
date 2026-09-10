@@ -30,6 +30,7 @@ import {
   ShiftResponseDto,
   ShiftKeyOptionResponseDto,
 } from './dto/catalog.dto.js';
+import { Role } from '../../common/enums/index.js';
 
 @ApiTags('Catalog')
 @ApiBearerAuth()
@@ -46,7 +47,7 @@ export class CatalogController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Post('institutions')
   @ApiOperation({ summary: 'Create an institution' })
   @SwaggerResponse({ status: 201, type: ApiResponse<InstitutionResponseDto> })
@@ -58,7 +59,7 @@ export class CatalogController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Patch('institutions/:id')
   @ApiOperation({ summary: 'Update an institution' })
   @SwaggerResponse({ status: 200, type: ApiResponse<InstitutionResponseDto> })
@@ -71,7 +72,7 @@ export class CatalogController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Delete('institutions/:id')
   @ApiOperation({ summary: 'Delete an institution' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -100,7 +101,7 @@ export class CatalogController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Post('branches')
   @ApiOperation({ summary: 'Create a branch with geofence settings' })
   @SwaggerResponse({ status: 201, type: ApiResponse<BranchResponseDto> })
@@ -112,7 +113,7 @@ export class CatalogController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Patch('branches/:id')
   @ApiOperation({ summary: 'Update a branch' })
   @SwaggerResponse({ status: 200, type: ApiResponse<BranchResponseDto> })
@@ -125,7 +126,7 @@ export class CatalogController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Delete('branches/:id')
   @ApiOperation({ summary: 'Delete a branch' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -154,7 +155,7 @@ export class CatalogController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Post('groups')
   @ApiOperation({ summary: 'Create a group' })
   @SwaggerResponse({ status: 201, type: ApiResponse<GroupResponseDto> })
@@ -166,7 +167,7 @@ export class CatalogController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Patch('groups/:id')
   @ApiOperation({ summary: 'Update a group' })
   @SwaggerResponse({ status: 200, type: ApiResponse<GroupResponseDto> })
@@ -179,7 +180,7 @@ export class CatalogController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Delete('groups/:id')
   @ApiOperation({ summary: 'Delete a group' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -208,7 +209,7 @@ export class CatalogController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Post('shifts')
   @ApiOperation({ summary: 'Create a shift' })
   @SwaggerResponse({ status: 201, type: ApiResponse<ShiftResponseDto> })
@@ -220,7 +221,7 @@ export class CatalogController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Patch('shifts/:id')
   @ApiOperation({ summary: 'Update a shift' })
   @SwaggerResponse({ status: 200, type: ApiResponse<ShiftResponseDto> })
@@ -233,7 +234,7 @@ export class CatalogController {
     return new ApiResponse(data);
   }
 
-  @Roles('superadmin', 'admin')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Delete('shifts/:id')
   @ApiOperation({ summary: 'Delete a shift' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })

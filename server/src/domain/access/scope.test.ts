@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { adminScope, coversRequestedFilter, coversUnit, type Scope } from './scope.js';
+import { Role } from '../../common/enums/index.js';
 
 const BRANCH_A = 'aaaaaaaa-0000-0000-0000-000000000001';
 const BRANCH_B = 'bbbbbbbb-0000-0000-0000-000000000002';
@@ -8,8 +9,8 @@ const GROUP_2 = 'dddddddd-0000-0000-0000-000000000004';
 
 describe('adminScope', () => {
   it('gives a superadmin everything, assignments or not', () => {
-    expect(adminScope('superadmin', [])).toEqual({ kind: 'all' });
-    expect(adminScope('superadmin', [{ branchId: BRANCH_A, groupId: null }])).toEqual({
+    expect(adminScope(Role.SUPERADMIN, [])).toEqual({ kind: 'all' });
+    expect(adminScope(Role.SUPERADMIN, [{ branchId: BRANCH_A, groupId: null }])).toEqual({
       kind: 'all',
     });
   });
@@ -17,12 +18,12 @@ describe('adminScope', () => {
   it('gives an UNASSIGNED admin everything', () => {
     // Assignments narrow; they do not grant. Reading this the other way round
     // would lock out every admin who has none.
-    expect(adminScope('admin', [])).toEqual({ kind: 'all' });
+    expect(adminScope(Role.ADMIN, [])).toEqual({ kind: 'all' });
   });
 
   it('narrows an assigned admin to their branches and groups', () => {
     expect(
-      adminScope('admin', [
+      adminScope(Role.ADMIN, [
         { branchId: BRANCH_A, groupId: null },
         { branchId: null, groupId: GROUP_1 },
       ]),
@@ -30,7 +31,7 @@ describe('adminScope', () => {
   });
 
   it('keeps both halves of an assignment naming a branch AND a group', () => {
-    expect(adminScope('admin', [{ branchId: BRANCH_A, groupId: GROUP_1 }])).toEqual({
+    expect(adminScope(Role.ADMIN, [{ branchId: BRANCH_A, groupId: GROUP_1 }])).toEqual({
       kind: 'assigned',
       branchIds: [BRANCH_A],
       groupIds: [GROUP_1],
@@ -38,8 +39,8 @@ describe('adminScope', () => {
   });
 
   it('gives a member nothing', () => {
-    expect(adminScope('member', [])).toEqual({ kind: 'none' });
-    expect(adminScope('member', [{ branchId: BRANCH_A, groupId: null }])).toEqual({ kind: 'none' });
+    expect(adminScope(Role.MEMBER, [])).toEqual({ kind: 'none' });
+    expect(adminScope(Role.MEMBER, [{ branchId: BRANCH_A, groupId: null }])).toEqual({ kind: 'none' });
   });
 });
 

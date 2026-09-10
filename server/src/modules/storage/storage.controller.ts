@@ -27,6 +27,7 @@ import {
   getObjectQuerySchema,
   deleteObjectsBodySchema,
 } from './dto/storage.dto.js';
+import { Role } from '../../common/enums/index.js';
 
 @Controller('api/v1/storage')
 export class StorageController {
@@ -137,7 +138,7 @@ export class StorageController {
     object.stream.pipe(res as any);
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Delete(':category')
   async deleteObjects(
     @Param('category') categoryRaw: string,

@@ -15,18 +15,25 @@ import type { Caller } from '../../domain/identity/role.js';
 import { scopeOf } from '../../common/auth/access.service.js';
 import { coversUnit } from '../../domain/access/scope.js';
 import { FileCategory, FileManager } from '../../infrastructure/storage/file-manager.service.js';
+import {
+  CheckType,
+  AuditEvent,
+  AttendanceRefusalReason,
+  AttendanceStatus,
+  CheckoutStatus,
+} from '../../common/enums/index.js';
 
 export interface SetAttendanceInput {
   memberId: string;
   date: string;
-  status: 'present' | 'late' | 'absent' | 'early_leave' | null;
+  status: AttendanceStatus | null;
   clear: boolean;
   shiftId: string | null;
 }
 
 export interface CheckResult {
   ok: true;
-  type: 'check_in' | 'check_out';
+  type: CheckType;
   status: string;
   distance: number;
   shift: string | null;
@@ -83,10 +90,10 @@ export class AttendanceService implements IAttendanceService {
   async recordAttendance(callerId: string, payload: CheckPayload): Promise<CheckResult> {
     return this.uow.asService(async () => {
       const member = await this.repo.loadMemberContext(callerId);
-      if (!member || !member.isActive) throw new AttendanceRefused(refuse(403, 'not_a_member'));
+      if (!member || !member.isActive) throw new AttendanceRefused(refuse(403, AttendanceRefusalReason.NOT_A_MEMBER));
 
       const settings = await this.repo.loadSettings();
-      if (!settings) throw new AttendanceRefused(refuse(500, 'no_settings'));
+      if (!settings) throw new AttendanceRefused(refuse(500, AttendanceRefusalReason.NO_SETTINGS));
 
       const effectiveNow = member.frozenAt ? new Date(member.frozenAt) : new Date();
       const { date, minutesOfDay } = cairoNow(effectiveNow);
@@ -95,7 +102,7 @@ export class AttendanceService implements IAttendanceService {
       if (payload.qrToken) {
         const probe = resolveBypass({ settings, member, now: effectiveNow });
         if (!probe.location) {
-          if (!probe.qrEnabled) throw new AttendanceRefused(refuse(422, 'qr_disabled'));
+          if (!probe.qrEnabled) throw new AttendanceRefused(refuse(422, AttendanceRefusalReason.QR_DISABLED));
           qrAccepted = await this.repo.redeemQrToken({
             token: payload.qrToken,
             branchId: member.branchId,
@@ -104,8 +111,8 @@ export class AttendanceService implements IAttendanceService {
             requiresMember: settings.qrRequiresMember,
           });
           if (!qrAccepted) {
-            await this.repo.writeAudit(callerId, 'out_of_range', { qr: 'invalid' });
-            throw new AttendanceRefused(refuse(422, 'qr_invalid'));
+            await this.repo.writeAudit(callerId, AuditEvent.OUT_OF_RANGE, { qr: 'invalid' });
+            throw new AttendanceRefused(refuse(422, AttendanceRefusalReason.QR_INVALID));
           }
         }
       }
@@ -135,13 +142,13 @@ export class AttendanceService implements IAttendanceService {
       const nowIso = effectiveNow.toISOString();
       const todayAttendance = await this.repo.attendanceOn(member.id, date);
 
-      if (payload.type === 'check_in') {
+      if (payload.type === CheckType.CHECK_IN) {
         const rostered = await this.repo.rosteredShifts(member.id, date);
         const decision = decideCheckIn(rostered, todayAttendance, ctx);
         if (!decision.ok) {
           const audit = decision.refusal.detail?.audit;
           if (typeof audit === 'string') {
-            await this.repo.writeAudit(callerId, audit, { type: 'check_in' });
+            await this.repo.writeAudit(callerId, audit, { type: CheckType.CHECK_IN });
           }
           throw new AttendanceRefused(decision.refusal);
         }
@@ -170,10 +177,10 @@ export class AttendanceService implements IAttendanceService {
           bypass: snapshot,
         });
 
-        if (!written) throw new AttendanceRefused(refuse(409, 'already_checked_in'));
+        if (!written) throw new AttendanceRefused(refuse(409, AttendanceRefusalReason.ALREADY_CHECKED_IN));
 
-        await this.repo.writeAudit(callerId, 'check_in', { date, status, distance, shift: shift.name });
-        return { ok: true, type: 'check_in', status, distance, shift: shift.name };
+        await this.repo.writeAudit(callerId, AuditEvent.CHECK_IN, { date, status, distance, shift: shift.name });
+        return { ok: true, type: CheckType.CHECK_IN, status, distance, shift: shift.name };
       }
 
       const yDate = previousDate(date);
@@ -190,7 +197,7 @@ export class AttendanceService implements IAttendanceService {
       if (!decision.ok) {
         const audit = decision.refusal.detail?.audit;
         if (typeof audit === 'string') {
-          await this.repo.writeAudit(callerId, audit, { type: 'check_out' });
+          await this.repo.writeAudit(callerId, audit, { type: CheckType.CHECK_OUT });
         }
         throw new AttendanceRefused(decision.refusal);
       }
@@ -214,9 +221,9 @@ export class AttendanceService implements IAttendanceService {
         probePath,
         bypass: snapshot,
       });
-      await this.repo.writeAudit(callerId, 'check_out', { date: out.date, status: out.record.status, distance });
+      await this.repo.writeAudit(callerId, AuditEvent.CHECK_OUT, { date: out.date, status: out.record.status, distance });
 
-      return { ok: true, type: 'check_out', status: out.record.status, distance, shift: out.shift?.name ?? null };
+      return { ok: true, type: CheckType.CHECK_OUT, status: out.record.status, distance, shift: out.shift?.name ?? null };
     });
   }
 
@@ -239,7 +246,7 @@ export class AttendanceService implements IAttendanceService {
 
       const resolved = await this.repo.manualSetShift(input.memberId, input.date, input.shiftId);
       const shiftId = resolved.shift_id ?? null;
-      const came = input.status !== 'absent';
+      const came = input.status !== AttendanceStatus.ABSENT;
 
       await this.repo.manualUpsert({
         memberId: input.memberId,

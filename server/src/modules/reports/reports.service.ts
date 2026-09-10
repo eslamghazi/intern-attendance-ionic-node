@@ -4,6 +4,7 @@ import { ReportsRepository } from './reports.repository.js';
 import type { JwtClaims } from '../../db/context.js';
 import { monthBounds } from '../../domain/member/filter.js';
 import { monthStats } from '../../domain/report/rate.js';
+import { AttendanceStatus, CheckoutStatus } from '../../common/enums/index.js';
 
 import type { IReportsService } from './interfaces/reports.interface.js';
 
@@ -60,7 +61,7 @@ export class ReportsService implements IReportsService {
           date: r.date,
           shift_id: r.shift_id,
           shift_name: r.shift_name,
-          status: r.check_in_at === null ? 'absent' : r.status === 'late' ? 'late' : 'present',
+          status: r.check_in_at === null ? AttendanceStatus.ABSENT : r.status === AttendanceStatus.LATE ? AttendanceStatus.LATE : AttendanceStatus.PRESENT,
           check_in_at: r.check_in_at,
           check_out_at: r.check_out_at,
           checkout_status: r.checkout_status,
@@ -81,11 +82,11 @@ export class ReportsService implements IReportsService {
         
         const a = attRows.find((att) => att.date === r.date && att.shiftId === r.shift_id);
         
-        let status = 'pending';
+        let status: string = 'pending';
         if (a && a.checkInAt) {
-          status = a.status === 'late' ? 'late' : 'present';
+          status = a.status === AttendanceStatus.LATE ? AttendanceStatus.LATE : AttendanceStatus.PRESENT;
         } else if (r.done) {
-          status = 'absent';
+          status = AttendanceStatus.ABSENT;
         }
         
         items.push({
@@ -108,7 +109,7 @@ export class ReportsService implements IReportsService {
             date: a.date,
             shift_id: a.shiftId,
             shift_name: a.shiftName,
-            status: a.checkInAt === null ? 'absent' : a.status === 'late' ? 'late' : 'present',
+            status: a.checkInAt === null ? AttendanceStatus.ABSENT : a.status === AttendanceStatus.LATE ? AttendanceStatus.LATE : AttendanceStatus.PRESENT,
             check_in_at: a.checkInAt,
             check_out_at: a.checkOutAt,
             checkout_status: a.checkoutStatus,
@@ -216,11 +217,11 @@ export class ReportsService implements IReportsService {
       
       const results = Array.from(peopleMap.values()).map(p => {
         const a = p.att;
-        let status = 'pending';
+        let status: string = 'pending';
         if (a && a.check_in_at !== null) {
-          status = a.status ?? 'present';
+          status = a.status ?? AttendanceStatus.PRESENT;
         } else if (p.done) {
-          status = 'absent';
+          status = AttendanceStatus.ABSENT;
         }
         
         return {
@@ -235,14 +236,14 @@ export class ReportsService implements IReportsService {
       });
       
       results.sort((a, b) => {
-        const rankA = a.check_in_at && a.status !== 'late' && a.status !== 'early_leave' ? 0
-                    : a.check_in_at && a.status === 'late' ? 1
-                    : a.check_in_at && a.status === 'early_leave' ? 2
-                    : a.status === 'absent' ? 4 : 3;
-        const rankB = b.check_in_at && b.status !== 'late' && b.status !== 'early_leave' ? 0
-                    : b.check_in_at && b.status === 'late' ? 1
-                    : b.check_in_at && b.status === 'early_leave' ? 2
-                    : b.status === 'absent' ? 4 : 3;
+        const rankA = a.check_in_at && a.status !== AttendanceStatus.LATE && a.status !== AttendanceStatus.EARLY_LEAVE ? 0
+                    : a.check_in_at && a.status === AttendanceStatus.LATE ? 1
+                    : a.check_in_at && a.status === AttendanceStatus.EARLY_LEAVE ? 2
+                    : a.status === AttendanceStatus.ABSENT ? 4 : 3;
+        const rankB = b.check_in_at && b.status !== AttendanceStatus.LATE && b.status !== AttendanceStatus.EARLY_LEAVE ? 0
+                    : b.check_in_at && b.status === AttendanceStatus.LATE ? 1
+                    : b.check_in_at && b.status === AttendanceStatus.EARLY_LEAVE ? 2
+                    : b.status === AttendanceStatus.ABSENT ? 4 : 3;
                     
         if (rankA !== rankB) return rankA - rankB;
         return a.full_name.localeCompare(b.full_name);
@@ -278,17 +279,17 @@ export class ReportsService implements IReportsService {
           const key = `${r.date}_${r.shift_id ?? 'null'}`;
           const a = mAtt.find(att => att.date === r.date && att.shift_id === r.shift_id);
           
-          let in_status = 'pending';
+          let in_status: string = 'pending';
           if (a && a.check_in_at) {
-            in_status = a.status === 'late' ? 'late' : 'present';
+            in_status = a.status === AttendanceStatus.LATE ? AttendanceStatus.LATE : AttendanceStatus.PRESENT;
           } else if (r.done) {
-            in_status = 'absent';
+            in_status = AttendanceStatus.ABSENT;
           }
           
           let out_status: string | null = null;
           if (a && a.checkout_status) out_status = a.checkout_status;
-          else if (a?.status === 'left_work') out_status = 'left_work';
-          else if (a?.status === 'early_leave') out_status = 'early_leave';
+          else if (a?.status === AttendanceStatus.LEFT_WORK) out_status = CheckoutStatus.LEFT_WORK;
+          else if (a?.status === AttendanceStatus.EARLY_LEAVE) out_status = CheckoutStatus.EARLY_LEAVE;
           
           slotsMap.set(key, { in_status, out_status });
         }
@@ -296,11 +297,11 @@ export class ReportsService implements IReportsService {
         for (const a of mAtt) {
           const key = `${a.date}_${a.shift_id ?? 'null'}`;
           if (!slotsMap.has(key)) {
-            let in_status = a.status === 'late' ? 'late' : 'present';
+            let in_status = a.status === AttendanceStatus.LATE ? AttendanceStatus.LATE : AttendanceStatus.PRESENT;
             let out_status: string | null = null;
             if (a.checkout_status) out_status = a.checkout_status;
-            else if (a.status === 'left_work') out_status = 'left_work';
-            else if (a.status === 'early_leave') out_status = 'early_leave';
+            else if (a.status === AttendanceStatus.LEFT_WORK) out_status = CheckoutStatus.LEFT_WORK;
+            else if (a.status === AttendanceStatus.EARLY_LEAVE) out_status = CheckoutStatus.EARLY_LEAVE;
             
             slotsMap.set(key, { in_status, out_status });
           }
@@ -408,7 +409,7 @@ export class ReportsService implements IReportsService {
         if (!a.check_in_at) continue;
         
         attended++;
-        if (a.status === 'late') late++;
+        if (a.status === AttendanceStatus.LATE) late++;
         
         const day = new Date(String(a.date)).getDate();
         const dStat = perDayMap.get(day);
@@ -420,7 +421,7 @@ export class ReportsService implements IReportsService {
         
         if (a.branch_id) {
           const bs = perBranchStatusMap.get(a.branch_id) || { present: 0, late: 0, absent: 0 };
-          if (a.status === 'late') bs.late++;
+          if (a.status === AttendanceStatus.LATE) bs.late++;
           else bs.present++;
           perBranchStatusMap.set(a.branch_id, bs);
         }

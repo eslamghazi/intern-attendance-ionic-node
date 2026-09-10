@@ -21,6 +21,7 @@ import {
   CreatePresenceCheckResponseDto,
 } from './dto/presence.dto.js';
 import { PresenceMapper } from './presence.mapper.js';
+import { Role } from '../../common/enums/index.js';
 
 @ApiTags('Presence')
 @ApiBearerAuth()
@@ -28,7 +29,7 @@ import { PresenceMapper } from './presence.mapper.js';
 export class PresenceController {
   constructor(private readonly presenceService: PresenceService) {}
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('checks')
   @ApiOperation({ summary: 'Create a new spot-check verification session (Admin only)' })
   @SwaggerResponse({ status: 201, type: ApiResponse<CreatePresenceCheckResponseDto> })
@@ -46,7 +47,7 @@ export class PresenceController {
     return new ApiResponse(PresenceMapper.toCreateCheckResponse(data));
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Get('checks')
   @ApiOperation({ summary: 'Get active and recent spot-checks created by admin' })
   @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
@@ -55,7 +56,7 @@ export class PresenceController {
     return new ApiResponse(data);
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Delete('checks/:id')
   @ApiOperation({ summary: 'Cancel or delete an active spot-check session' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -67,7 +68,7 @@ export class PresenceController {
     return new ApiResponse({ ok: true });
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('checks/:id/confirm')
   @ApiOperation({ summary: 'Manually confirm a member presence during a spot-check (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
@@ -82,7 +83,7 @@ export class PresenceController {
     return new ApiResponse(data);
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('checks/:id/resolve')
   @ApiOperation({ summary: 'Resolve an expired or completed spot-check' })
   @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
@@ -95,7 +96,7 @@ export class PresenceController {
     return new ApiResponse(data);
   }
 
-  @Roles('member')
+  @Roles(Role.MEMBER)
   @Get('pending')
   @ApiOperation({ summary: 'Check if caller has pending spot-checks needing confirmation' })
   @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
@@ -104,7 +105,7 @@ export class PresenceController {
     return new ApiResponse(data);
   }
 
-  @Roles('member')
+  @Roles(Role.MEMBER)
   @Post('confirm')
   @ApiOperation({ summary: 'Confirm presence for a spot-check (Member self-report)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })

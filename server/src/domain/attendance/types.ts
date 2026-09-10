@@ -5,8 +5,14 @@
 // in the system, and while it lived inside a route handler welded to a
 // transaction it could not be tested at all.
 import type { ShiftRow } from './windows.js';
+import {
+  CheckType,
+  AttendanceStatus,
+  CheckoutStatus,
+  CheckinMethod,
+} from '../../common/enums/index.js';
 
-export type CheckType = 'check_in' | 'check_out';
+export { CheckType, AttendanceStatus, CheckoutStatus, CheckinMethod };
 
 /** Everything about the member the decision depends on, already resolved. */
 export interface MemberContext {
@@ -120,7 +126,7 @@ export interface AttendanceRecord {
 export interface CheckInDecision {
   shift: ShiftRow;
   /** 'late' once the check-in-late boundary has passed. */
-  status: 'present' | 'late';
+  status: AttendanceStatus.PRESENT | AttendanceStatus.LATE;
 }
 
 export interface CheckOutDecision {
@@ -129,7 +135,7 @@ export interface CheckOutDecision {
   date: string;
   shift: ShiftRow | null;
   /** 'early_leave' when leaving before the check-out window opens. */
-  checkoutStatus: 'checked_out' | 'early_leave';
+  checkoutStatus: CheckoutStatus.CHECKED_OUT | CheckoutStatus.EARLY_LEAVE;
 }
 
 /** Distinguish a decision from a refusal without exceptions. */

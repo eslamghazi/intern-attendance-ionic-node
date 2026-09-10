@@ -12,6 +12,7 @@ import {
   SetManualAttendanceDto,
   AttendanceResultDto,
 } from './dto/attendance.dto.js';
+import { Role } from '../../common/enums/index.js';
 
 function toPayload(b: RecordAttendanceDto): CheckPayload {
   return {
@@ -60,7 +61,7 @@ export class AttendanceController {
     }
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('set')
   @ApiOperation({ summary: 'Manually record or override member attendance (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })

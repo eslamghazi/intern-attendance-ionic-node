@@ -25,6 +25,7 @@ import {
   GetStatsQueryDto,
   GetProbesDto,
 } from './dto/reports.dto.js';
+import { Role } from '../../common/enums/index.js';
 
 @ApiTags('Reports')
 @ApiBearerAuth()
@@ -164,7 +165,7 @@ export class ReportsController {
     return new ApiResponse(data);
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('probes')
   @ApiOperation({ summary: 'Get attendance face verification probes for members' })
   @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
@@ -178,7 +179,7 @@ export class ReportsController {
     return new ApiResponse(data);
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Get('probe-paths')
   @ApiOperation({ summary: 'Get list of all probe paths (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<string[]> })

@@ -9,7 +9,7 @@
 //
 // It is one rule, so it is written once, here, with no database and no bcrypt
 // in sight: the caller does the hashing and passes in two booleans.
-import { masterPasswordMayOpen, type Role } from './role.js';
+import { masterPasswordMayOpen, Role } from './role.js';
 
 export type LoginOutcome =
   /** The account's own password. */
@@ -54,5 +54,5 @@ export function initialPassword(account: {
   passwordHash: string | null;
 }): string | null {
   if (account.passwordHash) return null;
-  return account.role === 'member' ? account.nationalId : null;
+  return account.role === Role.MEMBER ? account.nationalId : null;
 }

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { GenericRepository } from '../../common/database/generic.repository.js';
 import { eq, inArray, asc } from 'drizzle-orm';
 import { profiles, adminAssignments, groups, branches } from '../../db/schema/index.js';
+import { STAFF_ROLES } from '../../common/enums/index.js';
 
 import type { IAdminsRepository } from './interfaces/admins.interface.js';
 
@@ -21,7 +22,7 @@ export class AdminsRepository extends GenericRepository<typeof profiles.$inferSe
         permissions: profiles.permissions,
       })
       .from(profiles)
-      .where(inArray(profiles.role, ['admin', 'superadmin']))
+      .where(inArray(profiles.role, STAFF_ROLES))
       .orderBy(asc(profiles.fullName), asc(profiles.id));
   }
 

@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { bypassSnapshot, checkGates, resolveBypass } from './gates.js';
 import type { AttendanceSettings, CheckPayload, MemberContext } from './types.js';
+import { CheckType } from '../../common/enums/index.js';
 
 const SETTINGS: AttendanceSettings = {
   checkinMethod: 'both',
@@ -43,7 +44,7 @@ const MEMBER: MemberContext = {
 };
 
 const PAYLOAD: CheckPayload = {
-  type: 'check_in',
+  type: CheckType.CHECK_IN,
   lat: 31.1,
   lng: 30.9,
   accuracy: 12,

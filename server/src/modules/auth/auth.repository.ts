@@ -226,7 +226,7 @@ export class AuthRepository extends GenericRepository<
       national_id: string;
       full_name: string;
       phone?: string | null;
-      role: 'admin';
+      role: Role;
     },
     passwordHash: string,
   ): Promise<void> {

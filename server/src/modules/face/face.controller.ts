@@ -26,6 +26,7 @@ import {
   TemplatePhotoItemDto,
 } from './dto/face.dto.js';
 import { FaceMapper } from './face.mapper.js';
+import { Role } from '../../common/enums/index.js';
 
 @ApiTags('Face')
 @ApiBearerAuth()
@@ -33,7 +34,7 @@ import { FaceMapper } from './face.mapper.js';
 export class FaceController {
   constructor(private readonly faceService: FaceService) {}
 
-  @Roles('member')
+  @Roles(Role.MEMBER)
   @Post('enroll-photo')
   @ApiOperation({ summary: 'Enroll face photo for member' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: boolean; path?: string; skipped?: boolean }> })
@@ -47,7 +48,7 @@ export class FaceController {
     return new ApiResponse(data);
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('reset')
   @ApiOperation({ summary: 'Reset face biometrics for a member (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: boolean }> })
@@ -116,7 +117,7 @@ export class FaceController {
     return new ApiResponse(FaceMapper.toPhotoItems(rows));
   }
 
-  @Roles('admin', 'superadmin')
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Get('templates/photo-paths')
   @ApiOperation({ summary: 'Get all enrolled face template photo paths (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<(string | null)[]> })

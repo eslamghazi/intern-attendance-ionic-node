@@ -23,12 +23,17 @@ import {
 import type { ShiftRow } from '../../domain/attendance/windows.js';
 import type { AttendanceRecord, AttendanceSettings, MemberContext } from '../../domain/attendance/types.js';
 import type { GeofenceResult } from '../../domain/attendance/gates.js';
+import {
+  AttendanceStatus,
+  CheckoutStatus,
+  CheckinMethod,
+} from '../../common/enums/index.js';
 
 export interface CheckInWrite {
   memberId: string;
   branchId: string;
   date: string;
-  status: 'present' | 'late';
+  status: AttendanceStatus.PRESENT | AttendanceStatus.LATE;
   shiftId: string;
   shiftName: string;
   atIso: string;
@@ -45,7 +50,7 @@ export interface CheckInWrite {
 
 export interface CheckOutWrite {
   id: string;
-  checkoutStatus: 'checked_out' | 'early_leave';
+  checkoutStatus: CheckoutStatus.CHECKED_OUT | CheckoutStatus.EARLY_LEAVE;
   atIso: string;
   lat: number;
   lng: number;
