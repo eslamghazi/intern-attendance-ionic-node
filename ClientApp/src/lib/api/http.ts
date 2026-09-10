@@ -99,6 +99,25 @@ export function setSessionLostHandler(handler: () => void): void {
  */
 let inFlight: Promise<boolean> | null = null;
 
+interface SessionResponsePayload {
+  access_token?: string;
+  refresh_token?: string;
+}
+
+interface ApiPayloadEnvelope<D = unknown> {
+  ok?: boolean;
+  code?: string;
+  message?: string;
+  data?: D;
+  total?: number;
+  meta?: Record<string, unknown>;
+  error?: {
+    code?: string;
+    message?: string;
+    pg?: { code?: string; details?: string };
+  };
+}
+
 export async function renewSession(): Promise<boolean> {
   if (inFlight) return inFlight;
 
@@ -113,12 +132,16 @@ export async function renewSession(): Promise<boolean> {
         cache: 'no-store',
       });
       if (!res.ok) return false;
-      const raw = await res.json();
-      const next = (raw && typeof raw === 'object' && 'data' in raw && (raw as any).data)
-        ? (raw as any).data
-        : raw;
+      const raw = (await res.json()) as (ApiPayloadEnvelope<SessionResponsePayload> & SessionResponsePayload);
+      const next: SessionResponsePayload | undefined =
+        raw && typeof raw === 'object' && 'data' in raw && raw.data
+          ? raw.data
+          : raw;
       if (!next?.access_token || !next?.refresh_token) return false;
-      await setSession(next);
+      await setSession({
+        access_token: next.access_token,
+        refresh_token: next.refresh_token,
+      });
       return true;
     } catch {
       // A network failure is not an invalid session: keep the tokens and let
@@ -132,15 +155,22 @@ export async function renewSession(): Promise<boolean> {
   return inFlight;
 }
 
-export interface RequestOptions {
+export type HttpBodyType =
+  | object
+  | string
+  | number
+  | boolean
+  | null;
+
+export interface RequestOptions<B = HttpBodyType> {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  body?: unknown;
+  body?: B;
   /** Skip the Authorization header (login endpoints). */
   anonymous?: boolean;
   signal?: AbortSignal;
 }
 
-export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function apiFetch<T, B = HttpBodyType>(path: string, options: RequestOptions<B> = {}): Promise<T> {
   const { method = 'GET', body, anonymous = false, signal } = options;
 
   const send = async (): Promise<Response> => {
@@ -191,34 +221,34 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   if (res.status === 204) return undefined as T;
 
   const text = await res.text();
-  const payload = text ? (JSON.parse(text) as unknown) : null;
+  const payload = text ? (JSON.parse(text) as ApiPayloadEnvelope<T>) : null;
 
   if (!res.ok) {
-    const e = (payload as { error?: { code?: string; message?: string; pg?: { code?: string; details?: string } } })?.error;
-    const directMsg = (payload as { message?: string })?.message;
+    const e = payload?.error;
+    const directMsg = payload?.message;
     throw new ApiError(
       res.status,
       // Prefer the Postgres SQLSTATE so describeDbError() recognises 23503/23505.
-      e?.pg?.code ?? e?.code ?? (payload as any)?.code ?? 'unknown',
+      e?.pg?.code ?? e?.code ?? payload?.code ?? 'unknown',
       e?.message ?? directMsg ?? res.statusText,
       e?.pg?.details,
     );
   }
 
   // Auto-unwrap new backend architecture envelopes
-  if (payload && typeof payload === 'object' && 'ok' in payload && (payload as any).ok === true) {
-    if ('total' in payload && Array.isArray((payload as any).data)) {
+  if (payload && typeof payload === 'object' && payload.ok === true) {
+    if (typeof payload.total === 'number' && Array.isArray(payload.data)) {
       // Map PaginatedResponse safely to all expected legacy formats
       return { 
-        data: (payload as any).data,
-        items: (payload as any).data,
-        rows: (payload as any).data,
-        total: (payload as any).total,
-        meta: (payload as any).meta 
-      } as T;
+        data: payload.data,
+        items: payload.data,
+        rows: payload.data,
+        total: payload.total,
+        meta: payload.meta 
+      } as unknown as T;
     }
     // Map ApiResponse
-    return (payload as any).data as T;
+    return (payload.data !== undefined ? payload.data : payload) as T;
   }
 
   return payload as T;

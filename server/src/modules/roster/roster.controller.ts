@@ -20,6 +20,10 @@ import {
   GetExistingKeysDto,
   PostRosterDaysDto,
   BulkRosterDto,
+  BulkRosterResultDto,
+  RosterMakerDataDto,
+  RosterViewRowDto,
+  RosterTotalsResponseDto,
 } from './dto/roster.dto.js';
 import { Role } from '../../common/enums/index.js';
 
@@ -32,11 +36,11 @@ export class RosterController {
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Get('view')
   @ApiOperation({ summary: 'Get monthly roster grid view with pagination (Admin only)' })
-  @SwaggerResponse({ status: 200, type: PaginatedResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: PaginatedResponse<RosterViewRowDto> })
   async getRosterView(
     @CallerDecorator() caller: Caller | null,
     @Query() query: GetRosterViewQueryDto,
-  ): Promise<PaginatedResponse<unknown>> {
+  ): Promise<PaginatedResponse<RosterViewRowDto>> {
     const { page = 1, page_size: pageSize = 50, year, month, ...filters } = query;
     if (!year || !month) throw badRequest('invalid_query', 'year and month are required');
     const offset = (page - 1) * pageSize;
@@ -48,11 +52,11 @@ export class RosterController {
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Get('totals')
   @ApiOperation({ summary: 'Get monthly roster totals (Admin only)' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<RosterTotalsResponseDto> })
   async getRosterTotals(
     @CallerDecorator() caller: Caller | null,
     @Query() query: GetRosterViewQueryDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<RosterTotalsResponseDto>> {
     const { year, month, ...filters } = query;
     if (!year || !month) throw badRequest('invalid_query', 'year and month are required');
 
@@ -62,25 +66,25 @@ export class RosterController {
 
   @Get('maker-data')
   @ApiOperation({ summary: 'Get roster maker options and metadata for given month' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<RosterMakerDataDto> })
   async getMakerData(
     @CallerDecorator() caller: Caller | null,
     @Query() query: MonthQueryDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<RosterMakerDataDto>> {
     if (!query?.year || !query?.month) throw badRequest('invalid_query', 'year and month are required');
 
     const data = await this.service.getMakerData(caller!, query.year, query.month);
-    return new ApiResponse(data);
+    return new ApiResponse(data as RosterMakerDataDto);
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('existing-keys')
   @ApiOperation({ summary: 'Query existing roster schedule keys for members (Admin only)' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<string[]> })
   async getExistingKeys(
     @CallerDecorator() caller: Caller | null,
     @Body() body: GetExistingKeysDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<string[]>> {
     if (!body?.year || !body?.month || !body?.member_ids) {
       throw badRequest('invalid_body', 'year, month, and member_ids are required');
     }
@@ -91,11 +95,11 @@ export class RosterController {
 
   @Post('days')
   @ApiOperation({ summary: 'Assign one or more member roster shift days' })
-  @SwaggerResponse({ status: 201, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 201, type: ApiResponse<{ ok: true }> })
   async postRosterDays(
     @CallerDecorator() caller: Caller | null,
     @Body() body: PostRosterDaysDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<{ ok: true }>> {
     let days: RosterDayInputDto[] = [];
     if (body?.days && Array.isArray(body.days)) {
       days = body.days;
@@ -105,8 +109,8 @@ export class RosterController {
       throw badRequest('invalid_body', 'invalid roster payload');
     }
 
-    const data = await this.service.postRosterDays(caller!, days);
-    return new ApiResponse(data);
+    await this.service.postRosterDays(caller!, days);
+    return new ApiResponse({ ok: true });
   }
 
   @Delete('days')
@@ -126,16 +130,16 @@ export class RosterController {
 
   @Post('bulk')
   @ApiOperation({ summary: 'Bulk schedule roster shifts across members' })
-  @SwaggerResponse({ status: 201, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 201, type: ApiResponse<BulkRosterResultDto> })
   async bulkRoster(
     @CallerDecorator() caller: Caller | null,
     @Body() body: BulkRosterDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<BulkRosterResultDto>> {
     if (!body?.year || !body?.month || !body?.shift_id || !body?.mode) {
       throw badRequest('invalid_body', 'invalid bulk payload');
     }
 
     const data = await this.service.bulkRoster(caller!, body);
-    return new ApiResponse(data);
+    return new ApiResponse(data as BulkRosterResultDto);
   }
 }

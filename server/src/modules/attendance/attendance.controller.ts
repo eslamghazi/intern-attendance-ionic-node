@@ -11,6 +11,7 @@ import {
   RecordAttendanceDto,
   SetManualAttendanceDto,
   AttendanceResultDto,
+  SetAttendanceResponseDto,
 } from './dto/attendance.dto.js';
 import { Role } from '../../common/enums/index.js';
 
@@ -43,7 +44,7 @@ export class AttendanceController {
   async record(
     @CallerDecorator() caller: Caller | null,
     @Body() body: RecordAttendanceDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<AttendanceResultDto>> {
     if (!body?.type || body.lat === undefined || body.lng === undefined) {
       throw badRequest('invalid_type', 'invalid attendance payload');
     }
@@ -64,11 +65,11 @@ export class AttendanceController {
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('set')
   @ApiOperation({ summary: 'Manually record or override member attendance (Admin only)' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<SetAttendanceResponseDto> })
   async setManual(
     @CallerDecorator() caller: Caller | null,
     @Body() body: SetManualAttendanceDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<SetAttendanceResponseDto>> {
     if (!body?.member_id || !body?.date) {
       throw badRequest('missing', 'member_id and date are required');
     }

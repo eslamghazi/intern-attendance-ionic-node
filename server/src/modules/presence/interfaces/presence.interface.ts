@@ -1,23 +1,24 @@
 import type { Caller } from '../../../common/types.js';
 import type { IGenericRepository } from '../../../common/database/interfaces/generic-repository.interface.js';
 import { presenceChecks } from '../../../db/schema/index.js';
+import type {
+  CreatePresenceCheckDto,
+  PresenceChecksResponseDto,
+  ResolveCheckResponseDto,
+  PendingPresenceResponseDto,
+  PresenceCheckRowDto,
+} from '../dto/presence.dto.js';
 
 export interface IPresenceService {
   createCheck(
     caller: Caller,
-    b: {
-      branch_id?: string | null;
-      group_id?: string | null;
-      department_id?: string | null;
-      shift_id?: string | null;
-      deadline_minutes: number;
-    },
-  ): Promise<{ ok: boolean; check: any; target_count: number }>;
-  getChecks(callerId: string): Promise<{ checks: any[] }>;
+    b: CreatePresenceCheckDto,
+  ): Promise<{ ok: boolean; check: typeof presenceChecks.$inferSelect; target_count: number }>;
+  getChecks(callerId: string): Promise<PresenceChecksResponseDto>;
   deleteCheck(callerId: string, id: string): Promise<void>;
   confirmByAdmin(callerId: string, id: string, memberId: string): Promise<{ ok: boolean }>;
-  resolveCheck(callerId: string, id: string, decision: string): Promise<{ ok: boolean; decision: string }>;
-  getPending(callerId: string): Promise<{ pending: any }>;
+  resolveCheck(callerId: string, id: string, decision: string): Promise<ResolveCheckResponseDto>;
+  getPending(callerId: string): Promise<PendingPresenceResponseDto>;
   confirmByMember(callerId: string, checkId: string): Promise<{ ok: boolean }>;
 }
 

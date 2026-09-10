@@ -108,12 +108,33 @@ export class SetManualAttendanceDto {
 }
 
 export class AttendanceResultDto {
+  @ApiProperty({ example: true })
+  ok!: boolean;
+
+  @ApiProperty({ enum: CheckType, description: 'Check type' })
+  type!: CheckType;
+
   @ApiProperty({ description: 'Resulting attendance status' })
   status!: string;
 
-  @ApiPropertyOptional({ description: 'Recorded server timestamp' })
-  time?: string;
+  @ApiProperty({ description: 'Distance to branch in meters', example: 12.5 })
+  distance!: number;
 
-  @ApiPropertyOptional({ description: 'Shift name' })
-  shift_name?: string;
+  @ApiPropertyOptional({ description: 'Shift name', nullable: true })
+  shift?: string | null;
+
+  @ApiPropertyOptional({ example: '2026-09-10T08:00:00.000Z', nullable: true })
+  time?: string | null;
+
+  @ApiPropertyOptional({ example: 'Morning Shift', nullable: true })
+  shift_name?: string | null;
 }
+
+export class SetAttendanceResponseDto {
+  @ApiProperty({ example: true })
+  ok!: boolean;
+
+  @ApiPropertyOptional({ example: true })
+  cleared?: boolean;
+}
+

@@ -21,11 +21,13 @@ import { StorageService } from './storage.service.js';
 import { ApiResponse } from '../../common/dto/api-response.dto.js';
 import {
   categoryParamSchema,
-  uploadObjectSchema,
-  getSignedUrlQuerySchema,
-  getSignedUrlsBodySchema,
-  getObjectQuerySchema,
-  deleteObjectsBodySchema,
+  UploadObjectDto,
+  GetSignedUrlQueryDto,
+  GetSignedUrlsBodyDto,
+  GetObjectQueryDto,
+  DeleteObjectsBodyDto,
+  UploadObjectResponseDto,
+  DeleteObjectsResponseDto,
 } from './dto/storage.dto.js';
 import { Role } from '../../common/enums/index.js';
 
@@ -41,22 +43,21 @@ export class StorageController {
     @CallerDecorator() caller: Caller | null,
     @ClaimsDecorator() claims: JwtClaims,
     @Param('category') categoryRaw: string,
-    @Body() body: unknown,
-  ) {
+    @Body() body: UploadObjectDto,
+  ): Promise<ApiResponse<UploadObjectResponseDto>> {
     const params = categoryParamSchema.safeParse(categoryRaw);
-    const parsedBody = uploadObjectSchema.safeParse(body);
-    if (!params.success || !parsedBody.success) throw badRequest('invalid_request', 'invalid upload');
+    if (!params.success) throw badRequest('invalid_request', 'invalid category');
 
-    const bytes = this.fileManager.decodeBase64Image(parsedBody.data.content_base64);
+    const bytes = this.fileManager.decodeBase64Image(body.content_base64);
     if (!bytes) throw badRequest('bad_base64', 'could not decode the payload');
 
     const data = await this.service.uploadObject(
       caller!,
       claims,
       params.data,
-      parsedBody.data.path,
+      body.path,
       bytes,
-      parsedBody.data.content_type,
+      body.content_type || 'image/jpeg',
     );
     return new ApiResponse(data);
   }
@@ -66,12 +67,11 @@ export class StorageController {
   async getSignedUrl(
     @ClaimsDecorator() claims: JwtClaims | null,
     @Param('category') categoryRaw: string,
-    @Query() queryParams: unknown,
-  ) {
+    @Query() queryParams: GetSignedUrlQueryDto,
+  ): Promise<ApiResponse<{ url: string }>> {
     const params = categoryParamSchema.safeParse(categoryRaw);
-    const parsedQuery = getSignedUrlQuerySchema.safeParse(queryParams);
-    if (!params.success || !parsedQuery.success) throw badRequest('invalid_request', 'invalid request');
-    const url = await this.fileManager.getSignedUrl(claims, params.data, parsedQuery.data.path);
+    if (!params.success) throw badRequest('invalid_request', 'invalid category');
+    const url = await this.fileManager.getSignedUrl(claims, params.data, queryParams.path);
     return new ApiResponse({ url });
   }
 
@@ -80,17 +80,16 @@ export class StorageController {
   async getSignedUrls(
     @ClaimsDecorator() claims: JwtClaims | null,
     @Param('category') categoryRaw: string,
-    @Body() body: unknown,
-  ) {
+    @Body() body: GetSignedUrlsBodyDto,
+  ): Promise<ApiResponse<Record<string, string>>> {
     const params = categoryParamSchema.safeParse(categoryRaw);
-    const parsedBody = getSignedUrlsBodySchema.safeParse(body);
-    if (!params.success || !parsedBody.success) throw badRequest('invalid_request', 'invalid request');
+    if (!params.success) throw badRequest('invalid_request', 'invalid category');
 
     const data = await this.fileManager.getSignedUrls(
       claims,
       params.data,
-      parsedBody.data.paths,
-      parsedBody.data.expires_in,
+      body.paths,
+      body.expires_in,
     );
     return new ApiResponse(data);
   }
@@ -99,16 +98,14 @@ export class StorageController {
   @Get(':category/object')
   async getObject(
     @Param('category') categoryRaw: string,
-    @Query() queryParams: unknown,
+    @Query() queryParams: GetObjectQueryDto,
     @Res() res: FastifyReply,
   ) {
-
     const params = categoryParamSchema.safeParse(categoryRaw);
-    const parsedQuery = getObjectQuerySchema.safeParse(queryParams);
-    if (!params.success || !parsedQuery.success) throw notFound('object not found');
+    if (!params.success) throw notFound('object not found');
 
     const category = params.data;
-    const { path, expires, signature } = parsedQuery.data;
+    const { path, expires, signature } = queryParams;
 
     if (!this.fileManager.isPublic(category)) {
       if (expires === undefined || !signature) throw notFound('object not found');
@@ -142,13 +139,12 @@ export class StorageController {
   @Delete(':category')
   async deleteObjects(
     @Param('category') categoryRaw: string,
-    @Body() body: unknown,
-  ) {
+    @Body() body: DeleteObjectsBodyDto,
+  ): Promise<ApiResponse<DeleteObjectsResponseDto>> {
     const params = categoryParamSchema.safeParse(categoryRaw);
-    const parsedBody = deleteObjectsBodySchema.safeParse(body);
-    if (!params.success || !parsedBody.success) throw badRequest('invalid_request', 'invalid request');
+    if (!params.success) throw badRequest('invalid_request', 'invalid category');
 
-    const paths = [...new Set(parsedBody.data.paths.filter(Boolean))];
+    const paths = [...new Set((body.paths || []).filter(Boolean))];
     if (!paths.length) return new ApiResponse({ removed: 0 });
 
     await this.service.deleteObjects(params.data, paths);

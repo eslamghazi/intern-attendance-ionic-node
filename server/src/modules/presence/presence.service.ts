@@ -107,7 +107,19 @@ export class PresenceService implements IPresenceService {
           }));
 
         return {
-          ...r,
+          id: r.id,
+          created_by: r.createdBy,
+          branch_id: r.branchId,
+          group_id: r.groupId,
+          department_id: r.departmentId,
+          shift_id: r.shiftId,
+          date: r.date,
+          deadline: r.deadline,
+          target_member_ids: targets,
+          status: r.status,
+          decision: r.decision,
+          created_at: r.createdAt,
+          resolved_at: r.resolvedAt,
           target_count: targets.length,
           confirmed_count: confirmedCount,
           pending,

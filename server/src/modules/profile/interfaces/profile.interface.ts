@@ -4,13 +4,14 @@ import type { IBaseService } from '../../../common/database/interfaces/base-serv
 import type { IGenericRepository } from '../../../common/database/interfaces/generic-repository.interface.js';
 import { profiles } from '../../../db/schema/index.js';
 import type { ProfileEdit } from '../profile.repository.js';
+import type { ProfileResponseDto } from '../dto/profile.dto.js';
 
 export interface IProfileService extends IBaseService<
   typeof profiles.$inferSelect,
   string,
   typeof profiles.$inferInsert,
   Partial<typeof profiles.$inferInsert>,
-  any
+  ProfileResponseDto
 > {
   markEnrolled(caller: Caller): Promise<void>;
   markPasswordChanged(caller: Caller): Promise<void>;

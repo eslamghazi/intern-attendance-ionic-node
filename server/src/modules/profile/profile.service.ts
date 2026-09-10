@@ -8,6 +8,7 @@ import { BaseService } from '../../common/database/base.service.js';
 import { profiles } from '../../db/schema/index.js';
 
 import type { IProfileService } from './interfaces/profile.interface.js';
+import { ProfileResponseDto } from './dto/profile.dto.js';
 
 @Injectable()
 export class ProfileService extends BaseService<
@@ -15,7 +16,7 @@ export class ProfileService extends BaseService<
   string,
   typeof profiles.$inferInsert,
   Partial<typeof profiles.$inferInsert>,
-  any
+  ProfileResponseDto
 > implements IProfileService {
   constructor(
     uow: UnitOfWorkService,
@@ -24,8 +25,15 @@ export class ProfileService extends BaseService<
     super(uow, repo);
   }
 
-  protected mapToResponse(entity: any) {
-    return entity;
+  protected mapToResponse(entity: typeof profiles.$inferSelect): ProfileResponseDto {
+    return {
+      id: entity.id,
+      full_name: entity.fullName,
+      national_id: entity.nationalId,
+      phone: entity.phone,
+      email: entity.email,
+      avatar_url: entity.avatarUrl,
+    };
   }
 
 

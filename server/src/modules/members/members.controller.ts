@@ -17,10 +17,20 @@ import { MembersService } from './members.service.js';
 import { ApiResponse, PaginatedResponse } from '../../common/dto/api-response.dto.js';
 import {
   MemberDto,
+  MemberDirectoryRowDto,
+  MemberPageItemDto,
+  MemberByProfileDto,
   CreateMemberInputDto,
   CreateMembersBatchDto,
   UpdateMemberDto,
   MemberFilterQueryDto,
+  BulkFlagDto,
+  BulkFrozenDto,
+  BulkUpdateDto,
+  BulkDeleteDto,
+  BulkAffectedResponseDto,
+  CreateMemberResultDto,
+  FlagStatsResponseDto,
 } from './dto/member.dto.js';
 import { Role } from '../../common/enums/index.js';
 
@@ -33,13 +43,12 @@ export class MembersController {
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post()
   @ApiOperation({ summary: 'Create member or batch of members' })
-  @SwaggerResponse({ status: 201, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 201, type: ApiResponse<CreateMemberResultDto> })
   async createMembers(
     @CallerDecorator() caller: Caller | null,
-    @Body() body: CreateMembersBatchDto | CreateMemberInputDto,
-  ): Promise<ApiResponse<unknown>> {
-    const items = 'members' in body && Array.isArray(body.members) ? body.members : [body as CreateMemberInputDto];
-    const data = await this.membersService.createMembers(caller!, items);
+    @Body() body: CreateMembersBatchDto,
+  ): Promise<ApiResponse<CreateMemberResultDto>> {
+    const data = await this.membersService.createMembers(caller!, body.members);
     return new ApiResponse(data);
   }
 
@@ -54,38 +63,38 @@ export class MembersController {
 
   @Get()
   @ApiOperation({ summary: 'List members with optional filters' })
-  @SwaggerResponse({ status: 200, type: PaginatedResponse<MemberDto> })
+  @SwaggerResponse({ status: 200, type: PaginatedResponse<MemberDirectoryRowDto> })
   async getMembers(
     @ClaimsDecorator() claims: JwtClaims,
     @Query() query: MemberFilterQueryDto,
-  ): Promise<PaginatedResponse<MemberDto>> {
-    const { page, page_size: pageSize, ...filters } = query;
+  ): Promise<PaginatedResponse<MemberDirectoryRowDto>> {
+    const { page = 1, page_size: pageSize = 50, ...filters } = query;
     const offset = (page - 1) * pageSize;
-    const result = await this.membersService.getMembers(claims, filters as any, pageSize, offset);
-    return new PaginatedResponse(result.rows as any, result.total);
+    const result = await this.membersService.getMembers(claims, filters, pageSize, offset);
+    return new PaginatedResponse(result.rows, result.total, { page, pageSize });
   }
 
   @Get('page')
   @ApiOperation({ summary: 'Paginated members list' })
-  @SwaggerResponse({ status: 200, type: PaginatedResponse<MemberDto> })
+  @SwaggerResponse({ status: 200, type: PaginatedResponse<MemberPageItemDto> })
   async getMembersPage(
     @ClaimsDecorator() claims: JwtClaims,
     @Query() query: MemberFilterQueryDto,
-  ): Promise<PaginatedResponse<MemberDto>> {
-    const { page, page_size: pageSize, ...filters } = query;
+  ): Promise<PaginatedResponse<MemberPageItemDto>> {
+    const { page = 1, page_size: pageSize = 50, ...filters } = query;
     const offset = (page - 1) * pageSize;
-    const result = await this.membersService.getMembersPage(claims, filters as any, pageSize, offset);
-    return new PaginatedResponse(result.items as any, result.total);
+    const result = await this.membersService.getMembersPage(claims, filters, pageSize, offset);
+    return new PaginatedResponse(result.items, result.total, { page, pageSize });
   }
 
   @Get('flag-stats')
   @ApiOperation({ summary: 'Get summary statistics of flagged members' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<FlagStatsResponseDto> })
   async getFlagStats(
     @ClaimsDecorator() claims: JwtClaims,
     @Query() query: MemberFilterQueryDto,
-  ): Promise<ApiResponse<unknown>> {
-    const data = await this.membersService.getFlagStats(claims, query as any);
+  ): Promise<ApiResponse<FlagStatsResponseDto>> {
+    const data = await this.membersService.getFlagStats(claims, query);
     return new ApiResponse(data);
   }
 
@@ -99,13 +108,13 @@ export class MembersController {
 
   @Get('by-profile/:profileId')
   @ApiOperation({ summary: 'Get member details by profile ID' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<MemberDto | null> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<MemberByProfileDto> })
   async getByProfile(
     @ClaimsDecorator() claims: JwtClaims,
     @Param('profileId') profileId: string,
-  ): Promise<ApiResponse<MemberDto | null>> {
+  ): Promise<ApiResponse<MemberByProfileDto>> {
     const data = await this.membersService.getByProfile(claims, profileId);
-    return new ApiResponse(data as any);
+    return new ApiResponse(data);
   }
 
   @Patch(':id')
@@ -116,7 +125,7 @@ export class MembersController {
     @Param('id') id: string,
     @Body() body: UpdateMemberDto,
   ): Promise<ApiResponse<{ ok: boolean }>> {
-    const data = await this.membersService.updateMember(claims, id, body as any);
+    const data = await this.membersService.updateMember(claims, id, body);
     return new ApiResponse(data);
   }
 
@@ -136,12 +145,12 @@ export class MembersController {
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('bulk/flag')
   @ApiOperation({ summary: 'Bulk update a boolean flag across members' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<BulkAffectedResponseDto> })
   async bulkFlag(
     @ClaimsDecorator() claims: JwtClaims,
-    @Body() body: Record<string, unknown>,
-  ): Promise<ApiResponse<unknown>> {
-    const { flag, value, ...filters } = body as any;
+    @Body() body: BulkFlagDto,
+  ): Promise<ApiResponse<BulkAffectedResponseDto>> {
+    const { flag, value, ...filters } = body;
     const data = await this.membersService.bulkUpdate(claims, filters, { [flag]: value });
     return new ApiResponse(data);
   }
@@ -149,12 +158,12 @@ export class MembersController {
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('bulk/frozen')
   @ApiOperation({ summary: 'Bulk update frozen date across members' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<BulkAffectedResponseDto> })
   async bulkFrozen(
     @ClaimsDecorator() claims: JwtClaims,
-    @Body() body: Record<string, unknown>,
-  ): Promise<ApiResponse<unknown>> {
-    const { frozen_at: frozenAt, ...filters } = body as any;
+    @Body() body: BulkFrozenDto,
+  ): Promise<ApiResponse<BulkAffectedResponseDto>> {
+    const { frozen_at: frozenAt, ...filters } = body;
     const data = await this.membersService.bulkUpdate(claims, filters, { frozen_at: frozenAt });
     return new ApiResponse(data);
   }
@@ -162,12 +171,12 @@ export class MembersController {
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('bulk/update')
   @ApiOperation({ summary: 'Bulk update members assignments or active status' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<BulkAffectedResponseDto> })
   async bulkUpdatePost(
     @ClaimsDecorator() claims: JwtClaims,
-    @Body() body: Record<string, unknown>,
-  ): Promise<ApiResponse<unknown>> {
-    const { group_id: groupId, branch_id: branchId, is_active: isActive, ...filters } = body as any;
+    @Body() body: BulkUpdateDto,
+  ): Promise<ApiResponse<BulkAffectedResponseDto>> {
+    const { group_id: groupId, branch_id: branchId, is_active: isActive, ...filters } = body;
     const patch: Record<string, unknown> = {};
     if (groupId) patch.group_id = groupId;
     if (branchId) patch.branch_id = branchId;
@@ -179,12 +188,12 @@ export class MembersController {
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('bulk/delete')
   @ApiOperation({ summary: 'Bulk delete members matching filter criteria' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<BulkAffectedResponseDto> })
   async bulkDelete(
     @ClaimsDecorator() claims: JwtClaims,
-    @Body() body: Record<string, unknown>,
-  ): Promise<ApiResponse<unknown>> {
-    const data = await this.membersService.bulkDelete(claims, body as any);
+    @Body() body: BulkDeleteDto,
+  ): Promise<ApiResponse<BulkAffectedResponseDto>> {
+    const data = await this.membersService.bulkDelete(claims, body);
     return new ApiResponse(data);
   }
 }

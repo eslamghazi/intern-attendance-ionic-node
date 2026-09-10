@@ -1,5 +1,6 @@
 import { Controller, Get, Res, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse } from '@nestjs/swagger';
+import type { FastifyReply } from 'fastify';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { pool } from '../../db/pool.js';
 import { ApiResponse, ApiErrorResponse } from '../../common/dto/api-response.dto.js';
@@ -20,7 +21,7 @@ export class HealthController {
   @Get('health/ready')
   @ApiOperation({ summary: 'Readiness probe' })
   @SwaggerResponse({ status: 200, type: ApiResponse<HealthResponseDto> })
-  async getReady(@Res({ passthrough: true }) res: any): Promise<ApiResponse<HealthResponseDto> | ApiErrorResponse> {
+  async getReady(@Res({ passthrough: true }) res: FastifyReply): Promise<ApiResponse<HealthResponseDto> | ApiErrorResponse> {
     try {
       await pool.query('select 1');
       res.status(HttpStatus.OK);
@@ -43,7 +44,7 @@ export class HealthController {
   @Get('api/v1/health/ready')
   @ApiOperation({ summary: 'API v1 readiness probe' })
   @SwaggerResponse({ status: 200, type: ApiResponse<HealthResponseDto> })
-  async getApiReady(@Res({ passthrough: true }) res: any): Promise<ApiResponse<HealthResponseDto> | ApiErrorResponse> {
+  async getApiReady(@Res({ passthrough: true }) res: FastifyReply): Promise<ApiResponse<HealthResponseDto> | ApiErrorResponse> {
     return this.getReady(res);
   }
 }

@@ -19,6 +19,10 @@ import {
   ResolvePresenceCheckDto,
   ConfirmPresenceByMemberDto,
   CreatePresenceCheckResponseDto,
+  PresenceChecksResponseDto,
+  ResolveCheckResponseDto,
+  PendingPresenceResponseDto,
+  ActionSuccessResponseDto,
 } from './dto/presence.dto.js';
 import { PresenceMapper } from './presence.mapper.js';
 import { Role } from '../../common/enums/index.js';
@@ -50,8 +54,8 @@ export class PresenceController {
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Get('checks')
   @ApiOperation({ summary: 'Get active and recent spot-checks created by admin' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
-  async getChecks(@CallerDecorator() caller: Caller | null): Promise<ApiResponse<unknown>> {
+  @SwaggerResponse({ status: 200, type: ApiResponse<PresenceChecksResponseDto> })
+  async getChecks(@CallerDecorator() caller: Caller | null): Promise<ApiResponse<PresenceChecksResponseDto>> {
     const data = await this.presenceService.getChecks(caller!.id);
     return new ApiResponse(data);
   }
@@ -59,11 +63,11 @@ export class PresenceController {
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Delete('checks/:id')
   @ApiOperation({ summary: 'Cancel or delete an active spot-check session' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<ActionSuccessResponseDto> })
   async deleteCheck(
     @CallerDecorator() caller: Caller | null,
     @Param('id') id: string,
-  ): Promise<ApiResponse<{ ok: true }>> {
+  ): Promise<ApiResponse<ActionSuccessResponseDto>> {
     await this.presenceService.deleteCheck(caller!.id, id);
     return new ApiResponse({ ok: true });
   }
@@ -71,12 +75,12 @@ export class PresenceController {
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('checks/:id/confirm')
   @ApiOperation({ summary: 'Manually confirm a member presence during a spot-check (Admin only)' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<ActionSuccessResponseDto> })
   async confirmByAdmin(
     @CallerDecorator() caller: Caller | null,
     @Param('id') id: string,
     @Body() body: ConfirmPresenceByAdminDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<ActionSuccessResponseDto>> {
     if (!body?.member_id) throw badRequest('invalid_body', 'member_id is required');
 
     const data = await this.presenceService.confirmByAdmin(caller!.id, id, body.member_id);
@@ -86,12 +90,12 @@ export class PresenceController {
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('checks/:id/resolve')
   @ApiOperation({ summary: 'Resolve an expired or completed spot-check' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<ResolveCheckResponseDto> })
   async resolveCheck(
     @CallerDecorator() caller: Caller | null,
     @Param('id') id: string,
     @Body() body: ResolvePresenceCheckDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<ResolveCheckResponseDto>> {
     const data = await this.presenceService.resolveCheck(caller!.id, id, body?.decision ?? 'keep');
     return new ApiResponse(data);
   }
@@ -99,8 +103,8 @@ export class PresenceController {
   @Roles(Role.MEMBER)
   @Get('pending')
   @ApiOperation({ summary: 'Check if caller has pending spot-checks needing confirmation' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
-  async getPending(@CallerDecorator() caller: Caller | null): Promise<ApiResponse<unknown>> {
+  @SwaggerResponse({ status: 200, type: ApiResponse<PendingPresenceResponseDto> })
+  async getPending(@CallerDecorator() caller: Caller | null): Promise<ApiResponse<PendingPresenceResponseDto>> {
     const data = await this.presenceService.getPending(caller!.id);
     return new ApiResponse(data);
   }
@@ -108,11 +112,11 @@ export class PresenceController {
   @Roles(Role.MEMBER)
   @Post('confirm')
   @ApiOperation({ summary: 'Confirm presence for a spot-check (Member self-report)' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<ActionSuccessResponseDto> })
   async confirmByMember(
     @CallerDecorator() caller: Caller | null,
     @Body() body: ConfirmPresenceByMemberDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<ActionSuccessResponseDto>> {
     if (!body?.check_id) throw badRequest('invalid_body', 'check_id is required');
 
     const data = await this.presenceService.confirmByMember(caller!.id, body.check_id);

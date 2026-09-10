@@ -16,6 +16,6 @@ export interface ISettingsRepository extends IGenericRepository<
   Partial<typeof appSettings.$inferInsert>
 > {
   getSettings(): Promise<typeof appSettings.$inferSelect | null>;
-  getBranding(): Promise<any>;
+  getBranding(): Promise<BrandingResponseDto | null>;
   updateSettings(updateObj: Partial<typeof appSettings.$inferInsert>): Promise<void>;
 }

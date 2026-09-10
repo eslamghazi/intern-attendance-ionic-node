@@ -32,3 +32,23 @@ export class MemberCodeResponseDto {
   @ApiPropertyOptional({ example: '1042' })
   code!: string | null;
 }
+
+export class ProfileResponseDto {
+  @ApiProperty({ example: 'p1d0e513-5b8b-4c74-8b6b-1a5ec4c74000' })
+  id!: string;
+
+  @ApiProperty({ example: 'Dr. Sarah Connor' })
+  full_name!: string;
+
+  @ApiProperty({ example: '29001011234567' })
+  national_id!: string;
+
+  @ApiPropertyOptional({ example: '+201001234567' })
+  phone!: string | null;
+
+  @ApiPropertyOptional({ example: 'sarah@example.com' })
+  email!: string | null;
+
+  @ApiPropertyOptional({ example: 'https://example.com/avatar.jpg' })
+  avatar_url!: string | null;
+}

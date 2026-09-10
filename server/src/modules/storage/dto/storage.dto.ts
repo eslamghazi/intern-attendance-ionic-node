@@ -33,3 +33,83 @@ export const getObjectQuerySchema = z.object({
 export const deleteObjectsBodySchema = z.object({
   paths: z.array(objectPathSchema),
 });
+
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class UploadObjectDto {
+  @ApiProperty({ description: 'File path inside storage category bucket' })
+  @IsString()
+  @IsNotEmpty()
+  path!: string;
+
+  @ApiProperty({ description: 'Base64 encoded file payload' })
+  @IsString()
+  @IsNotEmpty()
+  content_base64!: string;
+
+  @ApiPropertyOptional({ description: 'MIME content type', default: 'image/jpeg' })
+  @IsString()
+  @IsOptional()
+  content_type?: string = 'image/jpeg';
+}
+
+export class GetSignedUrlQueryDto {
+  @ApiProperty({ description: 'Relative path of file' })
+  @IsString()
+  @IsNotEmpty()
+  path!: string;
+}
+
+export class GetSignedUrlsBodyDto {
+  @ApiProperty({ description: 'Array of relative file paths', type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  paths!: string[];
+
+  @ApiPropertyOptional({ description: 'Expiration in seconds' })
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  expires_in?: number;
+}
+
+export class DeleteObjectsBodyDto {
+  @ApiProperty({ description: 'Array of relative file paths to delete', type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  paths!: string[];
+}
+
+export class GetObjectQueryDto {
+  @ApiProperty({ description: 'Relative path of file' })
+  @IsString()
+  @IsNotEmpty()
+  path!: string;
+
+  @ApiPropertyOptional({ description: 'URL expiration timestamp' })
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  expires?: number;
+
+  @ApiPropertyOptional({ description: 'HMAC signature' })
+  @IsString()
+  @IsOptional()
+  signature?: string;
+}
+
+export class UploadObjectResponseDto {
+  @ApiProperty({ example: 'face/2026/09/image.jpg' })
+  path!: string;
+
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/face/image.jpg' })
+  url?: string;
+}
+
+export class DeleteObjectsResponseDto {
+  @ApiProperty({ example: 3 })
+  removed!: number;
+}
+

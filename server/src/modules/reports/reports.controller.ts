@@ -24,6 +24,16 @@ import {
   GetTodayQueryDto,
   GetStatsQueryDto,
   GetProbesDto,
+  PresentMemberRowDto,
+  ReviewAttendanceItemDto,
+  DetailAttendanceItemDto,
+  AttendanceHistoryEntryDto,
+  DayAttendanceResultDto,
+  DailyRosterItemDto,
+  TodaySummaryDto,
+  StatsSummaryDto,
+  ProbeItemDto,
+  MonthlyAttendanceRowDto,
 } from './dto/reports.dto.js';
 import { Role } from '../../common/enums/index.js';
 
@@ -35,90 +45,90 @@ export class ReportsController {
 
   @Get('present')
   @ApiOperation({ summary: 'Get currently present members for given dates' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<PresentMemberRowDto[]> })
   async getPresent(
     @ClaimsDecorator() claims: JwtClaims,
     @Query() query: GetPresentQueryDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<PresentMemberRowDto[]>> {
     if (!query?.dates) throw badRequest('invalid_query', 'dates is required');
     const dates = query.dates.split(',').map((d) => d.trim()).filter(Boolean);
 
     const data = await this.reportsService.getPresent(claims, dates);
-    return new ApiResponse(data);
+    return new ApiResponse(data as PresentMemberRowDto[]);
   }
 
   @Get('review')
   @ApiOperation({ summary: 'Get daily review attendance data for branch/date' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<ReviewAttendanceItemDto[]> })
   async getReview(
     @ClaimsDecorator() claims: JwtClaims,
     @Query() query: GetReviewQueryDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<ReviewAttendanceItemDto[]>> {
     if (!query?.date) throw badRequest('invalid_query', 'date is required');
 
     const data = await this.reportsService.getReview(claims, query.date, query.branch_id);
-    return new ApiResponse(data);
+    return new ApiResponse(data as ReviewAttendanceItemDto[]);
   }
 
   @Get('detail')
   @ApiOperation({ summary: 'Get detailed attendance record for member/date' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<DetailAttendanceItemDto | null> })
   async getDetail(
     @ClaimsDecorator() claims: JwtClaims,
     @Query() query: GetDetailQueryDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<DetailAttendanceItemDto | null>> {
     if (!query?.member_id || !query?.date) throw badRequest('invalid_query', 'member_id and date are required');
 
     const data = await this.reportsService.getDetail(claims, query.member_id, query.date, query.shift_id);
-    return new ApiResponse(data);
+    return new ApiResponse(data as DetailAttendanceItemDto | null);
   }
 
   @Get('history')
   @ApiOperation({ summary: 'Get monthly attendance history for a member' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<AttendanceHistoryEntryDto[]> })
   async getHistory(
     @ClaimsDecorator() claims: JwtClaims,
     @Query() query: GetHistoryQueryDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<AttendanceHistoryEntryDto[]>> {
     if (!query?.member_id) throw badRequest('invalid_query', 'member_id is required');
 
     const data = await this.reportsService.getHistory(claims, query.member_id, query.year, query.month);
-    return new ApiResponse(data);
+    return new ApiResponse(data as AttendanceHistoryEntryDto[]);
   }
 
   @Get('day')
   @ApiOperation({ summary: 'Get member attendance status for a single day' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<DayAttendanceResultDto> })
   async getDay(
     @ClaimsDecorator() claims: JwtClaims,
     @Query() query: GetDayQueryDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<DayAttendanceResultDto>> {
     if (!query?.member_id || !query?.date) throw badRequest('invalid_query', 'member_id and date are required');
 
     const data = await this.reportsService.getDay(claims, query.member_id, query.date);
-    return new ApiResponse(data);
+    return new ApiResponse(data as DayAttendanceResultDto);
   }
 
   @Get('daily-roster')
   @ApiOperation({ summary: 'Get scheduled members roster for a given day' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<DailyRosterItemDto[]> })
   async getDailyRoster(
     @ClaimsDecorator() claims: JwtClaims,
     @Query() query: GetDailyRosterQueryDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<DailyRosterItemDto[]>> {
     if (!query?.date) throw badRequest('invalid_query', 'date is required');
 
     const data = await this.reportsService.getDailyRoster(claims, query.date, query.branch_id);
-    return new ApiResponse(data);
+    return new ApiResponse(data as DailyRosterItemDto[]);
   }
 
   @Get('monthly')
   @ApiOperation({ summary: 'Get monthly attendance grid with pagination' })
-  @SwaggerResponse({ status: 200, type: PaginatedResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: PaginatedResponse<MonthlyAttendanceRowDto> })
   async getMonthly(
     @ClaimsDecorator() claims: JwtClaims,
     @Query() query: GetMonthlyQueryDto,
-  ): Promise<PaginatedResponse<unknown>> {
+  ): Promise<PaginatedResponse<MonthlyAttendanceRowDto>> {
     const { page = 1, page_size: pageSize = 50, year, month, ...filters } = query;
     if (!year || !month) throw badRequest('invalid_query', 'year and month are required');
 
@@ -141,11 +151,11 @@ export class ReportsController {
 
   @Get('today')
   @ApiOperation({ summary: 'Get today summary of attendance' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<TodaySummaryDto[]> })
   async getToday(
     @ClaimsDecorator() claims: JwtClaims,
     @Query() query: GetTodayQueryDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<TodaySummaryDto[]>> {
     if (!query?.date) throw badRequest('invalid_query', 'date is required');
 
     const data = await this.reportsService.getToday(claims, query.date);
@@ -154,11 +164,11 @@ export class ReportsController {
 
   @Get('stats')
   @ApiOperation({ summary: 'Get attendance statistical metrics' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<StatsSummaryDto> })
   async getStats(
     @ClaimsDecorator() claims: JwtClaims,
     @Query() query: GetStatsQueryDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<StatsSummaryDto>> {
     if (!query?.year || !query?.month) throw badRequest('invalid_query', 'year and month are required');
 
     const data = await this.reportsService.getStats(claims, query.year, query.month, query);
@@ -168,15 +178,15 @@ export class ReportsController {
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @Post('probes')
   @ApiOperation({ summary: 'Get attendance face verification probes for members' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<ProbeItemDto[]> })
   async getProbes(
     @ClaimsDecorator() claims: JwtClaims,
     @Body() body: GetProbesDto,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<ProbeItemDto[]>> {
     if (!body?.member_ids?.length) return new ApiResponse([]);
 
     const data = await this.reportsService.getProbes(claims, body.member_ids, body.from, body.to);
-    return new ApiResponse(data);
+    return new ApiResponse(data as ProbeItemDto[]);
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)

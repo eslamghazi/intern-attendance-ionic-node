@@ -13,6 +13,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import type { MemberFilters, SearchField } from '../../../domain/member/filter.js';
 
 export const filterQuery = z.object({
   branchId: z.string().uuid().nullish(),
@@ -153,6 +154,35 @@ export class CreateMembersBatchDto {
   members!: CreateMemberInputDto[];
 }
 
+export class CreateMemberResultItemDto {
+  @ApiProperty({ example: '29801011234567' })
+  national_id!: string;
+
+  @ApiProperty({ example: true })
+  ok!: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  updated?: boolean;
+
+  @ApiPropertyOptional()
+  error?: string;
+}
+
+export class CreateMemberResultDto {
+  @ApiProperty({ example: 10 })
+  created!: number;
+
+  @ApiProperty({ example: 2 })
+  updated!: number;
+
+  @ApiProperty({ example: 12 })
+  total!: number;
+
+  @ApiProperty({ type: [CreateMemberResultItemDto] })
+  results!: CreateMemberResultItemDto[];
+}
+
+
 export class UpdateMemberDto {
   @ApiPropertyOptional({ example: 'm1d0e513-5b8b-4c74-8b6b-1a5ec4c74000' })
   @IsOptional()
@@ -235,7 +265,7 @@ export class UpdateMemberDto {
   can_reset_face?: boolean;
 }
 
-export class MemberFilterQueryDto {
+export class MemberFilterQueryDto implements MemberFilters {
   @ApiPropertyOptional({ example: 'b1d0e513-5b8b-4c74-8b6b-1a5ec4c74123' })
   @IsOptional()
   @IsUUID()
@@ -249,7 +279,7 @@ export class MemberFilterQueryDto {
   @ApiPropertyOptional({ enum: ['name', 'national_id', 'code'], default: 'name' })
   @IsOptional()
   @IsString()
-  field?: 'name' | 'national_id' | 'code' = 'name';
+  field?: SearchField = 'name';
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -305,7 +335,7 @@ export class MemberFilterQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  page: number = 1;
+  page?: number = 1;
 
   @ApiPropertyOptional({ default: 50, minimum: 1, maximum: 500 })
   @IsOptional()
@@ -313,5 +343,145 @@ export class MemberFilterQueryDto {
   @IsInt()
   @Min(1)
   @Max(500)
-  page_size: number = 50;
+  page_size?: number = 50;
+}
+
+export class BulkFlagDto extends MemberFilterQueryDto {
+  @ApiProperty({ description: 'Flag name to update', enum: ['bypass_face', 'bypass_location'] })
+  @IsString()
+  @IsNotEmpty()
+  flag!: 'bypass_face' | 'bypass_location';
+
+  @ApiProperty({ description: 'New boolean state' })
+  @IsBoolean()
+  value!: boolean;
+}
+
+export class BulkFrozenDto extends MemberFilterQueryDto {
+  @ApiPropertyOptional({ description: 'Frozen datetime ISO or null to unfreeze', nullable: true })
+  @IsOptional()
+  @IsString()
+  frozen_at?: string | null;
+}
+
+export class BulkUpdateDto extends MemberFilterQueryDto {
+  @ApiPropertyOptional({ description: 'Target group ID' })
+  @IsOptional()
+  @IsUUID()
+  group_id?: string;
+
+  @ApiPropertyOptional({ description: 'Target branch ID' })
+  @IsOptional()
+  @IsUUID()
+  branch_id?: string;
+}
+
+export class BulkDeleteDto extends MemberFilterQueryDto {}
+
+export class BulkAffectedResponseDto {
+  @ApiProperty({ description: 'Number of affected records', example: 10 })
+  affected!: number;
+}
+
+export class FlagStatsResponseDto {
+  @ApiProperty({ description: 'Total matched members', example: 100 })
+  total!: number;
+
+  @ApiProperty({ description: 'Members with face bypass enabled', example: 5 })
+  bypass_face!: number;
+
+  @ApiProperty({ description: 'Members with location bypass enabled', example: 10 })
+  bypass_location!: number;
+
+  @ApiProperty({ description: 'Members with clock frozen', example: 2 })
+  frozen!: number;
+}
+
+export class MemberProfileNestedDto {
+  @ApiProperty({ example: 'Ahmed Mohamed' })
+  full_name!: string;
+
+  @ApiProperty({ example: '29801011234567' })
+  national_id!: string;
+
+  @ApiPropertyOptional({ example: '+201001234567' })
+  phone!: string | null;
+
+  @ApiPropertyOptional({ example: 'ahmed@example.com' })
+  email!: string | null;
+}
+
+export class MemberDirectoryRowDto {
+  @ApiProperty({ example: 'm1d0e513-5b8b-4c74-8b6b-1a5ec4c74000' })
+  id!: string;
+
+  @ApiProperty({ example: 'p1d0e513-5b8b-4c74-8b6b-1a5ec4c74000' })
+  profile_id!: string;
+
+  @ApiProperty({ example: 'g1d0e513-5b8b-4c74-8b6b-1a5ec4c74999' })
+  group_id!: string;
+
+  @ApiProperty({ example: 'b1d0e513-5b8b-4c74-8b6b-1a5ec4c74123' })
+  branch_id!: string;
+
+  @ApiProperty({ example: true })
+  is_active!: boolean;
+
+  @ApiProperty({ example: false })
+  bypass_face!: boolean;
+
+  @ApiProperty({ example: false })
+  bypass_location!: boolean;
+
+  @ApiProperty({ example: false })
+  bypass_checkout_window!: boolean;
+
+  @ApiPropertyOptional({ example: null })
+  frozen_at!: string | null;
+
+  @ApiProperty({ example: false })
+  can_generate_qr!: boolean;
+
+  @ApiProperty({ example: false })
+  can_make_roster!: boolean;
+
+  @ApiProperty({ example: false })
+  can_reset_face!: boolean;
+
+  @ApiProperty({ example: true })
+  enrolled!: boolean;
+
+  @ApiPropertyOptional({ example: '2026010107' })
+  member_code!: string | null;
+
+  @ApiPropertyOptional({ example: null })
+  avatar_url!: string | null;
+
+  @ApiPropertyOptional({ type: MemberProfileNestedDto })
+  profile!: MemberProfileNestedDto | null;
+
+  @ApiPropertyOptional({ type: MemberGroupDto })
+  group!: MemberGroupDto | null;
+
+  @ApiPropertyOptional({ type: MemberBranchDto })
+  branch!: MemberBranchDto | null;
+}
+
+export class MemberPageItemDto {
+  @ApiProperty({ example: 'm1d0e513-5b8b-4c74-8b6b-1a5ec4c74000' })
+  member_id!: string;
+
+  @ApiProperty({ example: 'Ahmed Mohamed' })
+  full_name!: string;
+
+  @ApiProperty({ example: '29801011234567' })
+  national_id!: string;
+
+  @ApiPropertyOptional({ example: '2026010107' })
+  member_code!: string | null;
+}
+
+export class MemberByProfileDto {
+  @ApiPropertyOptional({ example: 'm1d0e513-5b8b-4c74-8b6b-1a5ec4c74000' })
+  id!: string | null;
 }

@@ -159,3 +159,95 @@ export class BulkRosterDto extends MemberFilterQueryDto {
   @IsIn(['add', 'remove', 'replace'])
   mode!: 'add' | 'remove' | 'replace';
 }
+
+export class BulkRosterResultDto {
+  @ApiProperty({ example: 20 })
+  members!: number;
+
+  @ApiProperty({ example: 45 })
+  added!: number;
+
+  @ApiProperty({ example: 5 })
+  removed!: number;
+}
+
+export class RosterMakerMemberDto {
+  @ApiPropertyOptional({ example: 'm1d0e513-5b8b-4c74-8b6b-1a5ec4c74000' })
+  member_id!: string | null;
+
+  @ApiPropertyOptional({ example: '2026010107' })
+  code!: string | null;
+
+  @ApiPropertyOptional({ example: 'Ahmed Mohamed' })
+  full_name!: string | null;
+}
+
+export class RosterMakerShiftDto {
+  @ApiProperty({ example: 's1d0e513-5b8b-4c74-8b6b-1a5ec4c74111' })
+  id!: string;
+
+  @ApiPropertyOptional({ example: 'M' })
+  key!: string | null;
+
+  @ApiProperty({ example: 'Morning Shift' })
+  name!: string;
+}
+
+export class RosterMakerScheduleDto {
+  @ApiProperty({ example: 'm1d0e513-5b8b-4c74-8b6b-1a5ec4c74000' })
+  member_id!: string;
+
+  @ApiProperty({ example: 10 })
+  day!: number;
+
+  @ApiPropertyOptional({ example: 'M' })
+  key!: string | null;
+}
+
+export class RosterMakerDataDto {
+  @ApiProperty({ type: [RosterMakerMemberDto] })
+  members!: RosterMakerMemberDto[];
+
+  @ApiProperty({ type: [RosterMakerShiftDto] })
+  shifts!: RosterMakerShiftDto[];
+
+  @ApiProperty({ type: [RosterMakerScheduleDto] })
+  roster!: RosterMakerScheduleDto[];
+}
+
+export class RosterCellDto {
+  @ApiProperty({ example: 's1d0e513-5b8b-4c74-8b6b-1a5ec4c74111' })
+  shift_id!: string;
+
+  @ApiProperty({ example: 'M' })
+  label!: string;
+}
+
+export class RosterViewRowDto {
+  @ApiProperty({ example: 'm1d0e513-5b8b-4c74-8b6b-1a5ec4c74000' })
+  member_id!: string;
+
+  @ApiProperty({ example: '29801011234567' })
+  national_id!: string;
+
+  @ApiPropertyOptional({ example: '2026010107' })
+  member_code!: string | null;
+
+  @ApiProperty({ example: 'Ahmed Mohamed' })
+  full_name!: string;
+
+  @ApiProperty({ description: 'Day map containing array of shifts', example: { '1': [{ shift_id: 's1', label: 'M' }] } })
+  days!: Record<string, RosterCellDto[]>;
+}
+
+export class RosterTotalsResponseDto {
+  @ApiProperty()
+  perDay!: Record<number, number>;
+
+  @ApiProperty()
+  perDayShift!: Record<number, Record<string, number>>;
+
+  @ApiProperty({ example: 42 })
+  total!: number;
+}
+

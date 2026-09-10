@@ -5,6 +5,8 @@ import type { IGenericRepository } from '../../../common/database/interfaces/gen
 import { profiles } from '../../../db/schema/index.js';
 import type { Role } from '../../../common/enums/index.js';
 
+import type { CreateStaffDto } from '../dto/auth.dto.js';
+
 export interface IAuthService {
   login(nationalId: string, password?: string, userAgent?: string | null): Promise<LoginResult>;
   refresh(refreshToken: string, userAgent?: string | null): Promise<LoginResult>;
@@ -26,7 +28,7 @@ export interface IAuthService {
     caller: Caller,
     opts: { profileId?: string; nationalId?: string; expect: 'member' | 'staff'; password?: string },
   ): Promise<{ password: string }>;
-  createStaff(caller: Caller, payload: any): Promise<{ id: string; password: string }>;
+  createStaff(caller: Caller, payload: CreateStaffDto): Promise<{ id: string; password: string }>;
   deleteStaff(caller: Caller, profileId: string): Promise<void>;
 }
 
