@@ -28,17 +28,30 @@ export class SettingsService implements ISettingsService {
     try {
       return await this.uow.asService(async () => {
         const row = await this.repo.getBranding();
-        return SettingsMapper.toBrandingDto(row);
+        const dto = SettingsMapper.toBrandingDto(row);
+        if (dto) {
+          if (!dto.org_name && process.env.ORG_NAME) dto.org_name = process.env.ORG_NAME;
+          if (!dto.org_logo_url && process.env.ORG_LOGO_URL) dto.org_logo_url = process.env.ORG_LOGO_URL;
+          if (!dto.terminology && process.env.TERMINOLOGY) dto.terminology = process.env.TERMINOLOGY as any;
+          return dto;
+        }
+        return this.getEnvBranding();
       });
-    } catch (err) {
-      console.error('[SettingsService] getBranding fallback on error:', err);
-      const fallback = new BrandingResponseDto();
-      fallback.org_name = 'نظام الحضور والتدريب الإكلينيكي';
-      fallback.org_logo_url = null;
-      fallback.terminology = 'intern';
-      fallback.member_photos = true;
-      return fallback;
+    } catch {
+      return this.getEnvBranding();
     }
+  }
+
+  private getEnvBranding(): BrandingResponseDto | null {
+    if (!process.env.ORG_NAME && !process.env.ORG_LOGO_URL && !process.env.TERMINOLOGY) {
+      return null;
+    }
+    const dto = new BrandingResponseDto();
+    dto.org_name = process.env.ORG_NAME ?? null;
+    dto.org_logo_url = process.env.ORG_LOGO_URL ?? null;
+    dto.terminology = (process.env.TERMINOLOGY as any) ?? null;
+    dto.member_photos = process.env.MEMBER_PHOTOS === 'false' ? false : null;
+    return dto;
   }
 
   async updateSettings(claims: JwtClaims, dto: UpdateSettingsDto): Promise<{ ok: true }> {
