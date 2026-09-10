@@ -27,4 +27,4 @@ USER node
 EXPOSE 8787
 # No shell form: PID 1 must be node itself, or SIGTERM never reaches it and
 # every deploy waits out the 10-second kill timeout mid-request.
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/main.js"]

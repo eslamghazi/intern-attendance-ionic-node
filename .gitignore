@@ -17,6 +17,8 @@ public/
 server/public/
 deploy-aapanel/
 deploy-aapanel.zip
+dev-dist/
+ClientApp/dev-dist/
 
 # local env (keep .env.example tracked)
 .env
@@ -28,6 +30,7 @@ admin-credentials.txt
 *credentials*.txt
 
 # uploaded files served by the API (faces / probes / avatars)
+storage-data/
 server/storage-data/
 
 # misc
@@ -38,6 +41,8 @@ server/storage-data/
 .env.production.local
 /.nx
 /.nx/cache
+.vs/
+.claude/
 /.vscode/*
 !/.vscode/extensions.json
 .idea

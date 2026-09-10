@@ -20,6 +20,16 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const api = toApiError(exception);
     const lang = this.i18n?.resolveLanguage(request.headers) ?? 'ar';
 
+    // SPA fallback: serve index.html for non-API, non-health frontend routes
+    if (
+      api.status === 404 &&
+      !request.url.startsWith('/api') &&
+      !request.url.startsWith('/health') &&
+      typeof response.sendFile === 'function'
+    ) {
+      return response.sendFile('index.html');
+    }
+
     if (api.status >= 500) {
       console.error(`[API 5xx] ${request.method} ${request.url}:`, exception);
     }

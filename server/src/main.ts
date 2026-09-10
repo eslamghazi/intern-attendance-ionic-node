@@ -97,27 +97,26 @@ async function bootstrap() {
       prefix: '/',
       decorateReply: true,
       setHeaders: (res: any, pathName: string) => {
+        const setHeader = (name: string, value: string) => {
+          if (typeof res.header === 'function') {
+            res.header(name, value);
+          } else if (res.raw && typeof res.raw.setHeader === 'function') {
+            res.raw.setHeader(name, value);
+          } else if (typeof res.setHeader === 'function') {
+            res.setHeader(name, value);
+          }
+        };
+
         if (pathName.includes('/assets/')) {
-          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         } else if (
           pathName.endsWith('index.html') ||
           pathName.endsWith('sw.js') ||
           pathName.endsWith('manifest.webmanifest')
         ) {
-          res.setHeader('Cache-Control', 'no-cache');
+          setHeader('Cache-Control', 'no-cache');
         }
       },
-    });
-
-    fastifyInstance.setNotFoundHandler((req: any, reply: any) => {
-      if (req.url.startsWith('/api') || req.url.startsWith('/health')) {
-        reply.status(404).send({
-          ok: false,
-          error: { code: 'not_found', message: 'Route not found' },
-        });
-        return;
-      }
-      reply.sendFile('index.html');
     });
   }
 

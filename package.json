@@ -6,10 +6,12 @@
   "description": "Intern Attendance Fullstack System (Ionic React + Fastify Node)",
   "scripts": {
     "install:all": "npm install --prefix server && npm install --prefix ClientApp",
+    "clean": "node -e \"import('node:fs').then(fs => { for (const p of ['public', 'server/public', 'server/dist', 'ClientApp/dist', 'ClientApp/dev-dist']) { fs.rmSync(p, { recursive: true, force: true }); } })\"",
     "build:client": "npm run build --prefix ClientApp",
     "build:server": "npm run build --prefix server",
-    "build": "npm run build:client && npm run build:server",
-    "start": "node server/dist/index.js",
+    "build": "npm run build:client && npm run build:server && node scripts/copy-client.mjs",
+    "package:aapanel": "node scripts/package-aapanel.mjs",
+    "start": "node server/dist/main.js",
     "dev:client": "npm run dev --prefix ClientApp",
     "dev:server": "npm run dev --prefix server",
     "test:server": "npm test --prefix server"

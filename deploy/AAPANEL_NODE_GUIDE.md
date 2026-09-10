@@ -70,7 +70,7 @@ This package contains:
    - **Path**: `/www/wwwroot/intern-attendance`
    - **Project Name**: `intern-attendance`
    - **Run Opt**: `start` (or `npm run start`)
-   - **Start File/Command**: `dist/index.js` (or leave default if using Run Opt `start`)
+   - **Start File/Command**: `dist/main.js` (or leave default if using Run Opt `start`)
    - **Node Version**: Select `v20.x` or `v22.x`
    - **Port**: `8080`
    - **Run User**: `www`
@@ -79,13 +79,17 @@ This package contains:
 
 ---
 
-### 5. Install Dependencies & Start the Application
+### 5. Install Dependencies & Migrate Database
 1. In the **Node project** list, find your `intern-attendance` project.
 2. Under the project settings or actions column:
    - Click **Install dependencies** (or open aaPanel terminal inside `/www/wwwroot/intern-attendance` and run `npm install --omit=dev`).
    - Wait ~15 seconds until installation completes.
-3. In the project row, click **Start** (or toggle the status switch to ON).
-4. Check **Project Logs** to verify:
+3. If this is a fresh database, open the aaPanel **Terminal** inside `/www/wwwroot/intern-attendance` and run the database migrations:
+   ```bash
+   npm run migrate
+   ```
+4. In the project row, click **Start** (or toggle the status switch to ON).
+5. Check **Project Logs** to verify:
    ```
    {"level":30,"msg":"serving frontend static assets"}
    {"level":30,"msg":"Server listening at http://127.0.0.1:8080"}
@@ -111,7 +115,7 @@ cd /www/wwwroot/intern-attendance
 SUPERADMIN_NATIONAL_ID=30110281500751 \
 SUPERADMIN_NAME='Super Admin' \
 SUPERADMIN_PASSWORD='YourStrongPasswordHere' \
-node scripts/seed-superadmin.mjs
+npm run seed:superadmin
 ```
 
 ---

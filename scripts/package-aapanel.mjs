@@ -19,17 +19,11 @@ if (existsSync(zipFile)) {
 }
 mkdirSync(outDir, { recursive: true });
 
-// 2. Ensure ClientApp and Server are built
-const clientDist = resolve(root, 'ClientApp', 'dist');
-const serverDist = resolve(root, 'server', 'dist');
+// 2. Always run a clean production build to ensure 100% fresh assets
+console.log('==> Building fresh production bundles (ClientApp + Server)...');
+execSync('npm run clean && npm run build', { cwd: root, stdio: 'inherit' });
 
-if (!existsSync(clientDist) || !existsSync(serverDist)) {
-  console.log('==> Running full build first...');
-  execSync('npm run build', { cwd: root, stdio: 'inherit' });
-} else {
-  // Ensure server/public has the latest client dist
-  execSync('node scripts/copy-client.mjs', { cwd: root, stdio: 'inherit' });
-}
+const serverDist = resolve(root, 'server', 'dist');
 
 // 3. Copy compiled server dist
 console.log('==> Copying compiled server (dist/)...');
@@ -39,11 +33,15 @@ cpSync(serverDist, resolve(outDir, 'dist'), { recursive: true });
 console.log('==> Copying prebuilt frontend (public/)...');
 cpSync(resolve(root, 'server', 'public'), resolve(outDir, 'public'), { recursive: true });
 
-// 5. Copy utility scripts
+// 5. Copy database migrations & SQL definitions
+console.log('==> Copying database migrations and schemas (db/)...');
+cpSync(resolve(root, 'server', 'db'), resolve(outDir, 'db'), { recursive: true });
+
+// 6. Copy utility scripts
 console.log('==> Copying utility scripts (scripts/)...');
 cpSync(resolve(root, 'server', 'scripts'), resolve(outDir, 'scripts'), { recursive: true });
 
-// 6. Create production package.json for aaPanel
+// 7. Create production package.json for aaPanel
 console.log('==> Creating production package.json...');
 const serverPkg = JSON.parse(readFileSync(resolve(root, 'server', 'package.json'), 'utf8'));
 
@@ -54,7 +52,8 @@ const prodPkg = {
   type: 'module',
   description: 'Intern Attendance Fullstack System',
   scripts: {
-    start: 'node dist/index.js',
+    start: 'node dist/main.js',
+    migrate: 'node scripts/migrate.mjs',
     'seed:superadmin': 'node scripts/seed-superadmin.mjs',
   },
   dependencies: serverPkg.dependencies,
@@ -77,6 +76,14 @@ if (existsSync(resolve(root, '.env.example'))) {
 // 8. Copy .env if available
 if (existsSync(resolve(root, '.env'))) {
   cpSync(resolve(root, '.env'), resolve(outDir, '.env'));
+}
+
+// 9. Copy deployment documentation & nginx config
+if (existsSync(resolve(root, 'deploy', 'AAPANEL_NODE_GUIDE.md'))) {
+  cpSync(resolve(root, 'deploy', 'AAPANEL_NODE_GUIDE.md'), resolve(outDir, 'AAPANEL_NODE_GUIDE.md'));
+}
+if (existsSync(resolve(root, 'deploy', 'aapanel-nginx.conf'))) {
+  cpSync(resolve(root, 'deploy', 'aapanel-nginx.conf'), resolve(outDir, 'aapanel-nginx.conf'));
 }
 
 console.log('==> Creating deploy-aapanel.zip archive...');
