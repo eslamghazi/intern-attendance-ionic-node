@@ -26,11 +26,11 @@
     "package": "node scripts/package-aapanel.mjs",
     "package:aapanel": "node scripts/package-aapanel.mjs",
     "branch:prod": "node scripts/publish-production-branch.mjs",
-    "push:prod": "git push origin production",
+    "push:prod": "git push -f origin production",
     "push:main": "git push origin main",
     "save": "node scripts/git-push.mjs",
     "commit": "node scripts/git-push.mjs",
-    "ship": "node scripts/publish-production-branch.mjs && git push origin production"
+    "ship": "node scripts/publish-production-branch.mjs && git push -f origin production"
   },
   "engines": {
     "node": ">=20"
