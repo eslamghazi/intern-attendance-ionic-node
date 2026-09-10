@@ -54,6 +54,8 @@ const prodPkg = {
   scripts: {
     start: 'node dist/main.js',
     migrate: 'node scripts/migrate.mjs',
+    'migrate:status': 'node scripts/migrate.mjs --status',
+    'verify:schema': 'node scripts/verify-schema.mjs',
     'seed:superadmin': 'node scripts/seed-superadmin.mjs',
   },
   dependencies: serverPkg.dependencies,

@@ -13,6 +13,10 @@
     "package": "node scripts/package-aapanel.mjs",
     "ship": "node scripts/publish-production-branch.mjs && git push -f origin production",
     "save": "node scripts/git-push.mjs",
+    "migrate": "npm --prefix server run migrate",
+    "migrate:status": "npm --prefix server run migrate:status",
+    "verify:schema": "npm --prefix server run verify:schema",
+    "seed:superadmin": "npm --prefix server run seed:superadmin",
     "clean": "node -e \"import('node:fs').then(fs => { for (const p of ['public', 'server/public', 'server/dist', 'ClientApp/dist', 'ClientApp/dev-dist']) { fs.rmSync(p, { recursive: true, force: true }); } })\""
   },
   "engines": {
