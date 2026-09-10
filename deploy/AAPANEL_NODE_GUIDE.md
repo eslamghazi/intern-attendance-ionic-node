@@ -6,28 +6,37 @@ This guide walks you through deploying the unified Intern Attendance system (Rea
 
 ## What is Ready
 
-A complete, pre-built production package has been created:
-- **Zip Archive**: `deploy-aapanel.zip` (~32 MB, located in the project root)
-- **Deployment Folder**: `deploy-aapanel/`
+You have two easy ways to deploy:
+1. **Zip Archive**: `deploy-aapanel.zip` (~34 MB, located in the project root)
+2. **Dedicated Git Branch**: `origin/production` (clean branch containing only pre-built production files)
 
 This package contains:
-- `dist/`: Compiled Node.js backend
-- `public/`: Pre-built Ionic/React frontend (including wasm AI models, assets, and service worker)
-- `scripts/`: Superadmin seeding and utility scripts
-- `package.json`: Production dependencies
-- `.env.example` & `.env`: Environment configuration
+- `dist/`: Compiled NestJS + Fastify Node.js backend (`dist/main.js`)
+- `public/`: Pre-built Ionic/React frontend (including WASM AI models, assets, and service worker)
+- `db/`: Database migrations, prelude SQL, and functions
+- `scripts/`: Superadmin seeding, migration runner, and utility scripts
+- `package.json`: Production dependencies and scripts (`npm start`, `npm run migrate`, `npm run seed:superadmin`)
+- `.env.example`: Environment configuration template
+- `aapanel-nginx.conf`: Ready-to-paste Nginx reverse proxy configuration
 
 ---
 
 ## Step-by-Step Deployment in aaPanel
 
-### 1. Upload the Package to aaPanel
+### Option A: Upload deploy-aapanel.zip (Easiest)
 1. Log into your aaPanel dashboard.
 2. In the left menu, click **Files**.
 3. Navigate to `/www/wwwroot/`.
 4. Click **Upload** and upload `deploy-aapanel.zip`.
 5. Once uploaded, click **Unzip** (or right-click `deploy-aapanel.zip` → **Unzip**).
 6. Extract it to a folder, for example: `/www/wwwroot/intern-attendance`.
+
+### Option B: Deploy via Git (production branch)
+1. In aaPanel **Terminal** or via Git:
+   ```bash
+   cd /www/wwwroot
+   git clone -b production https://github.com/eslamghazi/intern-attendance-ionic-node.git intern-attendance
+   ```
 
 ---
 

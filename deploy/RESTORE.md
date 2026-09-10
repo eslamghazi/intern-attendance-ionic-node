@@ -30,7 +30,7 @@ you think they are.
 cd /home/attendance/intern-attendance
 COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
 
-$COMPOSE stop api web
+$COMPOSE stop api
 ```
 
 The API must be down: restoring under a live writer produces a database that is

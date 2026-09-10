@@ -1,175 +1,119 @@
 # Intern Attendance — Faculty of Nursing, Kafr El Sheikh University
 
-نظام تسجيل حضور طلاب الامتياز. An Ionic + React + Capacitor app with its own Node
-API over Postgres. Members check in/out **only** when they are inside their
-branch's geofence, the GPS is real (no mock location), and a live **face match**
-passes. Admins manage groups, branches, members and the roster, and review
-attendance from a responsive web dashboard.
+نظام تسجيل حضور طلاب الامتياز — كلية التمريض، جامعة كفر الشيخ.  
+An Ionic + React + Capacitor app with a modular monolith **NestJS + Fastify** Node API over **Postgres** (PostGIS + pgvector + pg_cron).
 
-## Layout
+Members check in/out **only** when they are inside their assigned branch's geofence, the GPS is verified (no mock location), and a live **face biometric match** passes. Administrators manage groups, branches, members, and rosters from a responsive, bilingual (Arabic-first) web dashboard.
+
+---
+
+## 🏗️ Architecture & Stack
 
 ```
-ClientApp/   Ionic 8 + React 19 + Vite + Capacitor (TypeScript), Arabic-first, ar/en
-server/      Fastify + Kysely API over Postgres — see server/README.md
-docker-compose.yml   Postgres (PostGIS + pgvector + pg_cron), MinIO, the API
+ClientApp/            Ionic 8 + React 19 + Vite + Capacitor (TypeScript), Arabic-first (ar/en)
+server/               NestJS 12 + Fastify 5 + Drizzle ORM + Umzug API over Postgres
+deploy/               Deployment guides (aaPanel & Docker), nginx config, backup/restore
+deploy-aapanel/       Ready-to-run production package folder (generated)
+deploy-aapanel.zip    Ready-to-upload production archive (~34 MB)
+docker-compose.yml    Postgres (PostGIS + pgvector + pg_cron) and API stack
 ```
 
-## Architecture
+- **Backend**: NestJS with Fastify HTTP adapter, Drizzle ORM, Umzug migrations, and native Postgres driver (`pg`).
+- **Database**: PostgreSQL with `postgis`, `pgvector` (512-dim face embeddings), and `pg_cron` for automated attendance concluding.
+- **Frontend**: Ionic React with Vite, PWA elements, Tailwind-free vanilla CSS, and offline asset caching.
+- **Biometrics & Security**: Capacitor Geolocation, Mock Location Detector, MediaPipe / ML Kit face liveness, and ONNX Runtime Web (MobileFaceNet).
+- **Single-Origin Deployment**: In production, the Node server serves both the built frontend static assets (`/`) and the API (`/api/v1`), removing CORS hurdles and enabling secure signed media URLs.
 
-The backend was Supabase (PostgREST, GoTrue, Storage, Edge Functions). It is now
-a Node API — but **the database was not rewritten**. The schema, its 36 SQL
-functions and its 51 RLS policies are carried over untouched, and the API
-reproduces what PostgREST did: open a transaction, `SET ROLE`, publish the
-verified JWT into `request.jwt.claims`, run the query. Authorization therefore
-still lives in the database and cannot drift from it. See
-[server/src/db/rls.ts](server/src/db/rls.ts).
+---
 
-- **Auth** — one `POST /auth/login` covers the member password, the staff
-  password and the master-password override. Tokens are HS256, signed with the
-  same secret the old Edge Functions used.
-- **Storage** — MinIO (any S3). Object metadata stays in `storage.objects`, so
-  the bucket policies from the migrations still decide who may read a file.
-- **Device** — Capacitor Geolocation, `@capgo/capacitor-mock-location-detector`,
-  ML Kit face detection (liveness), ONNX Runtime Web (MobileFaceNet embeddings).
+## ⚡ Quick CLI Commands
 
-## Prerequisites
+Use these convenient root commands for daily development and deployment:
 
-- Docker (Postgres needs **postgis**, **pgvector** and **pg_cron**; the compose
-  file builds an image with all three)
-- Node 20+ and npm, for working on the code outside containers
-- Android builds: Android Studio + JDK 17
+| Command | Description |
+| :--- | :--- |
+| `npm run setup` | Install all dependencies for both `server` and `ClientApp` |
+| `npm run dev` | Start backend server in development mode (`tsx watch`) |
+| `npm run dev:client` | Start frontend client in development mode (Vite dev server) |
+| `npm run build` | Full clean build (client + server + static assets sync) |
+| `npm start` | Start compiled production server (`dist/main.js`) |
+| `npm run clean` | Clean all build artifacts, caches, and temp files |
+| `npm run package` | Generate aaPanel production archive (`deploy-aapanel.zip`) |
+| `npm run branch:prod` | Update isolated `production` branch with fresh build artifacts |
+| `npm run save [msg]` | Stage, commit, and push changes to `main` branch |
+| `npm run ship` | Build, update `production` branch, and push directly to GitHub |
+| `npm run db:migrate` | Run database migrations via Umzug |
+| `npm run db:seed` | Seed default superadmin account |
 
-## Run the whole stack
+---
+
+## 🚀 Running the Full Stack (Docker)
 
 ```bash
-cp .env.example .env          # set APP_JWT_SECRET
+# 1. Prepare environment
+cp .env.example .env
+
+# 2. Start PostgreSQL, migrations, and unified Node server
 docker compose up -d --build
-```
 
-That is the app on <http://localhost:8080>, the API behind it, the database, and
-a one-shot `migrate` container that builds the schema before the API starts.
-Then create the first account:
-
-```bash
-docker compose exec -e SUPERADMIN_NATIONAL_ID=29001011234567 \
-  -e SUPERADMIN_NAME='Super Admin' -e SUPERADMIN_PASSWORD='change-me' \
+# 3. Create initial Superadmin
+docker compose exec -e SUPERADMIN_NATIONAL_ID=30110281500751 \
+  -e SUPERADMIN_NAME='Super Admin' -e SUPERADMIN_PASSWORD='YourStrongPassword' \
   api node scripts/seed-superadmin.mjs
 ```
 
-nginx serves the bundle and proxies `/api` to the API, so **the app and the API
-share one origin**. That removes CORS from the web path and is what makes the
-signed image URLs work: they are relative and go straight into an `<img src>`,
-which cannot send an Authorization header.
+The web dashboard and API will be live at `http://localhost:8080`.
 
-## Work on the code
+---
+
+## 💻 Local Development Workflow
 
 ```bash
-docker compose up -d db        # just the database
+# 1. Start database only
+docker compose up -d db
 
+# 2. Setup and run backend (listening on http://localhost:8787)
 cd server && cp .env.example .env && npm install
-npm run migrate && npm run dev # http://localhost:8787
+npm run migrate
+npm run dev
 
+# 3. Setup and run frontend (listening on http://localhost:5173)
 cd ../ClientApp && cp .env.example .env && npm install
-npm run dev                    # http://localhost:5173
+npm run dev
 ```
 
-`.env` in ClientApp then needs the absolute API URL
-(`VITE_API_URL=http://localhost:8787/api/v1`), and that origin must appear in
-the API's `CORS_ORIGINS` — the two are no longer same-origin in this mode.
+> **Note**: When running client and server on separate ports in dev mode, set `VITE_API_URL=http://localhost:8787/api/v1` in `ClientApp/.env`.
 
-Android (mock-location and ML Kit liveness need a real device or emulator):
+---
+
+## 📱 Mobile App (Android)
+
+Mock-location detection and ML Kit liveness require a real device or Android emulator:
 
 ```bash
 cd ClientApp
 npm run build && npx cap sync android && npx cap run android
 ```
 
-The WebView's origin is `https://localhost`, so it must appear in the API's
-`CORS_ORIGINS`, and `VITE_API_URL` is baked in at build time — a new backend URL
-means a new APK.
+---
 
-## Face model
+## 🌐 Production Hosting
 
-A 112×112 MobileFaceNet/ArcFace ONNX model (output dim **512**) at
-`ClientApp/public/models/mobilefacenet.onnx`, or set `VITE_MODEL_BASE_URL` to a
-CDN copy. Without it, login and admin work but enrollment and check-in report
-"model not available".
+### Method 1: aaPanel (Recommended)
+Use the pre-built, light-weight package:
+- **Zip package**: `deploy-aapanel.zip` (~34 MB)
+- **Production branch**: `origin/production` (clean branch containing only runtime artifacts)
+- Complete step-by-step setup: **[deploy/AAPANEL_NODE_GUIDE.md](deploy/AAPANEL_NODE_GUIDE.md)**
 
-## Verify end to end
+### Method 2: VPS with Docker Compose
+- Hostinger / Ubuntu VPS with Docker & Nginx
+- Step-by-step guide: **[deploy/DEPLOY.md](deploy/DEPLOY.md)**
+- Disaster recovery & backup: **[deploy/RESTORE.md](deploy/RESTORE.md)**
 
-- **Admin:** sign in as superadmin → create a group, a branch (drop the pin and
-  radius on the map), and a member → bulk-import a CSV → build a roster.
-- **Member (device):** sign in with the national ID and the default password
-  (date of birth `ddmmyyyy`) → forced password change → enroll a face → check in.
-  - Inside the geofence succeeds; outside is blocked, with the distance shown.
-  - A mock-GPS app blocks the check-in and writes an `audit_log` row.
-  - A different person's face fails the match; the enrolled member passes.
-  - Check out later; a second check-in for the same shift is rejected.
+---
 
-## Security model
+## 🔒 Security Highlights
 
-`attendance` is **not** client-writable. The only writer is
-`POST /attendance/record`, which re-checks mock GPS, accuracy, the geofence
-(server-side PostGIS `ST_DWithin`), liveness and the face score, and can require
-Play Integrity / App Attest. Biometric images are private and reachable only
-through short-lived signed URLs.
-
-**Sessions.** Signing in returns a 15-minute access token plus a refresh token
-that is rotated on every use and stored hashed. Reusing a rotated token revokes
-the whole family — the standard reuse-detection rule — and changing or resetting
-a password revokes every session for that account. The role is re-read from
-`profiles` on each request, so a demotion takes effect on the next request
-rather than at renewal.
-
-**Authorization is in the API.** Row-level security is off.
-
-```
-domain/identity/role.ts       what a role may do at all
-domain/access/scope.ts        an admin's reach — branches and groups
-domain/access/attachment.ts   who may touch which stored file
-services/accessService.ts     requireMember / requireBranch / requireUnit
-```
-
-Every route states its own rule; `test/e2e/guards.mjs` asserts that all 91 of
-them carry a guard or are listed as public with a reason.
-
-RLS arrived with Supabase, where it had to exist — a browser held an anon key
-and talked to PostgREST directly, so the database was the only place a rule
-could live. With an API in between it became a second copy of the same rules,
-maintained by hand, and every serious finding in this project's audit was the
-two copies disagreeing.
-
-Dropping it was not a judgement call. RLS was disabled on all 19 tables and the
-whole end-to-end suite run against the result: **181 of 181 functional checks
-passed with no policy in the database.** The first time that experiment was run
-it failed in eight places — including one student fetching a signed URL for
-another student's face template — and those eight fixes are what made the
-removal safe.
-
-What deliberately stayed in SQL is `db/functions/040_grants.sql`. Table and
-column privileges are coarse, cheap and hard to get wrong: `authenticated`
-cannot read `app_settings.master_password_hash`, cannot see `refresh_tokens`,
-and cannot write to the audit log — whatever a route forgets.
-
-## Status
-
-The port is complete and runs. The schema builds from an empty volume through
-five migrations, and **172 unit tests plus 139 end-to-end checks** pass against
-the stack in Docker — including through the nginx proxy, which is the only path
-production uses.
-
-```bash
-cd server
-npm test                 # the domain, pure
-npm run test:e2e:prod    # against the running stack, through nginx
-```
-
-**Production data has not been migrated.** `import-from-supabase.mjs` and
-`import-storage.mjs` are written and dry-runnable but have never been run
-against the real project.
-
-To deploy: **[deploy/DEPLOY.md](deploy/DEPLOY.md)** (Hostinger VPS + aaPanel),
-and **[deploy/RESTORE.md](deploy/RESTORE.md)** before you need it.
-
-Open items and the full porting log are in
-[server/README.md](server/README.md).
+- **Anti-Spoofing & Geofence**: Server validates GPS coords with PostGIS `ST_DWithin`, verifies accuracy, and rejects mock locations.
+- **Biometrics**: Face images and probe logs are kept outside the web root (`./storage-data`) and only accessible via time-limited HMAC-signed URLs.
+- **Token Security**: Dual-token architecture (15-minute access tokens + rotating refresh tokens stored hashed in Postgres).
