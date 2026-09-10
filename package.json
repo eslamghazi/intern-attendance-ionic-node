@@ -6,31 +6,14 @@
   "description": "Intern Attendance Fullstack System (Ionic React + NestJS Fastify Node)",
   "scripts": {
     "setup": "npm install --prefix server && npm install --prefix ClientApp",
-    "clean": "node -e \"import('node:fs').then(fs => { for (const p of ['public', 'server/public', 'server/dist', 'ClientApp/dist', 'ClientApp/dev-dist']) { fs.rmSync(p, { recursive: true, force: true }); } })\"",
-    
-    "dev": "npm run dev:server",
-    "dev:server": "npm run dev --prefix server",
     "dev:client": "npm run dev --prefix ClientApp",
-
-    "build": "npm run build:client && npm run build:server && node scripts/copy-client.mjs",
-    "build:client": "npm run build --prefix ClientApp",
-    "build:server": "npm run build --prefix server",
-
+    "dev:server": "npm run dev --prefix server",
+    "build": "npm run build --prefix ClientApp && npm run build --prefix server && node scripts/copy-client.mjs",
     "start": "node server/dist/main.js",
-    "server": "node server/dist/main.js",
-
-    "db:migrate": "npm run migrate --prefix server",
-    "db:seed": "npm run seed:superadmin --prefix server",
-    "test": "npm test --prefix server",
-
     "package": "node scripts/package-aapanel.mjs",
-    "package:aapanel": "node scripts/package-aapanel.mjs",
-    "branch:prod": "node scripts/publish-production-branch.mjs",
-    "push:prod": "git push -f origin production",
-    "push:main": "git push origin main",
+    "ship": "node scripts/publish-production-branch.mjs && git push -f origin production",
     "save": "node scripts/git-push.mjs",
-    "commit": "node scripts/git-push.mjs",
-    "ship": "node scripts/publish-production-branch.mjs && git push -f origin production"
+    "clean": "node -e \"import('node:fs').then(fs => { for (const p of ['public', 'server/public', 'server/dist', 'ClientApp/dist', 'ClientApp/dev-dist']) { fs.rmSync(p, { recursive: true, force: true }); } })\""
   },
   "engines": {
     "node": ">=20"
