@@ -3,22 +3,36 @@
   "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "Intern Attendance Fullstack System (Ionic React + Fastify Node)",
+  "description": "Intern Attendance Fullstack System (Ionic React + NestJS Fastify Node)",
   "scripts": {
-    "install:all": "npm install --prefix server && npm install --prefix ClientApp",
+    "setup": "npm install --prefix server && npm install --prefix ClientApp",
     "clean": "node -e \"import('node:fs').then(fs => { for (const p of ['public', 'server/public', 'server/dist', 'ClientApp/dist', 'ClientApp/dev-dist']) { fs.rmSync(p, { recursive: true, force: true }); } })\"",
+    
+    "dev": "npm run dev:server",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix ClientApp",
+
+    "build": "npm run build:client && npm run build:server && node scripts/copy-client.mjs",
     "build:client": "npm run build --prefix ClientApp",
     "build:server": "npm run build --prefix server",
-    "build": "npm run build:client && npm run build:server && node scripts/copy-client.mjs",
-    "package:aapanel": "node scripts/package-aapanel.mjs",
-    "branch:production": "node scripts/publish-production-branch.mjs",
+
     "start": "node server/dist/main.js",
-    "dev:client": "npm run dev --prefix ClientApp",
-    "dev:server": "npm run dev --prefix server",
-    "test:server": "npm test --prefix server"
+    "server": "node server/dist/main.js",
+
+    "db:migrate": "npm run migrate --prefix server",
+    "db:seed": "npm run seed:superadmin --prefix server",
+    "test": "npm test --prefix server",
+
+    "package": "node scripts/package-aapanel.mjs",
+    "package:aapanel": "node scripts/package-aapanel.mjs",
+    "branch:prod": "node scripts/publish-production-branch.mjs",
+    "push:prod": "git push origin production",
+    "push:main": "git push origin main",
+    "save": "node scripts/git-push.mjs",
+    "commit": "node scripts/git-push.mjs",
+    "ship": "node scripts/publish-production-branch.mjs && git push origin production"
   },
   "engines": {
     "node": ">=20"
   }
 }
-
