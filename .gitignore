@@ -1,0 +1,8 @@
+# Production runtime ignores
+node_modules/
+.env
+.env.*
+!.env.example
+storage-data/
+*.log
+.DS_Store
