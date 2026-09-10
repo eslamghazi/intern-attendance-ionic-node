@@ -28,7 +28,7 @@ try {
       execSync('git rev-parse --verify origin/production', { cwd: root, stdio: 'pipe' });
       execSync('git branch production origin/production', { cwd: root, stdio: 'pipe' });
       hasProduction = true;
-    } catch {}
+    } catch { }
   }
 
   if (hasProduction) {
@@ -68,8 +68,8 @@ storage-data/
   writeFileSync(join(tempDir, '.gitignore'), gitignoreContent, 'utf8');
 
   // 5. Commit with continuous history
-  execSync('git config user.name "Deployment Agent"', { cwd: tempDir, stdio: 'pipe' });
-  execSync('git config user.email "deploy@interns.local"', { cwd: tempDir, stdio: 'pipe' });
+  execSync('git config user.name "eslamghazi"', { cwd: tempDir, stdio: 'pipe' });
+  execSync('git config user.email "eslamghazi20002@gmail.com"', { cwd: tempDir, stdio: 'pipe' });
   execSync('git add -A', { cwd: tempDir, stdio: 'pipe' });
 
   const status = execSync('git status --porcelain', { cwd: tempDir, encoding: 'utf8' }).trim();
