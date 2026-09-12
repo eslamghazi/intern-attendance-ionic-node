@@ -20,6 +20,7 @@ export const arLocale = {
         logout_success: 'تم تسجيل الخروج بنجاح',
         logout_all_success: 'تم تسجيل الخروج من جميع الأجهزة بنجاح',
         invalid_credentials: 'الرقم القومي أو كلمة المرور غير صحيحة',
+        not_registered: 'هذا الرقم القومي غير مسجل',
         account_inactive: 'هذا الحساب معطل، يرجى التواصل مع الإدارة',
         password_changed: 'تم تغيير كلمة المرور بنجاح',
         password_reset_success: 'تم إعادة ضبط كلمة المرور بنجاح',

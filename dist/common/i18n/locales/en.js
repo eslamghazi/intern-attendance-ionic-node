@@ -20,6 +20,7 @@ export const enLocale = {
         logout_success: 'Signed out successfully',
         logout_all_success: 'Signed out from all devices successfully',
         invalid_credentials: 'Invalid national ID or password',
+        not_registered: 'This national ID is not registered',
         account_inactive: 'Account is inactive, please contact administration',
         password_changed: 'Password changed successfully',
         password_reset_success: 'Password reset successfully',
