@@ -50,6 +50,10 @@ export const profiles = pgTable("profiles", {
 	passwordHash: text("password_hash"),
 	avatarUrl: text("avatar_url"),
 }, (table) => [
+	// The self-reference below is a foreign key like any other: deleting a
+	// profile has to find every row that named it as its creator, and that is a
+	// scan of `profiles` itself without this.
+	index("profiles_created_by_idx").using("btree", table.createdBy.asc().nullsLast()),
 	// Self-referencing: the admin who created this account. It pointed at
 	// auth.users(id) with NO delete rule, which meant deleting an admin who had
 	// ever created an account failed with a foreign key violation — the one
@@ -155,6 +159,8 @@ export const attachments = pgTable("attachments", {
 	// drifted before: the constraint allowed three values while the code carried
 	// five, and the two it did not allow were never caught because nothing ever
 	// wrote them.
+	// Every stored file points at its owner; a profile delete SET NULLs them.
+	index("attachments_owner_idx").using("btree", table.ownerId.asc().nullsLast()),
 	check("attachments_kind_check", sql.raw(`kind in (${FILE_KIND_NAMES.map((k) => `'${k}'`).join(', ')})`)),
 	foreignKey({
 			columns: [table.ownerId],
@@ -293,6 +299,7 @@ export const rosterDays = pgTable("roster_days", {
 	// roster_days took a Seq Scan where attendance, which has this index, took an
 	// Index Scan for the identical query. The table grows at members x teaching
 	// days, roughly 110k rows a year for 300 students.
+	index("roster_days_shift_idx").using("btree", table.shiftId.asc().nullsLast()),
 	index("roster_days_date_idx").using("btree", table.date.asc().nullsLast()),
 	uniqueIndex("roster_days_intern_date_shift_key").using("btree", table.memberId.asc().nullsLast(), table.date.asc().nullsLast(), table.shiftId.asc().nullsLast()),
 	foreignKey({
@@ -342,6 +349,9 @@ export const auditLog = pgTable("audit_log", {
 	detail: jsonb().$type<JsonValue>(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
+	// THE EXPENSIVE ONE. Deleting a profile SET NULLs its audit rows, and the
+	// trail keeps a year — without this the delete scans all of it.
+	index("audit_log_actor_idx").using("btree", table.actorId.asc().nullsLast()),
 	index("audit_log_created_idx").using("btree", table.createdAt.desc().nullsFirst()),
 	foreignKey({
 			columns: [table.actorId],
@@ -394,6 +404,8 @@ export const attendance = pgTable("attendance", {
 				.join(', ')})`,
 		),
 	),
+	// A shift delete CASCADEs through attendance, which is the largest table.
+	index("attendance_shift_idx").using("btree", table.shiftId.asc().nullsLast()),
 	index("attendance_date_idx").using("btree", table.date.asc().nullsLast()),
 	index("attendance_hospital_date_idx").using("btree", table.branchId.asc().nullsLast(), table.date.asc().nullsLast()),
 	uniqueIndex("attendance_intern_date_shift_key").using("btree", table.memberId.asc().nullsLast(), table.date.asc().nullsLast(), table.shiftId.asc().nullsLast()),
@@ -426,6 +438,8 @@ export const qrTokens = pgTable("qr_tokens", {
 	createdBy: uuid("created_by"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
+	index("qr_tokens_member_idx").using("btree", table.memberId.asc().nullsLast()),
+	index("qr_tokens_branch_idx").using("btree", table.branchId.asc().nullsLast()),
 	index("qr_tokens_expires_at_idx").using("btree", table.expiresAt.asc().nullsLast()),
 	index("qr_tokens_token_idx").using("btree", table.token.asc().nullsLast()),
 	foreignKey({
@@ -534,6 +548,7 @@ export const memberDepartments = pgTable("member_departments", {
 	departmentId: uuid("department_id").notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
+	index("member_departments_department_idx").using("btree", table.departmentId.asc().nullsLast()),
 	index("member_departments_month_idx").using("btree", table.year.asc().nullsLast(), table.month.asc().nullsLast()),
 	foreignKey({
 			columns: [table.memberId],
@@ -572,6 +587,12 @@ export const presenceChecks = pgTable("presence_checks", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	resolvedAt: timestamp("resolved_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
+	// A check names a branch, group, shift and department; deleting any of them
+	// has to find the checks that referenced it.
+	index("presence_checks_branch_idx").using("btree", table.branchId.asc().nullsLast()),
+	index("presence_checks_group_idx").using("btree", table.groupId.asc().nullsLast()),
+	index("presence_checks_shift_idx").using("btree", table.shiftId.asc().nullsLast()),
+	index("presence_checks_department_idx").using("btree", table.departmentId.asc().nullsLast()),
 	index("presence_checks_creator_idx").using("btree", table.createdBy.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
 	index("presence_checks_open_idx").using("btree", table.status.asc().nullsLast(), table.deadline.asc().nullsLast()),
 	foreignKey({
@@ -619,6 +640,9 @@ export const presenceConfirmations = pgTable("presence_confirmations", {
 			foreignColumns: [members.id],
 			name: "presence_confirmations_member_id_fkey"
 		}).onDelete("cascade"),
+	// Deleting a member CASCADEs here; the unique below leads with check_id, so
+	// it cannot serve a lookup by member.
+	index("presence_confirmations_member_idx").using("btree", table.memberId.asc().nullsLast()),
 	unique("presence_confirmations_check_id_member_id_key").on(table.checkId, table.memberId),
 ]);
 export const memberDirectory = pgView("member_directory", {	memberId: uuid("member_id"),

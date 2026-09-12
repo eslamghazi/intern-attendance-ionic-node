@@ -1,5 +1,5 @@
 {
-  "id": "c28e506a-9f29-4f33-b709-bc120c5e6861",
+  "id": "68da76f2-1565-41aa-9b35-75c1f9bb4970",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -421,7 +421,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "attachments_owner_idx": {
+          "name": "attachments_owner_idx",
+          "columns": [
+            {
+              "expression": "owner_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "attachments_owner_id_fkey": {
           "name": "attachments_owner_id_fkey",
@@ -641,6 +657,21 @@
         }
       },
       "indexes": {
+        "attendance_shift_idx": {
+          "name": "attendance_shift_idx",
+          "columns": [
+            {
+              "expression": "shift_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "attendance_date_idx": {
           "name": "attendance_date_idx",
           "columns": [
@@ -749,7 +780,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "attendance_checkout_status_check": {
+          "name": "attendance_checkout_status_check",
+          "value": "checkout_status is null or checkout_status in ('checked_out', 'early_leave', 'left_work')"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.audit_log": {
@@ -791,6 +827,21 @@
         }
       },
       "indexes": {
+        "audit_log_actor_idx": {
+          "name": "audit_log_actor_idx",
+          "columns": [
+            {
+              "expression": "actor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "audit_log_created_idx": {
           "name": "audit_log_created_idx",
           "columns": [
@@ -1316,6 +1367,21 @@
         }
       },
       "indexes": {
+        "member_departments_department_idx": {
+          "name": "member_departments_department_idx",
+          "columns": [
+            {
+              "expression": "department_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "member_departments_month_idx": {
           "name": "member_departments_month_idx",
           "columns": [
@@ -1685,6 +1751,66 @@
         }
       },
       "indexes": {
+        "presence_checks_branch_idx": {
+          "name": "presence_checks_branch_idx",
+          "columns": [
+            {
+              "expression": "branch_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "presence_checks_group_idx": {
+          "name": "presence_checks_group_idx",
+          "columns": [
+            {
+              "expression": "group_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "presence_checks_shift_idx": {
+          "name": "presence_checks_shift_idx",
+          "columns": [
+            {
+              "expression": "shift_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "presence_checks_department_idx": {
+          "name": "presence_checks_department_idx",
+          "columns": [
+            {
+              "expression": "department_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "presence_checks_creator_idx": {
           "name": "presence_checks_creator_idx",
           "columns": [
@@ -1841,7 +1967,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "presence_confirmations_member_idx": {
+          "name": "presence_confirmations_member_idx",
+          "columns": [
+            {
+              "expression": "member_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "presence_confirmations_check_id_fkey": {
           "name": "presence_confirmations_check_id_fkey",
@@ -1922,13 +2064,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "must_change_password": {
-          "name": "must_change_password",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
         "is_active": {
           "name": "is_active",
           "type": "boolean",
@@ -1974,7 +2109,23 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "profiles_created_by_idx": {
+          "name": "profiles_created_by_idx",
+          "columns": [
+            {
+              "expression": "created_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "profiles_created_by_fkey": {
           "name": "profiles_created_by_fkey",
@@ -2073,6 +2224,36 @@
         }
       },
       "indexes": {
+        "qr_tokens_member_idx": {
+          "name": "qr_tokens_member_idx",
+          "columns": [
+            {
+              "expression": "member_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "qr_tokens_branch_idx": {
+          "name": "qr_tokens_branch_idx",
+          "columns": [
+            {
+              "expression": "branch_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "qr_tokens_expires_at_idx": {
           "name": "qr_tokens_expires_at_idx",
           "columns": [
@@ -2342,6 +2523,21 @@
           "method": "btree",
           "with": {}
         },
+        "roster_days_shift_idx": {
+          "name": "roster_days_shift_idx",
+          "columns": [
+            {
+              "expression": "shift_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "roster_days_date_idx": {
           "name": "roster_days_date_idx",
           "columns": [
@@ -2569,7 +2765,9 @@
         "member_lookup_out_of_scope",
         "outside_window",
         "checkout_blocked",
-        "server_error"
+        "server_error",
+        "superadmin_backup",
+        "superadmin_restore"
       ]
     },
     "public.enrollment_status": {
