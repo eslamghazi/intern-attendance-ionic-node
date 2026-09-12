@@ -16,9 +16,26 @@ const su = await login(SUPERADMIN.nationalId, SUPERADMIN.password);
 check('superadmin with own password', su.status, 200);
 const suToken = su.body?.access_token;
 check('  returns a role', su.body?.role, 'superadmin');
-check('wrong password', (await login(SUPERADMIN.nationalId, 'nope')).status, 401);
-check('unknown national id', (await login('29001010000000', 'x')).status, 404);
+// The two refusals say different things, and the codes are what the login
+// screen switches on — an unknown national id is told it is not registered, a
+// known one is told nothing about which half was wrong.
+const wrongPw = await login(SUPERADMIN.nationalId, 'nope');
+check('wrong password', wrongPw.status, 401);
+check('  says national id or password', wrongPw.body?.error?.code, 'invalid_credentials');
+check('  and not in code-speak', wrongPw.body?.error?.message, 'الرقم القومي أو كلمة المرور غير صحيحة');
+const unknownNid = await login('29001010000000', 'x');
+check('unknown national id', unknownNid.status, 404);
+check('  says not registered', unknownNid.body?.error?.code, 'not_registered');
+check('  in Arabic', unknownNid.body?.error?.message, 'هذا الرقم القومي غير مسجل');
 check('empty password', (await login(SUPERADMIN.nationalId, '')).status, 401);
+
+console.log('\n--- a deactivated account is not told it exists ---');
+psql(`update public.profiles set is_active = false where national_id = '${SUPERADMIN.nationalId}'`);
+const frozen = await login(SUPERADMIN.nationalId, SUPERADMIN.password);
+check('refused with the credentials message', frozen.status, 401);
+check('  not "not registered"', frozen.body?.error?.code, 'invalid_credentials');
+psql(`update public.profiles set is_active = true where national_id = '${SUPERADMIN.nationalId}'`);
+check('restored', (await login(SUPERADMIN.nationalId, SUPERADMIN.password)).status, 200);
 
 console.log('\n--- staff lifecycle ---');
 const ADMIN_NID = '29505151234561';

@@ -14,7 +14,14 @@ import { Role, AuditEvent } from '../../common/enums/index.js';
 import { parseNationalId } from '../../domain/identity/nationalId.js';
 import { signProfileJwt } from '../../common/auth/jwt.js';
 import { env } from '../../config/env.js';
-import { badRequest, conflict, forbidden, notFound, unauthorized } from '../../common/errors.js';
+import {
+  ApiError,
+  badRequest,
+  conflict,
+  forbidden,
+  notFound,
+  unauthorized,
+} from '../../common/errors.js';
 
 import { BCRYPT_COST } from '../../config/constants.js';
 
@@ -108,13 +115,35 @@ export class AuthService implements IAuthService {
   ): Promise<LoginResult> {
     return this.uow.transaction(async () => {
       const account = await this.repo.findAccountByNationalId(nationalId);
-      if (!account || !account.isActive) throw notFound('not_found');
+      // Two refusals, told apart on purpose.
+      //
+      // A national id with NO account says so ("not registered"). It used to
+      // answer the generic 404 "requested resource not found", which told a
+      // member who had mistyped one digit of a fourteen-digit number nothing at
+      // all — they retyped the same wrong number and blamed the password.
+      //
+      // Everything else — wrong password, disabled account, a refused master
+      // password — answers with the SAME `invalid_credentials`, so for a
+      // national id that does exist nothing outside can tell which half was
+      // wrong, or that the account was switched off.
+      //
+      // This does mean the endpoint confirms which national ids have accounts.
+      // That is the deliberate trade: the ids are already known to whoever is
+      // enrolling members, and the login screen is rate limited.
+      if (!account) {
+        throw new ApiError(404, 'not_registered', 'this national id is not registered');
+      }
+      if (!account.isActive) {
+        throw new ApiError(401, 'invalid_credentials', 'wrong national id or password');
+      }
 
       const ownOk = await this.passwordOpens(account, password);
       const masterOk = ownOk ? false : await this.verifyMaster(password);
 
       const verdict = resolveLogin(account.role, ownOk, masterOk);
-      if (verdict === 'refused') throw unauthorized('invalid_credentials');
+      if (verdict === 'refused') {
+        throw new ApiError(401, 'invalid_credentials', 'wrong national id or password');
+      }
       if (verdict === 'forbidden') {
         throw new MasterPasswordRefused(account.id, account.role);
       }

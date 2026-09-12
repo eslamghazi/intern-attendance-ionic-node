@@ -17,6 +17,7 @@ import {
 } from '../api/http';
 import { login as apiLogin, logout as apiLogout } from '../api/auth';
 import { isValidNationalId } from '../nationalId';
+import { signInErrorKey } from './signInError';
 import type { Member, Profile, Role } from '../types';
 
 interface SessionLike {
@@ -160,8 +161,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const result = await apiLogin(nationalId, password);
           await applyUser(result.profile.id);
           return { error: null };
-        } catch {
-          return { error: 'signInError' };
+        } catch (err) {
+          return { error: signInErrorKey(err) };
         }
       },
       signOut: async () => {
