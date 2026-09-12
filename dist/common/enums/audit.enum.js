@@ -26,5 +26,15 @@ export var AuditEvent;
      * noise. See ApiExceptionFilter.
      */
     AuditEvent["SERVER_ERROR"] = "server_error";
+    /**
+     * Every superadmin password hash left the system.
+     *
+     * A backup file is the one export that, on its own, is worth attacking
+     * offline — so who took a copy and when is recorded. The restore beside it is
+     * recorded for the opposite reason: it is the only way an account that can do
+     * everything appears without anyone creating it.
+     */
+    AuditEvent["SUPERADMIN_BACKUP"] = "superadmin_backup";
+    AuditEvent["SUPERADMIN_RESTORE"] = "superadmin_restore";
 })(AuditEvent || (AuditEvent = {}));
 //# sourceMappingURL=audit.enum.js.map

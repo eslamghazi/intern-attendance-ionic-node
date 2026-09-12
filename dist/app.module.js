@@ -18,6 +18,7 @@ import { CatalogModule } from './modules/catalog/catalog.module.js';
 import { ProfileModule } from './modules/profile/profile.module.js';
 import { SettingsModule } from './modules/settings/settings.module.js';
 import { DepartmentsModule } from './modules/departments/departments.module.js';
+import { SuperadminModule } from './modules/superadmin/superadmin.module.js';
 import { AdminsModule } from './modules/admins/admins.module.js';
 import { MembersModule } from './modules/members/members.module.js';
 import { StorageModule } from './modules/storage/storage.module.js';
@@ -51,6 +52,7 @@ AppModule = __decorate([
             SettingsModule,
             DepartmentsModule,
             AdminsModule,
+            SuperadminModule,
             MembersModule,
             StorageModule,
             FaceModule,

@@ -72,6 +72,25 @@ let ApiExceptionFilter = class ApiExceptionFilter {
             // Already logged above; an audit failure must not mask the original.
         });
     }
+    /**
+     * The translation for an error code, or undefined when there is none.
+     *
+     * I18nService.translate ECHOES THE KEY when it finds nothing, which is right
+     * for a label — a screen showing `admin.groupFace` is obviously missing a
+     * string. It is wrong here, because the caller used it as
+     * `translate(code) || message`: the echoed key is truthy, so it won this
+     * every time and the message it was falling back to never appeared.
+     *
+     * The effect was that every carefully written failure in the API arrived as
+     * its own bare code. `point 3 of the area has a non-numeric lat/lng` became
+     * `invalid_area`; `expected 512 finite numbers, got an array of 3` became
+     * `bad_embedding`. The detail was written, passed through the service, and
+     * thrown away at the very last step.
+     */
+    localize(code, lang) {
+        const text = this.i18n?.translate(code, lang);
+        return text && text !== code ? text : undefined;
+    }
     catch(exception, host) {
         const ctx = host.switchToHttp();
         const response = ctx.getResponse();
@@ -89,8 +108,8 @@ let ApiExceptionFilter = class ApiExceptionFilter {
             console.error(`[API 5xx] ${request.method} ${request.url}:`, exception);
             this.recordFailure(request, api, exception);
         }
-        const localizedAr = this.i18n?.translate(api.code, 'ar');
-        const localizedEn = this.i18n?.translate(api.code, 'en');
+        const localizedAr = this.localize(api.code, 'ar');
+        const localizedEn = this.localize(api.code, 'en');
         // Attendance refusals answer with their own `{ reason }` body, enhanced with bilingual descriptions
         if (api.payload) {
             // The refusal's own reason when it has one — see ApiError.payload. It is
@@ -98,8 +117,8 @@ let ApiExceptionFilter = class ApiExceptionFilter {
             // to be one.
             const reason = api.payload.reason;
             const reasonCode = typeof reason === 'string' && reason ? reason : api.code;
-            const refusalAr = this.i18n?.translate(reasonCode, 'ar');
-            const refusalEn = this.i18n?.translate(reasonCode, 'en');
+            const refusalAr = this.localize(reasonCode, 'ar');
+            const refusalEn = this.localize(reasonCode, 'en');
             return response.status(api.status).send({
                 ...api.payload,
                 message: lang === 'en' ? (refusalEn || api.message) : (refusalAr || api.message),
