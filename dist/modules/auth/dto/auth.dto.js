@@ -11,6 +11,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsOptional, MinLength, IsUUID, IsArray, ValidateNested, IsIn, } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Role, STAFF_ROLES } from '../../../common/enums/index.js';
+import { AdminPermissionsDto } from '../../admins/dto/admin.dto.js';
 import { PASSWORD_MIN } from '../../../config/constants.js';
 export class LoginDto {
     national_id;
@@ -128,6 +129,13 @@ export class CreateStaffDto {
     // no admin can reach the route at all.
     role = Role.ADMIN;
     assignments = [];
+    /**
+     * The grant the account starts with — what the "type" picked on the
+     * Admins page expands to. Given here so an account and its grant are one
+     * request, never an account that exists for a moment with nothing.
+     * Ignored for a superadmin, who holds every page by role.
+     */
+    permissions;
 }
 __decorate([
     ApiProperty({ description: 'National ID number' }),
@@ -167,6 +175,13 @@ __decorate([
     IsOptional(),
     __metadata("design:type", Array)
 ], CreateStaffDto.prototype, "assignments", void 0);
+__decorate([
+    ApiPropertyOptional({ type: AdminPermissionsDto, nullable: true }),
+    IsOptional(),
+    ValidateNested(),
+    Type(() => AdminPermissionsDto),
+    __metadata("design:type", Object)
+], CreateStaffDto.prototype, "permissions", void 0);
 export class LoginProfileDto {
     id;
     full_name;

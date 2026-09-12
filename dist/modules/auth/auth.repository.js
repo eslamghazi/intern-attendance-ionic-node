@@ -13,6 +13,7 @@ import { GenericRepository } from '../../infrastructure/database/generic.reposit
 import { eq, exists, isNull, and } from 'drizzle-orm';
 import { QueryBuilder } from 'drizzle-orm/pg-core';
 import { profiles, appSettings, refreshTokens, adminAssignments, members, branches, groups, institutions, faceTemplates } from '../../infrastructure/database/schema/index.js';
+import { Role } from '../../domain/identity/role.js';
 let AuthRepository = class AuthRepository extends GenericRepository {
     auditRepo;
     constructor(auditRepo) {
@@ -214,6 +215,9 @@ let AuthRepository = class AuthRepository extends GenericRepository {
             phone: input.phone || null,
             passwordHash,
             createdBy: actorId,
+            // A superadmin's column is never read (PermissionsGuard passes them by
+            // role), so it is not written either.
+            permissions: input.role === Role.ADMIN ? (input.permissions ?? null) : null,
         });
     }
     async createAdminAssignment(adminId, groupId, branchId) {

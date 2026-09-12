@@ -94,6 +94,7 @@ let AuthController = class AuthController {
             password: body.password,
             role: body.role ?? Role.ADMIN,
             assignments: body.assignments ?? [],
+            permissions: body.permissions ?? null,
         });
         return new ApiResponse({ ok: true, id: created.id, password: created.password });
     }
