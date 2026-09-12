@@ -1,6 +1,7 @@
 import { HTML_CONTENT_TYPE, REPORT_FONT, REPORT_PALETTE as P, } from '../../config/constants.js';
 import { copyrightLine } from './copyright.js';
 import { renderChartsSvg } from './charts-svg.js';
+import { brandMarkDataUrl } from './brand-mark.js';
 /**
  * The same report as a print-ready HTML document.
  *
@@ -38,6 +39,7 @@ function esc(value) {
 }
 export function buildReportHtml(doc) {
     const rtl = doc.rtl ?? true;
+    const mark = brandMarkDataUrl();
     const font = rtl ? REPORT_FONT.ar : REPORT_FONT.en;
     const align = rtl ? 'right' : 'left';
     const title = doc.brandName ? `${doc.brandName} — ${doc.title}` : doc.title;
@@ -66,7 +68,10 @@ export function buildReportHtml(doc) {
   @page { size: A4 ${doc.landscape ? 'landscape' : 'portrait'}; margin: 14mm 12mm 18mm; }
   * { font-family: '${font}', ${REPORT_FONT.fallback}; box-sizing: border-box; }
   body { margin: 0; color: ${P.text}; }
-  .head { border-bottom: 2px solid ${P.accent}; padding-bottom: 8px; margin-bottom: 12px; }
+  /* The organisation's logo beside its name, when Settings has one. */
+  .head { display: flex; align-items: center; gap: 12px; border-bottom: 2px solid ${P.accent}; padding-bottom: 8px; margin-bottom: 12px; }
+  .head img { height: 44px; max-width: 140px; object-fit: contain; flex: none; }
+  .head > div { min-width: 0; }
   h1 { font-size: 16pt; margin: 0 0 2px; color: ${P.accentDark}; }
   .sub { font-size: 9pt; color: ${P.muted}; }
   table { width: 100%; border-collapse: collapse; font-size: 9pt; }
@@ -79,6 +84,8 @@ export function buildReportHtml(doc) {
   thead { display: table-header-group; }
   tr { break-inside: avoid; }
   .foot { margin-top: 10px; font-size: 8pt; color: ${P.muted}; text-align: center; }
+  .foot--brand { display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .foot--brand img { height: 22px; opacity: 0.9; }
   /* Charts: two to a row where the page allows, each kept whole on a page.
      The SVG's text inherits the document's font and direction, which is what
      shapes the Arabic in a legend the same way as in the table. */
@@ -100,9 +107,12 @@ export function buildReportHtml(doc) {
 </head>
 <body>
   <div class="head">
-    <h1>${esc(title)}</h1>
-    ${doc.subtitle ? `<div class="sub">${esc(doc.subtitle)}</div>` : ''}
-    ${doc.generatedAt ? `<div class="sub">${esc(doc.generatedAt)}</div>` : ''}
+    ${doc.brandLogo ? `<img src="${esc(doc.brandLogo)}" alt="" />` : ''}
+    <div>
+      <h1>${esc(title)}</h1>
+      ${doc.subtitle ? `<div class="sub">${esc(doc.subtitle)}</div>` : ''}
+      ${doc.generatedAt ? `<div class="sub">${esc(doc.generatedAt)}</div>` : ''}
+    </div>
   </div>
 
   <div class="hint">${rtl
@@ -117,7 +127,7 @@ export function buildReportHtml(doc) {
   </table>
 
   <div class="foot">${esc(doc.generatedAt ?? '')}</div>
-  <div class="foot">${esc(copyrightLine(rtl))}</div>
+  <div class="foot foot--brand">${mark ? `<img src="${mark}" alt="Calaix AI" />` : ''}<span>${esc(copyrightLine(rtl))}</span></div>
 
   <script>
     // Wait for the webfonts before printing: printing first lays the table out

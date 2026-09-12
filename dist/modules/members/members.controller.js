@@ -21,15 +21,18 @@ import { CreateMembersBatchDto, UpdateMemberDto, MemberFilterQueryDto, BulkFlagD
 import { Role } from '../../common/enums/index.js';
 import { Lang } from '../../common/decorators/lang.decorator.js';
 import { I18nService } from '../../common/i18n/i18n.service.js';
-import { parseFormat, sendReport } from '../../infrastructure/export/render.js';
+import { parseFormat } from '../../infrastructure/export/render.js';
+import { ExportService } from '../../infrastructure/export/export.service.js';
 import { isStaff } from '../../domain/identity/role.js';
 import { badRequest, forbidden } from '../../common/errors.js';
 let MembersController = class MembersController {
     membersService;
     i18n;
-    constructor(membersService, i18n) {
+    exports;
+    constructor(membersService, i18n, exports) {
         this.membersService = membersService;
         this.i18n = i18n;
+        this.exports = exports;
     }
     async createMembers(caller, body) {
         const data = await this.membersService.createMembers(caller, body.members);
@@ -109,7 +112,7 @@ let MembersController = class MembersController {
                 t(r.is_active ? 'active' : 'inactive'),
             ]),
         };
-        await sendReport(reply, parseFormat(query.format), doc, `members-${new Date().toISOString().slice(0, 10)}`);
+        await this.exports.send(reply, parseFormat(query.format), doc, `members-${new Date().toISOString().slice(0, 10)}`);
     }
     async getFlagStats(query) {
         const data = await this.membersService.getFlagStats(query);
@@ -356,7 +359,8 @@ MembersController = __decorate([
     ApiBearerAuth(),
     Controller('api/v1/members'),
     __metadata("design:paramtypes", [MembersService,
-        I18nService])
+        I18nService,
+        ExportService])
 ], MembersController);
 export { MembersController };
 //# sourceMappingURL=members.controller.js.map

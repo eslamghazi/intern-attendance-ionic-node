@@ -67,6 +67,16 @@ export async function buildWorkbook(table) {
     banner.font = { name: fontName, bold: true, size: 14, color: { argb: ARGB.accentDark } };
     banner.alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getRow(1).height = 24;
+    // The organisation's logo in the banner row, when it is an image Excel can
+    // hold: exceljs embeds PNG and JPEG, and an uploaded logo is usually one of
+    // those. An SVG logo shows in the print document and is left out here rather
+    // than written as an image the file cannot open.
+    const logo = /^data:image\/(png|jpeg);base64,(.+)$/.exec(table.brandLogo ?? '');
+    if (logo) {
+        ws.getRow(1).height = 44;
+        const id = wb.addImage({ base64: logo[2], extension: logo[1] });
+        ws.addImage(id, { tl: { col: 0.1, row: 0.1 }, ext: { width: 120, height: 48 } });
+    }
     const thin = { style: 'thin', color: { argb: ARGB.hairline } };
     const border = { top: thin, left: thin, bottom: thin, right: thin };
     // Row 2 — headers.

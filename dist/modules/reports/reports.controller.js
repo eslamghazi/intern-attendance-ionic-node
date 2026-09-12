@@ -23,7 +23,8 @@ import { Role } from '../../common/enums/index.js';
 import { Lang } from '../../common/decorators/lang.decorator.js';
 import { I18nService } from '../../common/i18n/i18n.service.js';
 import { CatalogService } from '../catalog/catalog.service.js';
-import { parseFormat, sendReport } from '../../infrastructure/export/render.js';
+import { parseFormat } from '../../infrastructure/export/render.js';
+import { ExportService } from '../../infrastructure/export/export.service.js';
 import { legendRows } from '../../infrastructure/export/legend.js';
 import { dashboardCharts, parsePanels } from '../../domain/report/dashboardCharts.js';
 import { ATTENDANCE_OUTCOME, OUTCOME_LEGEND_ORDER } from '../../config/constants.js';
@@ -33,10 +34,12 @@ let ReportsController = class ReportsController {
     reportsService;
     i18n;
     catalog;
-    constructor(reportsService, i18n, catalog) {
+    exports;
+    constructor(reportsService, i18n, catalog, exports) {
         this.reportsService = reportsService;
         this.i18n = i18n;
         this.catalog = catalog;
+        this.exports = exports;
     }
     async getPresent(caller, query) {
         if (!query?.dates)
@@ -115,7 +118,7 @@ let ReportsController = class ReportsController {
             rows,
             cellColors,
         };
-        await sendReport(reply, parseFormat(query.format), doc, `my-attendance-${period}`);
+        await this.exports.send(reply, parseFormat(query.format), doc, `my-attendance-${period}`);
     }
     async getDay(caller, query) {
         if (!query?.member_id || !query?.date)
@@ -175,7 +178,7 @@ let ReportsController = class ReportsController {
             rows,
             cellColors,
         };
-        await sendReport(reply, parseFormat(query.format), doc, `attendance-${year}-${pad(month)}`);
+        await this.exports.send(reply, parseFormat(query.format), doc, `attendance-${year}-${pad(month)}`);
     }
     async getMonthly(caller, query) {
         const { page = 1, page_size: pageSize = 50, year, month, ...filters } = query;
@@ -306,7 +309,7 @@ let ReportsController = class ReportsController {
             rows,
             charts,
         };
-        await sendReport(reply, parseFormat(query.format), doc, `dashboard-${period}`);
+        await this.exports.send(reply, parseFormat(query.format), doc, `dashboard-${period}`);
     }
     async getStats(caller, query) {
         if (!query?.year || !query?.month)
@@ -512,7 +515,8 @@ ReportsController = __decorate([
     Controller('api/v1/attendance'),
     __metadata("design:paramtypes", [ReportsService,
         I18nService,
-        CatalogService])
+        CatalogService,
+        ExportService])
 ], ReportsController);
 export { ReportsController };
 //# sourceMappingURL=reports.controller.js.map

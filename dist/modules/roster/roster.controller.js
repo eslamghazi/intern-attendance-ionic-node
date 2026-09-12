@@ -22,14 +22,17 @@ import { MonthQueryDto, RosterDayInputDto, GetRosterViewQueryDto, GetExistingKey
 import { Role } from '../../common/enums/index.js';
 import { Lang } from '../../common/decorators/lang.decorator.js';
 import { I18nService } from '../../common/i18n/i18n.service.js';
-import { parseFormat, sendReport } from '../../infrastructure/export/render.js';
+import { parseFormat } from '../../infrastructure/export/render.js';
+import { ExportService } from '../../infrastructure/export/export.service.js';
 import { daysInMonth } from '../../domain/report/matrix.js';
 let RosterController = class RosterController {
     service;
     i18n;
-    constructor(service, i18n) {
+    exports;
+    constructor(service, i18n, exports) {
         this.service = service;
         this.i18n = i18n;
+        this.exports = exports;
     }
     /**
      * The monthly roster as .xlsx — every member the filter matches.
@@ -89,7 +92,7 @@ let RosterController = class RosterController {
             ],
             rows: [...body, ...totals],
         };
-        await sendReport(reply, parseFormat(query.format), doc, `roster-${year}-${pad(month)}`);
+        await this.exports.send(reply, parseFormat(query.format), doc, `roster-${year}-${pad(month)}`);
     }
     async getRosterView(caller, query) {
         const { page = 1, page_size: pageSize = 50, year, month, ...filters } = query;
@@ -253,7 +256,8 @@ RosterController = __decorate([
     ApiBearerAuth(),
     Controller('api/v1/roster'),
     __metadata("design:paramtypes", [RosterService,
-        I18nService])
+        I18nService,
+        ExportService])
 ], RosterController);
 export { RosterController };
 //# sourceMappingURL=roster.controller.js.map
