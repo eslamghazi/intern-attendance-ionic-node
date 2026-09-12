@@ -16,8 +16,19 @@ export interface ReportTable {
   cellColors?: (string | undefined)[][];
   /** Arabic-first: the sheet opens right-to-left unless told otherwise. */
   rtl?: boolean;
-  /** Shown above the table, e.g. the branch and search terms an export covers. */
+  /** The organisation's name, in front of the title. Filled by ExportService. */
   brandName?: string;
+  /**
+   * The organisation's logo as a `data:image/…` URL, drawn in the print
+   * document's header. Only ever an embedded image — see ExportService.
+   */
+  brandLogo?: string;
+}
+
+/** What ExportService reads from app_settings for every report. */
+export interface ReportBranding {
+  brandName?: string;
+  brandLogo?: string;
 }
 
 export interface ReportDocument extends ReportTable {

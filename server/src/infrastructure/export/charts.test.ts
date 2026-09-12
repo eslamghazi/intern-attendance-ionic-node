@@ -169,9 +169,23 @@ describe('the print document', () => {
     expect(html).toContain('<figure class="chart">');
   });
 
-  it('carries the copyright line', () => {
+  it('carries the copyright line, with the Calaix mark embedded beside it', () => {
     const html = buildReportHtml({ title: 't', headers: ['h'], rows: [['r']] });
     expect(html).toContain('Calaix AI · Eslam Ghazi · جميع الحقوق محفوظة');
+    // Embedded, not linked: the saved PDF is opened with no app beside it.
+    expect(html).toMatch(/<div class="foot foot--brand"><img src="data:image\/svg\+xml;base64,/);
+  });
+
+  it('puts the organisation in the header — its name before the title, its logo beside it', () => {
+    const png = 'data:image/png;base64,iVBORw0KGgo=';
+    const html = buildReportHtml({ title: 'الأعضاء', headers: ['h'], rows: [['r']], brandName: 'كلية التمريض', brandLogo: png });
+    expect(html).toContain('<h1>كلية التمريض — الأعضاء</h1>');
+    expect(html).toContain(`<div class="head">\n    <img src="${png}" alt="" />`);
+  });
+
+  it('has no logo slot at all without one', () => {
+    const html = buildReportHtml({ title: 't', headers: ['h'], rows: [['r']] });
+    expect(html).not.toMatch(/<div class="head">\s*<img/);
   });
 });
 
@@ -213,5 +227,18 @@ describe('the workbook', () => {
     const values = [];
     for (let r = 1; r <= ws.rowCount; r++) values.push(ws.getCell(r, 1).value);
     expect(values).toContain(`© ${new Date().getFullYear()} Calaix AI · Eslam Ghazi · All rights reserved`);
+  });
+
+  it('embeds a PNG organisation logo in the banner row, and leaves an SVG one out', async () => {
+    // A 1×1 transparent PNG.
+    const png =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+    const withPng = await reopen(await buildWorkbook({ title: 't', headers: ['h'], rows: [['r']], brandName: 'كلية', brandLogo: png }));
+    expect(withPng.worksheets[0]!.getImages()).toHaveLength(1);
+    expect(withPng.worksheets[0]!.getCell(1, 1).value).toBe('كلية — t');
+
+    const svg = 'data:image/svg+xml;base64,PHN2Zy8+';
+    const withSvg = await reopen(await buildWorkbook({ title: 't', headers: ['h'], rows: [['r']], brandLogo: svg }));
+    expect(withSvg.worksheets[0]!.getImages()).toHaveLength(0);
   });
 });

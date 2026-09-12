@@ -24,7 +24,8 @@ import { Role } from '../../common/enums/index.js';
 import { Lang } from '../../common/decorators/lang.decorator.js';
 import type { SupportedLanguage } from '../../common/i18n/i18n.types.js';
 import { I18nService } from '../../common/i18n/i18n.service.js';
-import { parseFormat, sendReport } from '../../infrastructure/export/render.js';
+import { parseFormat } from '../../infrastructure/export/render.js';
+import { ExportService } from '../../infrastructure/export/export.service.js';
 import { daysInMonth } from '../../domain/report/matrix.js';
 
 @ApiTags('Roster')
@@ -34,6 +35,7 @@ export class RosterController {
   constructor(
     private readonly service: RosterService,
     private readonly i18n: I18nService,
+    private readonly exports: ExportService,
   ) {}
 
   /**
@@ -120,7 +122,7 @@ export class RosterController {
       rows: [...body, ...totals],
     };
 
-    await sendReport(reply, parseFormat(query.format), doc, `roster-${year}-${pad(month)}`);
+    await this.exports.send(reply, parseFormat(query.format), doc, `roster-${year}-${pad(month)}`);
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)

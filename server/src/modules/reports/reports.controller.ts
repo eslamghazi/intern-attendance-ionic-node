@@ -39,7 +39,8 @@ import { Lang } from '../../common/decorators/lang.decorator.js';
 import type { SupportedLanguage } from '../../common/i18n/i18n.types.js';
 import { I18nService } from '../../common/i18n/i18n.service.js';
 import { CatalogService } from '../catalog/catalog.service.js';
-import { parseFormat, sendReport } from '../../infrastructure/export/render.js';
+import { parseFormat } from '../../infrastructure/export/render.js';
+import { ExportService } from '../../infrastructure/export/export.service.js';
 import { legendRows } from '../../infrastructure/export/legend.js';
 import type { ReportDocument } from '../../infrastructure/export/export.types.js';
 import { dashboardCharts, parsePanels } from '../../domain/report/dashboardCharts.js';
@@ -62,6 +63,7 @@ export class ReportsController {
     private readonly reportsService: ReportsService,
     private readonly i18n: I18nService,
     private readonly catalog: CatalogService,
+    private readonly exports: ExportService,
   ) {}
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
@@ -199,7 +201,7 @@ export class ReportsController {
       cellColors,
     };
 
-    await sendReport(reply, parseFormat(query.format), doc, `my-attendance-${period}`);
+    await this.exports.send(reply, parseFormat(query.format), doc, `my-attendance-${period}`);
   }
 
   @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
@@ -297,7 +299,7 @@ export class ReportsController {
       cellColors,
     };
 
-    await sendReport(reply, parseFormat(query.format), doc, `attendance-${year}-${pad(month)}`);
+    await this.exports.send(reply, parseFormat(query.format), doc, `attendance-${year}-${pad(month)}`);
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
@@ -482,7 +484,7 @@ export class ReportsController {
       charts,
     };
 
-    await sendReport(reply, parseFormat(query.format), doc, `dashboard-${period}`);
+    await this.exports.send(reply, parseFormat(query.format), doc, `dashboard-${period}`);
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
