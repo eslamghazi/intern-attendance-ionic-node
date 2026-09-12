@@ -85,14 +85,10 @@ const schema = z.object({
     // taken under an advisory lock either way, so several replicas starting at
     // once cannot run it twice.
     AUTO_MIGRATE: z.enum(['0', '1']).default('1'),
-    // The first superadmin, created at start-up when the account is missing.
-    //
-    // Leave SUPERADMIN_NATIONAL_ID empty and nothing is seeded. An existing
-    // account is never touched: this creates the first way in, it does not
-    // maintain a password. See SuperadminSeedService.
-    SUPERADMIN_NATIONAL_ID: z.string().trim().default(''),
-    SUPERADMIN_NAME: z.string().trim().default('Super Admin'),
-    SUPERADMIN_PASSWORD: z.string().default(''),
+    // There is deliberately NO superadmin configuration here. The first account is
+    // created automatically when a database has none, with a generated password —
+    // see SuperadminSeedService. Credentials in an environment file are a copy of
+    // a secret that outlives its purpose and gets committed by accident.
 });
 const parsed = schema.safeParse(process.env);
 if (!parsed.success) {
