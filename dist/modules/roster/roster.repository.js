@@ -11,7 +11,7 @@ import { Injectable } from '@nestjs/common';
 import { GenericRepository } from '../../infrastructure/database/generic.repository.js';
 import { rosterDays, memberDirectory, shifts, members, memberDepartments, departments, attendance, } from '../../infrastructure/database/schema/index.js';
 import { eq, and, count, inArray, between, sql, asc, isNotNull, } from 'drizzle-orm';
-import { dayOfMonth, directoryWhere, filteredMemberIds } from '../../domain/member/filter.js';
+import { dayInMonth, dayOfMonth, directoryWhere, filteredMemberIds } from '../../domain/member/filter.js';
 let RosterRepository = class RosterRepository extends GenericRepository {
     constructor() {
         super(rosterDays, rosterDays.id);
@@ -55,6 +55,12 @@ let RosterRepository = class RosterRepository extends GenericRepository {
         if (!page.length)
             return { rows: [], total };
         const memberIds = page.map((p) => p.member_id).filter(Boolean);
+        // The cells follow the filter: a day narrows the grid to that column, a
+        // shift to that shift's entries — in the export as much as on screen.
+        const cellWhere = [inArray(rosterDays.memberId, memberIds)];
+        cellWhere.push(filters?.day ? eq(rosterDays.date, dayInMonth(first, filters.day)) : between(rosterDays.date, first, last));
+        if (filters?.shiftId)
+            cellWhere.push(eq(rosterDays.shiftId, filters.shiftId));
         const cells = await this.db
             .select({
             member_id: rosterDays.memberId,
@@ -65,7 +71,7 @@ let RosterRepository = class RosterRepository extends GenericRepository {
         })
             .from(rosterDays)
             .innerJoin(shifts, eq(shifts.id, rosterDays.shiftId))
-            .where(and(between(rosterDays.date, first, last), inArray(rosterDays.memberId, memberIds)));
+            .where(and(...cellWhere));
         const byMember = new Map();
         for (const c of cells) {
             const days = byMember.get(c.member_id) ?? {};

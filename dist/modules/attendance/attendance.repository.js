@@ -462,6 +462,43 @@ let AttendanceRepository = class AttendanceRepository extends GenericRepository 
             .limit(1);
         return { shift_id: resolved, shift_name: named[0]?.name ?? null };
     }
+    /**
+     * Write one imported slot — the whole record, times included.
+     *
+     * Like manualUpsert this overwrites without a `setWhere`: an import is an
+     * admin's correction of the record, and it may replace what a device wrote.
+     * Every device-only field (location, face score, probe) is cleared, because
+     * this arrival did not come from a device; `is_mock` is pinned false.
+     */
+    async importUpsert(w) {
+        const set = {
+            status: w.status,
+            shiftName: w.shiftName,
+            checkInAt: w.checkInAt,
+            checkInLat: null,
+            checkInLng: null,
+            checkInAccuracyM: null,
+            checkInDistanceM: null,
+            checkInFaceScore: null,
+            checkInLivenessPassed: w.checkInAt !== null,
+            checkInIsMock: false,
+            checkInProbePath: null,
+            checkOutAt: w.checkOutAt,
+            checkOutLat: null,
+            checkOutLng: null,
+            checkOutAccuracyM: null,
+            checkOutDistanceM: null,
+            checkOutFaceScore: null,
+            checkOutLivenessPassed: w.checkOutAt !== null ? true : null,
+            checkOutIsMock: w.checkOutAt !== null ? false : null,
+            checkOutProbePath: null,
+            checkoutStatus: w.checkoutStatus,
+        };
+        await this.db
+            .insert(attendance)
+            .values({ memberId: w.memberId, branchId: w.branchId, date: w.date, shiftId: w.shiftId, ...set })
+            .onConflictDoUpdate({ target: [attendance.memberId, attendance.date, attendance.shiftId], set });
+    }
     async manualUpsert(w) {
         // Unlike writeCheckIn there is no `setWhere` here, and that is the point: an
         // admin correcting a record is allowed to overwrite a check-in. `is_mock` is

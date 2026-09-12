@@ -8,7 +8,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsIn, IsNumber, IsBoolean, IsOptional, IsUUID, Matches, IsArray, ArrayMaxSize, } from 'class-validator';
+import { IsString, IsNotEmpty, IsIn, IsNumber, IsBoolean, IsOptional, IsUUID, Matches, IsArray, ArrayMaxSize, ArrayMinSize, ValidateNested, } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CheckType, AttendanceStatus } from '../../../common/enums/index.js';
 export class RecordAttendanceDto {
@@ -202,4 +202,95 @@ __decorate([
     ApiPropertyOptional({ example: true }),
     __metadata("design:type", Boolean)
 ], SetAttendanceResponseDto.prototype, "cleared", void 0);
+/** One typed slot: who, which rostered day and shift, and when they came and left. */
+export class ImportAttendanceRowDto {
+    member_id;
+    date;
+    shift_id;
+    check_in;
+    check_out;
+}
+__decorate([
+    ApiProperty({ description: 'Member UUID' }),
+    IsUUID(),
+    __metadata("design:type", String)
+], ImportAttendanceRowDto.prototype, "member_id", void 0);
+__decorate([
+    ApiProperty({ description: 'YYYY-MM-DD', example: '2026-09-14' }),
+    IsString(),
+    Matches(/^\d{4}-\d{2}-\d{2}$/),
+    __metadata("design:type", String)
+], ImportAttendanceRowDto.prototype, "date", void 0);
+__decorate([
+    ApiProperty({ description: 'The rostered shift' }),
+    IsUUID(),
+    __metadata("design:type", String)
+], ImportAttendanceRowDto.prototype, "shift_id", void 0);
+__decorate([
+    ApiPropertyOptional({ description: 'HH:mm in Cairo; empty = did not come', example: '08:10' }),
+    IsOptional(),
+    IsString(),
+    __metadata("design:type", Object)
+], ImportAttendanceRowDto.prototype, "check_in", void 0);
+__decorate([
+    ApiPropertyOptional({ description: 'HH:mm in Cairo', example: '14:05' }),
+    IsOptional(),
+    IsString(),
+    __metadata("design:type", Object)
+], ImportAttendanceRowDto.prototype, "check_out", void 0);
+/**
+ * Attendance from a file. Every row is written onto a ROSTERED slot or not
+ * at all — an import cannot invent attendance; see AttendanceService.importAttendance.
+ */
+export class ImportAttendanceDto {
+    rows;
+}
+__decorate([
+    ApiProperty({ type: [ImportAttendanceRowDto] }),
+    IsArray(),
+    ArrayMinSize(1),
+    ArrayMaxSize(5000),
+    ValidateNested({ each: true }),
+    Type(() => ImportAttendanceRowDto),
+    __metadata("design:type", Array)
+], ImportAttendanceDto.prototype, "rows", void 0);
+export class ImportAttendanceRowResultDto {
+    index;
+    outcome;
+}
+__decorate([
+    ApiProperty({ description: 'Index of the row in the request' }),
+    __metadata("design:type", Number)
+], ImportAttendanceRowResultDto.prototype, "index", void 0);
+__decorate([
+    ApiProperty({ enum: ['written', 'no_roster', 'not_yours', 'invalid'] }),
+    __metadata("design:type", String)
+], ImportAttendanceRowResultDto.prototype, "outcome", void 0);
+export class ImportAttendanceResultDto {
+    written;
+    no_roster;
+    not_yours;
+    invalid;
+    rows;
+}
+__decorate([
+    ApiProperty(),
+    __metadata("design:type", Number)
+], ImportAttendanceResultDto.prototype, "written", void 0);
+__decorate([
+    ApiProperty(),
+    __metadata("design:type", Number)
+], ImportAttendanceResultDto.prototype, "no_roster", void 0);
+__decorate([
+    ApiProperty(),
+    __metadata("design:type", Number)
+], ImportAttendanceResultDto.prototype, "not_yours", void 0);
+__decorate([
+    ApiProperty(),
+    __metadata("design:type", Number)
+], ImportAttendanceResultDto.prototype, "invalid", void 0);
+__decorate([
+    ApiProperty({ type: [ImportAttendanceRowResultDto] }),
+    __metadata("design:type", Array)
+], ImportAttendanceResultDto.prototype, "rows", void 0);
 //# sourceMappingURL=attendance.dto.js.map

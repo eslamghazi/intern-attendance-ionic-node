@@ -11,9 +11,10 @@
 // It is built from the view's own column objects rather than as SQL text, so
 // Drizzle qualifies every column itself and a renamed column breaks the build
 // instead of failing at runtime on the first request that uses that filter.
-import { and, eq, exists, ilike, inArray, isNotNull, or, sql } from 'drizzle-orm';
+import { and, between, eq, exists, ilike, inArray, isNotNull, or, sql } from 'drizzle-orm';
 import { QueryBuilder } from 'drizzle-orm/pg-core';
-import { memberDepartments, memberDirectory } from '../../infrastructure/database/schema/index.js';
+import { memberDepartments, memberDirectory, rosterDays } from '../../infrastructure/database/schema/index.js';
+import { monthBounds } from '../roster/bulk.js';
 // See config/constants.ts. Re-exported here because this is where the filters
 // live, and anything building a page already imports this module.
 export { MAX_PAGE_SIZE } from '../../config/constants.js';
@@ -60,6 +61,8 @@ export function directoryWhere(o) {
     }
     if (o.branchId)
         conds.push(eq(memberDirectory.branchId, o.branchId));
+    if (o.groupId)
+        conds.push(eq(memberDirectory.groupId, o.groupId));
     const term = (o.search ?? '').trim();
     if (term)
         conds.push(ilike(searchColumn(o.field ?? 'name'), `%${term}%`));
@@ -78,6 +81,20 @@ export function directoryWhere(o) {
             .select({ id: memberDepartments.id })
             .from(memberDepartments)
             .where(and(eq(memberDepartments.memberId, memberDirectory.memberId), eq(memberDepartments.year, o.year), eq(memberDepartments.month, o.month), eq(memberDepartments.departmentId, o.departmentId)))));
+    }
+    // A shift and/or a day narrow to the members ROSTERED there: a member with
+    // no roster on that shift or day has nothing to show in a grid filtered to
+    // it, and would appear as an empty row otherwise.
+    if ((o.shiftId || o.day) && o.year && o.month) {
+        const { first, last } = monthBounds(o.year, o.month);
+        const rostered = [eq(rosterDays.memberId, memberDirectory.memberId)];
+        if (o.day)
+            rostered.push(eq(rosterDays.date, dayInMonth(first, o.day)));
+        else
+            rostered.push(between(rosterDays.date, first, last));
+        if (o.shiftId)
+            rostered.push(eq(rosterDays.shiftId, o.shiftId));
+        conds.push(exists(qb.select({ id: rosterDays.id }).from(rosterDays).where(and(...rostered))));
     }
     return conds.length ? and(...conds) : undefined;
 }

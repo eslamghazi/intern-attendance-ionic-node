@@ -8,9 +8,10 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 import { Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, and, ne } from 'drizzle-orm';
 import { GenericRepository } from '../../infrastructure/database/generic.repository.js';
 import { profiles } from '../../infrastructure/database/schema/index.js';
+import { FIRST_SUPERADMIN } from '../../config/constants.js';
 import { Role } from '../../common/enums/index.js';
 let SuperadminRepository = class SuperadminRepository extends GenericRepository {
     constructor() {
@@ -35,7 +36,8 @@ let SuperadminRepository = class SuperadminRepository extends GenericRepository 
             created_at: profiles.createdAt,
         })
             .from(profiles)
-            .where(eq(profiles.role, Role.SUPERADMIN))
+            // The seeded account is nobody's business — see isHiddenAccount.
+            .where(and(eq(profiles.role, Role.SUPERADMIN), ne(profiles.nationalId, FIRST_SUPERADMIN.nationalId)))
             .orderBy(profiles.createdAt);
     }
     /**
@@ -57,7 +59,9 @@ let SuperadminRepository = class SuperadminRepository extends GenericRepository 
             isActive: profiles.isActive,
         })
             .from(profiles)
-            .where(eq(profiles.role, Role.SUPERADMIN))
+            // Not in the backup either: it is re-created by the API when no
+            // superadmin exists, which is the one recovery it is for.
+            .where(and(eq(profiles.role, Role.SUPERADMIN), ne(profiles.nationalId, FIRST_SUPERADMIN.nationalId)))
             .orderBy(profiles.createdAt);
     }
     /** Whoever holds this national id, whatever their role. */

@@ -18,7 +18,7 @@ import { Caller as CallerDecorator } from '../../common/decorators/caller.decora
 import { ApiError, badRequest } from '../../common/errors.js';
 import { AttendanceService, AttendanceRefused } from './attendance.service.js';
 import { ApiResponse } from '../../common/dto/api-response.dto.js';
-import { RecordAttendanceDto, SetManualAttendanceDto, } from './dto/attendance.dto.js';
+import { RecordAttendanceDto, SetManualAttendanceDto, ImportAttendanceDto, } from './dto/attendance.dto.js';
 import { Role } from '../../common/enums/index.js';
 function toPayload(b) {
     return {
@@ -72,6 +72,21 @@ let AttendanceController = class AttendanceController {
         });
         return new ApiResponse(data);
     }
+    /**
+     * Attendance from a file, written only onto rostered slots. Reached from
+     * the roster page (beside the roster upload) and from the review page, so
+     * either page's edit grant admits it.
+     */
+    async importAttendance(caller, body) {
+        const data = await this.service.importAttendance(caller, body.rows.map((r) => ({
+            memberId: r.member_id,
+            date: r.date,
+            shiftId: r.shift_id,
+            checkIn: r.check_in?.trim() || null,
+            checkOut: r.check_out?.trim() || null,
+        })));
+        return new ApiResponse(data);
+    }
 };
 __decorate([
     Roles(Role.MEMBER),
@@ -98,6 +113,19 @@ __decorate([
     __metadata("design:paramtypes", [Object, SetManualAttendanceDto]),
     __metadata("design:returntype", Promise)
 ], AttendanceController.prototype, "setManual", null);
+__decorate([
+    Roles(Role.ADMIN, Role.SUPERADMIN),
+    HttpCode(HttpStatus.OK),
+    Page(['rosters', 'review'], 'edit'),
+    Post('import'),
+    ApiOperation({ summary: 'Import check-in/check-out times onto rostered slots (Admin only)' }),
+    SwaggerResponse({ status: 200, type: (ApiResponse) }),
+    __param(0, CallerDecorator()),
+    __param(1, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, ImportAttendanceDto]),
+    __metadata("design:returntype", Promise)
+], AttendanceController.prototype, "importAttendance", null);
 AttendanceController = __decorate([
     ApiTags('Attendance'),
     ApiBearerAuth(),

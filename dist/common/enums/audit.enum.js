@@ -36,5 +36,11 @@ export var AuditEvent;
      */
     AuditEvent["SUPERADMIN_BACKUP"] = "superadmin_backup";
     AuditEvent["SUPERADMIN_RESTORE"] = "superadmin_restore";
+    /**
+     * Attendance written from a file rather than at the door. One row per
+     * import, with how many slots it wrote and refused — the trail for a month
+     * that was typed in after the fact.
+     */
+    AuditEvent["ATTENDANCE_IMPORTED"] = "attendance_imported";
 })(AuditEvent || (AuditEvent = {}));
 //# sourceMappingURL=audit.enum.js.map

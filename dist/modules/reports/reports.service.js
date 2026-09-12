@@ -14,7 +14,7 @@ import { UnitOfWorkService } from '../../infrastructure/database/unit-of-work.se
 import { ReportsRepository } from './reports.repository.js';
 import { requireSelfOrMember, scopeFilter, scopeOf, } from '../../common/auth/access.service.js';
 import { coversUnit } from '../../domain/access/scope.js';
-import { monthBounds } from '../../domain/member/filter.js';
+import { dayInMonth, monthBounds } from '../../domain/member/filter.js';
 import { monthStats } from '../../domain/report/rate.js';
 import { AttendanceStatus, CheckoutStatus } from '../../common/enums/index.js';
 let ReportsService = class ReportsService {
@@ -355,8 +355,13 @@ let ReportsService = class ReportsService {
             const pageRows = await this.repo.getMemberDirectoryPage(scoped, year, month, pageSize, offset);
             const total = await this.repo.getMemberDirectoryCount(scoped, year, month);
             const memberIds = pageRows.map(r => r.member_id).filter(Boolean);
-            const rosterRows = await this.repo.getRosterForMembersBetween(memberIds, first, last);
-            const attRows = await this.repo.getAttendanceForMembersBetween(memberIds, first, last);
+            // The cells follow the filter the members were chosen by: a day narrows
+            // the grid to that column, a shift to that shift's slots — in the export
+            // as much as on screen.
+            const onDay = filters?.day ? dayInMonth(first, filters.day) : null;
+            const keep = (r) => (!onDay || r.date === onDay) && (!filters?.shiftId || r.shift_id === filters.shiftId);
+            const rosterRows = (await this.repo.getRosterForMembersBetween(memberIds, first, last)).filter(keep);
+            const attRows = (await this.repo.getAttendanceForMembersBetween(memberIds, first, last)).filter(keep);
             const results = pageRows.map(p => {
                 const days = {};
                 const checkouts = {};

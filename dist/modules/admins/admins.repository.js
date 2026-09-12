@@ -12,6 +12,7 @@ import { GenericRepository } from '../../infrastructure/database/generic.reposit
 import { and, asc, eq, inArray, ne } from 'drizzle-orm';
 import { profiles, adminAssignments, groups, branches } from '../../infrastructure/database/schema/index.js';
 import { STAFF_ROLES } from '../../common/enums/index.js';
+import { FIRST_SUPERADMIN } from '../../config/constants.js';
 let AdminsRepository = class AdminsRepository extends GenericRepository {
     constructor() {
         super(profiles, profiles.id);
@@ -28,7 +29,9 @@ let AdminsRepository = class AdminsRepository extends GenericRepository {
             permissions: profiles.permissions,
         })
             .from(profiles)
-            .where(and(inArray(profiles.role, STAFF_ROLES), ne(profiles.id, exceptId)))
+            .where(and(inArray(profiles.role, STAFF_ROLES), ne(profiles.id, exceptId), 
+        // The seeded superadmin is nobody's business — see isHiddenAccount.
+        ne(profiles.nationalId, FIRST_SUPERADMIN.nationalId)))
             .orderBy(asc(profiles.fullName), asc(profiles.id));
     }
     async getAssignments() {
@@ -90,7 +93,9 @@ let AdminsRepository = class AdminsRepository extends GenericRepository {
         const rows = await this.db
             .select({ role: profiles.role })
             .from(profiles)
-            .where(and(eq(profiles.id, id), inArray(profiles.role, STAFF_ROLES)))
+            .where(and(eq(profiles.id, id), inArray(profiles.role, STAFF_ROLES), 
+        // Not manageable by anyone, and not reported as existing.
+        ne(profiles.nationalId, FIRST_SUPERADMIN.nationalId)))
             .limit(1);
         return rows[0]?.role ?? null;
     }

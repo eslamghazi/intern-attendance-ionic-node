@@ -15,6 +15,20 @@
       "when": 1789236588903,
       "tag": "0001_roster_maker_for_everyone",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789240139835,
+      "tag": "0002_department_belongs_to_branch",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789242216163,
+      "tag": "0003_attendance_imported_event",
+      "breakpoints": true
     }
   ]
 }

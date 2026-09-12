@@ -146,7 +146,8 @@ let ReportsController = class ReportsController {
             throw badRequest('invalid_query', 'year and month are required');
         const data = await this.reportsService.getMonthlyForExport(caller, filters, year, month);
         const t = (key) => this.i18n.translate(`report.${key}`, lang);
-        const dayList = Array.from({ length: daysInMonth(year, month) }, (_, i) => i + 1);
+        // One column when the grid was narrowed to a day, like the screen.
+        const dayList = query.day ? [query.day] : Array.from({ length: daysInMonth(year, month) }, (_, i) => i + 1);
         const rows = [];
         const cellColors = [];
         for (const r of data.rows) {

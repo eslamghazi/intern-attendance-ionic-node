@@ -1,0 +1,16 @@
+-- A department belongs to one hospital, always.
+--
+-- branch_id could be null, which made a "faculty-wide" department possible:
+-- one that belonged to no hospital, appeared under "none" on the Departments
+-- page, and could be assigned to a member of any hospital. The rule is now
+-- the simple one — the hospital is chosen first, and its departments exist
+-- under it.
+--
+-- This fails, on purpose, if a department without a hospital exists: assign
+-- each one to its hospital on the Departments page (or in SQL) and start the
+-- API again. Nothing here guesses which hospital a department belongs to, and
+-- nothing here deletes one.
+--
+--   select id, name from departments where branch_id is null;
+--   update departments set branch_id = '<hospital id>' where id = '<id>';
+ALTER TABLE "departments" ALTER COLUMN "branch_id" SET NOT NULL;

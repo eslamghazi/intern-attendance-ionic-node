@@ -30,6 +30,10 @@ let DepartmentsController = class DepartmentsController {
         return new ApiResponse(data);
     }
     async getDepartmentsOptions(branchId) {
+        // The hospital comes first, everywhere: a department list with no
+        // hospital would mix every hospital's departments into one menu.
+        if (!branchId)
+            throw badRequest('invalid_query', 'branch_id is required');
         const data = await this.departmentsService.getDepartmentsOptions(branchId);
         return new ApiResponse(data);
     }
@@ -77,8 +81,8 @@ __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
     AnyStaff(),
     Get('options'),
-    ApiOperation({ summary: 'Get department options for select dropdowns' }),
-    ApiQuery({ name: 'branch_id', required: false, type: String }),
+    ApiOperation({ summary: "One hospital's departments, for a select" }),
+    ApiQuery({ name: 'branch_id', required: true, type: String }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
     __param(0, Query('branch_id')),
     __metadata("design:type", Function),

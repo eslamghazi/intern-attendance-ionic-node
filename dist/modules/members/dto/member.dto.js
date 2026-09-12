@@ -378,6 +378,9 @@ export class MemberFilterQueryDto {
     has_face;
     is_active;
     departmentId;
+    groupId;
+    shiftId;
+    day;
     year;
     month;
     page = 1;
@@ -448,6 +451,27 @@ __decorate([
     IsUUID(),
     __metadata("design:type", Object)
 ], MemberFilterQueryDto.prototype, "departmentId", void 0);
+__decorate([
+    ApiPropertyOptional({ description: 'The cohort', example: 'g1d0e513-5b8b-4c74-8b6b-1a5ec4c74999' }),
+    IsOptional(),
+    IsUUID(),
+    __metadata("design:type", Object)
+], MemberFilterQueryDto.prototype, "groupId", void 0);
+__decorate([
+    ApiPropertyOptional({ description: 'Only members rostered on this shift in the month (or on `day`)' }),
+    IsOptional(),
+    IsUUID(),
+    __metadata("design:type", Object)
+], MemberFilterQueryDto.prototype, "shiftId", void 0);
+__decorate([
+    ApiPropertyOptional({ description: 'Only members rostered on this day of the month; grids narrow to it', minimum: 1, maximum: 31 }),
+    IsOptional(),
+    Type(() => Number),
+    IsInt(),
+    Min(1),
+    Max(31),
+    __metadata("design:type", Object)
+], MemberFilterQueryDto.prototype, "day", void 0);
 __decorate([
     ApiPropertyOptional({ example: 2026 }),
     IsOptional(),

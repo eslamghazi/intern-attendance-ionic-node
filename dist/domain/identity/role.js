@@ -21,6 +21,7 @@
  * invalid_text_representation, so the feature never worked.
  */
 import { Role, ROLES, STAFF_ROLES } from '../../common/enums/index.js';
+import { FIRST_SUPERADMIN } from '../../config/constants.js';
 export { Role, ROLES, STAFF_ROLES };
 export function isRole(value) {
     return typeof value === 'string' && ROLES.includes(value);
@@ -44,6 +45,18 @@ export function mayResetPasswordOf(actor, target) {
     if (target === Role.SUPERADMIN)
         return actor === Role.SUPERADMIN;
     return isStaff(actor);
+}
+/**
+ * The seeded superadmin is nobody's business.
+ *
+ * The account the API creates on an empty database is the way back in when
+ * every other superadmin is gone — so it must not be something another
+ * superadmin can see, reset, edit or export. It appears in no list, in no
+ * backup, and its actions in the audit trail are attributed to the system.
+ * It still signs in, and still holds every page: hidden is not disabled.
+ */
+export function isHiddenAccount(nationalId) {
+    return nationalId === FIRST_SUPERADMIN.nationalId;
 }
 /**
  * Who may manage a staff account — edit it, grant it pages, assign it, delete

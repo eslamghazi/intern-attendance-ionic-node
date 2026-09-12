@@ -14,6 +14,7 @@ import { cairoNow } from '../../domain/clock.js';
 import { previousDate } from '../../domain/attendance/windows.js';
 import { bypassSnapshot, checkGates, resolveBypass } from '../../domain/attendance/gates.js';
 import { decideCheckIn, decideCheckOut } from '../../domain/attendance/slot.js';
+import { importedSlot, parseClock } from '../../domain/attendance/imported.js';
 import { refuse, } from '../../domain/attendance/types.js';
 import { notFound } from '../../common/errors.js';
 import { scopeOf } from '../../common/auth/access.service.js';
@@ -232,6 +233,66 @@ let AttendanceService = class AttendanceService {
             });
             await this.repo.writeAudit(callerId, AuditEvent.CHECK_OUT, { date: out.date, status: out.record.status, distance });
             return { ok: true, type: CheckType.CHECK_OUT, status: out.record.status, distance, shift: out.shift?.name ?? null };
+        });
+    }
+    /**
+     * Attendance from a file — typed in after the fact, or alongside a roster.
+     *
+     * THE ONE RULE: a row is written onto a rostered (member, date, shift) or
+     * not at all. Nothing here creates a roster; a slot the roster does not
+     * have is reported as `no_roster` and skipped. Everything else follows the
+     * live path: the caller's reach decides which members are theirs, and the
+     * shift's own windows decide late and early leave (domain/attendance/
+     * imported.ts). A row is reported by its index so the file can say which
+     * lines did not land, and one audit row records the whole import.
+     */
+    async importAttendance(caller, rows) {
+        return this.uow.transaction(async () => {
+            const scope = await scopeOf(this.repo.db, caller);
+            const settings = await this.repo.loadSettings();
+            const defaults = { shift_start: settings?.shiftStart ?? null, shift_end: settings?.shiftEnd ?? null };
+            const result = { written: 0, no_roster: 0, not_yours: 0, invalid: 0, rows: [] };
+            const memberCache = new Map();
+            for (const [index, row] of rows.entries()) {
+                const outcome = async () => {
+                    if (row.checkIn && parseClock(row.checkIn) === null)
+                        return 'invalid';
+                    if (row.checkOut && parseClock(row.checkOut) === null)
+                        return 'invalid';
+                    if (!memberCache.has(row.memberId))
+                        memberCache.set(row.memberId, await this.repo.getMemberBranch(row.memberId));
+                    const member = memberCache.get(row.memberId);
+                    if (!member)
+                        return 'not_yours';
+                    if (scope.kind !== 'all' && !coversUnit(scope, { branchId: member.branchId, groupId: member.groupId })) {
+                        return 'not_yours';
+                    }
+                    const shift = (await this.repo.rosteredShifts(row.memberId, row.date)).find((s) => s.id === row.shiftId);
+                    if (!shift)
+                        return 'no_roster';
+                    const slot = importedSlot(shift, row.date, { checkIn: row.checkIn, checkOut: row.checkOut }, defaults);
+                    await this.repo.importUpsert({
+                        memberId: row.memberId,
+                        branchId: member.branchId,
+                        date: row.date,
+                        shiftId: shift.id,
+                        shiftName: shift.name,
+                        ...slot,
+                    });
+                    return 'written';
+                };
+                const o = await outcome();
+                result[o] += 1;
+                result.rows.push({ index, outcome: o });
+            }
+            await this.repo.writeAudit(caller.id, AuditEvent.ATTENDANCE_IMPORTED, {
+                rows: rows.length,
+                written: result.written,
+                no_roster: result.no_roster,
+                not_yours: result.not_yours,
+                invalid: result.invalid,
+            });
+            return result;
         });
     }
     async setAttendanceManually(caller, input) {

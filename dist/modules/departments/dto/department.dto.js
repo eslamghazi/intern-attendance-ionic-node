@@ -41,6 +41,7 @@ __decorate([
 ], DepartmentDto.prototype, "branch_name", void 0);
 export class CreateDepartmentDto {
     name;
+    /** The hospital this department belongs to. Required: there is no department without one. */
     branch_id;
 }
 __decorate([
@@ -50,10 +51,9 @@ __decorate([
     __metadata("design:type", String)
 ], CreateDepartmentDto.prototype, "name", void 0);
 __decorate([
-    ApiPropertyOptional({ example: 'b1d0e513-5b8b-4c74-8b6b-1a5ec4c74123' }),
-    IsOptional(),
+    ApiProperty({ example: 'b1d0e513-5b8b-4c74-8b6b-1a5ec4c74123' }),
     IsUUID(),
-    __metadata("design:type", Object)
+    __metadata("design:type", String)
 ], CreateDepartmentDto.prototype, "branch_id", void 0);
 export class UpdateDepartmentDto extends CreateDepartmentDto {
     id;
