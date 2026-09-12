@@ -5,29 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1789142293747,
+      "when": 1789202616009,
       "tag": "0000_init",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1789164212640,
-      "tag": "0001_add_checkout_status_check",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1789168815600,
-      "tag": "0002_drop_must_change_password",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1789192294057,
-      "tag": "0003_superadmin_audit_events",
       "breakpoints": true
     }
   ]

@@ -1,1 +1,0 @@
-ALTER TABLE "attendance" ADD CONSTRAINT "attendance_checkout_status_check" CHECK (checkout_status is null or checkout_status in ('checked_out', 'early_leave', 'left_work'));

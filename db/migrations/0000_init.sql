@@ -1,5 +1,34 @@
+-- The schema, whole, in one migration.
+--
+-- Consolidated before the first production apply from what had become four
+-- files: an init, a CHECK constraint, a DROP COLUMN and an ALTER TYPE. Applied
+-- in sequence they were correct but silly — a fresh database created
+-- `must_change_password` only to drop it two files later, and added two values
+-- to an enum it had just created. This is the same schema those four produced,
+-- verified by diffing pg_dump of both, with nothing removed and only the
+-- foreign-key indexes below added.
+--
+-- WHY THE EXTRA INDEXES
+--
+-- Postgres indexes the REFERENCED side of a foreign key, because that side is a
+-- primary key. It leaves the referencing side alone — so every delete of a
+-- parent row seq-scans the child table looking for references. Measured on a
+-- database with 80k audit rows, deleting ONE profile took 25ms, 15ms of which
+-- was `audit_log_actor_id_fkey` reading the whole trail; the bulk-delete route
+-- does that once per profile, and the trail keeps a year.
+--
+-- Indexed here: the foreign keys on tables that GROW with use — attendance,
+-- audit_log, attachments, qr_tokens, roster_days, presence_checks,
+-- presence_confirmations, member_departments and profiles. The catalog tables
+-- (institutions, branches, groups, departments, admin_assignments) are left
+-- alone deliberately: they are small and rarely deleted from, and an index
+-- nobody reads is still written on every insert.
+--
+-- NOTHING BELOW NEEDS A SUPERUSER. An ordinary role that owns an empty database
+-- is the whole prerequisite; there are no extensions, functions or triggers.
+
 CREATE TYPE "public"."attendance_status" AS ENUM('present', 'late', 'early_leave', 'absent', 'left_work');--> statement-breakpoint
-CREATE TYPE "public"."audit_event" AS ENUM('login', 'password_changed', 'face_enrolled', 'mock_location_detected', 'out_of_range', 'low_accuracy', 'face_mismatch', 'liveness_failed', 'integrity_failed', 'check_in', 'check_out', 'master_login', 'staff_deleted', 'member_lookup_out_of_scope', 'outside_window', 'checkout_blocked', 'server_error');--> statement-breakpoint
+CREATE TYPE "public"."audit_event" AS ENUM('login', 'password_changed', 'face_enrolled', 'mock_location_detected', 'out_of_range', 'low_accuracy', 'face_mismatch', 'liveness_failed', 'integrity_failed', 'check_in', 'check_out', 'master_login', 'staff_deleted', 'member_lookup_out_of_scope', 'outside_window', 'checkout_blocked', 'server_error', 'superadmin_backup', 'superadmin_restore');--> statement-breakpoint
 CREATE TYPE "public"."enrollment_status" AS ENUM('pending', 'enrolled');--> statement-breakpoint
 CREATE TYPE "public"."role" AS ENUM('superadmin', 'admin', 'member');--> statement-breakpoint
 CREATE TABLE "admin_assignments" (
@@ -92,7 +121,8 @@ CREATE TABLE "attendance" (
 	"shift_name" text,
 	"check_in_bypass" jsonb,
 	"check_out_bypass" jsonb,
-	"checkout_status" text
+	"checkout_status" text,
+	CONSTRAINT "attendance_checkout_status_check" CHECK (checkout_status is null or checkout_status in ('checked_out', 'early_leave', 'left_work'))
 );
 --> statement-breakpoint
 CREATE TABLE "audit_log" (
@@ -228,7 +258,6 @@ CREATE TABLE "profiles" (
 	"full_name" text NOT NULL,
 	"national_id" text NOT NULL,
 	"phone" text,
-	"must_change_password" boolean DEFAULT true NOT NULL,
 	"is_active" boolean DEFAULT true NOT NULL,
 	"created_by" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -323,22 +352,35 @@ ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_profile_id_fkey" FOR
 ALTER TABLE "roster_days" ADD CONSTRAINT "roster_days_intern_id_fkey" FOREIGN KEY ("member_id") REFERENCES "public"."members"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "roster_days" ADD CONSTRAINT "roster_days_shift_id_fkey" FOREIGN KEY ("shift_id") REFERENCES "public"."shifts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "admin_assignments_admin_idx" ON "admin_assignments" USING btree ("admin_id");--> statement-breakpoint
+CREATE INDEX "attachments_owner_idx" ON "attachments" USING btree ("owner_id");--> statement-breakpoint
+CREATE INDEX "attendance_shift_idx" ON "attendance" USING btree ("shift_id");--> statement-breakpoint
 CREATE INDEX "attendance_date_idx" ON "attendance" USING btree ("date");--> statement-breakpoint
 CREATE INDEX "attendance_hospital_date_idx" ON "attendance" USING btree ("branch_id","date");--> statement-breakpoint
 CREATE UNIQUE INDEX "attendance_intern_date_shift_key" ON "attendance" USING btree ("member_id","date","shift_id");--> statement-breakpoint
+CREATE INDEX "audit_log_actor_idx" ON "audit_log" USING btree ("actor_id");--> statement-breakpoint
 CREATE INDEX "audit_log_created_idx" ON "audit_log" USING btree ("created_at" DESC NULLS FIRST);--> statement-breakpoint
+CREATE INDEX "member_departments_department_idx" ON "member_departments" USING btree ("department_id");--> statement-breakpoint
 CREATE INDEX "member_departments_month_idx" ON "member_departments" USING btree ("year","month");--> statement-breakpoint
 CREATE INDEX "members_group_idx" ON "members" USING btree ("group_id");--> statement-breakpoint
 CREATE INDEX "members_branch_idx" ON "members" USING btree ("branch_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "members_member_code_key" ON "members" USING btree ("member_code") WHERE (member_code IS NOT NULL);--> statement-breakpoint
+CREATE INDEX "presence_checks_branch_idx" ON "presence_checks" USING btree ("branch_id");--> statement-breakpoint
+CREATE INDEX "presence_checks_group_idx" ON "presence_checks" USING btree ("group_id");--> statement-breakpoint
+CREATE INDEX "presence_checks_shift_idx" ON "presence_checks" USING btree ("shift_id");--> statement-breakpoint
+CREATE INDEX "presence_checks_department_idx" ON "presence_checks" USING btree ("department_id");--> statement-breakpoint
 CREATE INDEX "presence_checks_creator_idx" ON "presence_checks" USING btree ("created_by","created_at" DESC NULLS FIRST);--> statement-breakpoint
 CREATE INDEX "presence_checks_open_idx" ON "presence_checks" USING btree ("status","deadline");--> statement-breakpoint
+CREATE INDEX "presence_confirmations_member_idx" ON "presence_confirmations" USING btree ("member_id");--> statement-breakpoint
+CREATE INDEX "profiles_created_by_idx" ON "profiles" USING btree ("created_by");--> statement-breakpoint
+CREATE INDEX "qr_tokens_member_idx" ON "qr_tokens" USING btree ("member_id");--> statement-breakpoint
+CREATE INDEX "qr_tokens_branch_idx" ON "qr_tokens" USING btree ("branch_id");--> statement-breakpoint
 CREATE INDEX "qr_tokens_expires_at_idx" ON "qr_tokens" USING btree ("expires_at");--> statement-breakpoint
 CREATE INDEX "qr_tokens_token_idx" ON "qr_tokens" USING btree ("token");--> statement-breakpoint
 CREATE INDEX "refresh_tokens_family_idx" ON "refresh_tokens" USING btree ("family_id");--> statement-breakpoint
 CREATE INDEX "refresh_tokens_profile_idx" ON "refresh_tokens" USING btree ("profile_id");--> statement-breakpoint
 CREATE INDEX "refresh_tokens_expires_idx" ON "refresh_tokens" USING btree ("expires_at");--> statement-breakpoint
 CREATE INDEX "roster_days_intern_date_idx" ON "roster_days" USING btree ("member_id","date");--> statement-breakpoint
+CREATE INDEX "roster_days_shift_idx" ON "roster_days" USING btree ("shift_id");--> statement-breakpoint
 CREATE INDEX "roster_days_date_idx" ON "roster_days" USING btree ("date");--> statement-breakpoint
 CREATE UNIQUE INDEX "roster_days_intern_date_shift_key" ON "roster_days" USING btree ("member_id","date","shift_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "shifts_key_unique" ON "shifts" USING btree (lower(key)) WHERE (key IS NOT NULL);--> statement-breakpoint
