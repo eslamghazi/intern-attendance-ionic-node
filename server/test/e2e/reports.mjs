@@ -237,6 +237,34 @@ check('  with no charts unless the screen sent some',
 check('  and the copyright line',
   dashPdf.bytes.toString('utf8').includes('Calaix AI · Eslam Ghazi'), true);
 
+console.log('\n--- the organisation is on every file ---');
+// The name and logo from Settings. A 1×1 PNG stands in for the logo — what
+// the Settings page stores after normalising whatever was picked. The name is
+// ASCII on purpose: psql() hands its statement over a Windows command line,
+// which delivers Arabic in the console code page and Postgres rejects it.
+const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+psql(`update public.app_settings set org_name = 'Faculty of Nursing', org_logo_url = '${PNG}' where id = 1`);
+const branded = await call(
+  'GET',
+  `/attendance/dashboard/export?year=${pastYear}&month=${pastMonth}&format=pdf`,
+  { token: suToken, raw: true },
+);
+const brandedHtml = branded.bytes.toString('utf8');
+check('the print document names the organisation before the title', brandedHtml.includes('<h1>Faculty of Nursing — '), true);
+check('  and embeds its logo in the header', brandedHtml.includes(`<div class="head">\n    <img src="${PNG}"`), true);
+check('  and the Calaix mark by the copyright', /foot--brand"><img src="data:image\/svg\+xml;base64,/.test(brandedHtml), true);
+const brandedXlsx = await call(
+  'GET',
+  `/attendance/dashboard/export?year=${pastYear}&month=${pastMonth}&format=xlsx`,
+  { token: suToken, raw: true },
+);
+check('the workbook embeds the logo as an image', brandedXlsx.bytes.toString('latin1').includes('xl/media/image1.png'), true);
+// The other exports go through the same service, so one more is enough to
+// prove it is not a dashboard-only path.
+const membersXlsx = await call('GET', '/members/export?format=xlsx', { token: suToken, raw: true });
+check('so does the members export', membersXlsx.status === 200 && membersXlsx.bytes.toString('latin1').includes('xl/media/image1.png'), true);
+psql(`update public.app_settings set org_name = null, org_logo_url = null where id = 1`);
+
 console.log('\n--- the charts travel with it ---');
 // The screen names the panels it is showing; the file draws the same numbers.
 const withCharts = await call(

@@ -34,6 +34,7 @@ import AdminHeader from '../../components/AdminHeader';
 import { useConfirm } from '../../components/ui/useConfirm';
 import { useFeedback } from '../../components/ui/useFeedback';
 import { usePermissions } from '../../lib/usePermissions';
+import { normaliseLogo } from '../../lib/logoImage';
 
 const MAX_LOGO_BYTES = LIMITS.LOGO_MAX_BYTES;
 
@@ -141,9 +142,11 @@ export default function SettingsPage() {
       toast({ message: t('admin.logoTooBig'), duration: TOAST_MS.medium, color: 'danger' });
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => setS((prev) => (prev ? { ...prev, org_logo_url: String(reader.result) } : prev));
-    reader.readAsDataURL(file);
+    // Stored as a small PNG whatever was picked — see lib/logoImage.ts for
+    // the three places that depend on it (the spreadsheet export above all).
+    normaliseLogo(file)
+      .then((png) => setS((prev) => (prev ? { ...prev, org_logo_url: png } : prev)))
+      .catch(() => toast({ message: t('common.error'), duration: TOAST_MS.medium, color: 'danger' }));
   };
 
   const save = async () => {
