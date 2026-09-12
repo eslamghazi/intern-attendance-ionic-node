@@ -73,6 +73,27 @@ let AdminsRepository = class AdminsRepository extends GenericRepository {
             .returning({ id: adminAssignments.id });
         return rows[0] ?? null;
     }
+    /** The staff account an assignment belongs to, with its role — or null. */
+    async assignmentOwner(id) {
+        const rows = await this.db
+            .select({ adminId: adminAssignments.adminId, role: profiles.role })
+            .from(adminAssignments)
+            .innerJoin(profiles, eq(profiles.id, adminAssignments.adminId))
+            .where(eq(adminAssignments.id, id))
+            .limit(1);
+        const row = rows[0];
+        // The enum column is typed as its string union; Role is the same set.
+        return row ? { adminId: row.adminId, role: row.role } : null;
+    }
+    /** A staff account's role, or null when there is no staff account with that id. */
+    async staffRole(id) {
+        const rows = await this.db
+            .select({ role: profiles.role })
+            .from(profiles)
+            .where(and(eq(profiles.id, id), inArray(profiles.role, STAFF_ROLES)))
+            .limit(1);
+        return rows[0]?.role ?? null;
+    }
     async deleteAssignment(id) {
         const rows = await this.db
             .delete(adminAssignments)

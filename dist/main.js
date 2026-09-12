@@ -11,6 +11,7 @@ import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AppModule } from './app.module.js';
 import { env } from './config/env.js';
+import { IndexPageService } from './infrastructure/web/index-page.service.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 function findClientDist() {
     const candidates = [
@@ -79,9 +80,23 @@ async function bootstrap() {
     // Serve static client assets & SPA fallback
     const clientDist = findClientDist();
     if (clientDist) {
+        // index.html is NOT served by the static plugin. It goes through
+        // IndexPageService, which rewrites its preview tags with the organisation's
+        // name and logo and the request's origin — see infrastructure/web/. The
+        // SPA fallback in ApiExceptionFilter does the same.
+        const indexPage = app.get(IndexPageService);
+        indexPage.load(clientDist);
+        // NOT `await reply.header(...)`: a Fastify reply is a thenable that
+        // resolves when the response has been SENT, so awaiting it before send()
+        // waits forever.
+        app.getHttpAdapter().getInstance().get('/', async (req, reply) => {
+            const html = await indexPage.render({ protocol: req.protocol, host: req.host });
+            return reply.header('content-type', 'text/html; charset=utf-8').header('cache-control', 'no-cache').send(html);
+        });
         await app.register(fastifyStatic, {
             root: clientDist,
             prefix: '/',
+            index: false,
             decorateReply: true,
             setHeaders: (res, pathName) => {
                 const setHeader = (name, value) => {

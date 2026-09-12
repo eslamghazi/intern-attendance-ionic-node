@@ -14,7 +14,7 @@ import { UnitOfWorkService } from '../../infrastructure/database/unit-of-work.se
 import { AuthRepository } from './auth.repository.js';
 import { classifyRefresh, expiresInSeconds, expiryFrom } from '../../domain/auth/refresh.js';
 import { initialPassword, resolveLogin } from '../../domain/identity/credentials.js';
-import { mayDeleteStaff, mayResetPasswordOf, } from '../../domain/identity/role.js';
+import { mayCreateStaffAs, mayDeleteStaff, mayResetPasswordOf, } from '../../domain/identity/role.js';
 import { Role, AuditEvent } from '../../common/enums/index.js';
 import { parseNationalId } from '../../domain/identity/nationalId.js';
 import { signProfileJwt } from '../../common/auth/jwt.js';
@@ -263,6 +263,11 @@ let AuthService = class AuthService {
         });
     }
     async createStaff(actor, input) {
+        // An admin holding the admins page creates admins. A superadmin is only
+        // ever created by a superadmin — whatever page the actor holds.
+        if (!mayCreateStaffAs(actor, input.role)) {
+            throw forbidden('only a superadmin may create a superadmin');
+        }
         const parsed = parseNationalId(input.national_id);
         if (!parsed.valid)
             throw badRequest('invalid_national_id', 'invalid national id');

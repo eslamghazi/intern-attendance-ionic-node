@@ -45,15 +45,40 @@ export function mayResetPasswordOf(actor, target) {
         return actor === Role.SUPERADMIN;
     return isStaff(actor);
 }
-/** Deleting staff is superadmin-only, and nobody deletes themselves. */
-export function mayDeleteStaff(actor, targetId, targetRole) {
-    if (actor.role !== Role.SUPERADMIN)
+/**
+ * Who may manage a staff account — edit it, grant it pages, assign it, delete
+ * it. The route decides whether the actor holds the admins page; this decides
+ * whether THIS target is theirs to touch.
+ *
+ * A superadmin manages every admin. An admin holding the page manages OTHER
+ * ADMINS only: never a superadmin, who is above them, and never themselves —
+ * a grant one can edit is a grant one can widen. Nobody manages a superadmin
+ * this way: a superadmin must be dealt with deliberately, not in passing.
+ */
+export function mayManageStaff(actor, targetId, targetRole) {
+    if (!isStaff(actor.role))
         return false;
     if (actor.id === targetId)
         return false;
-    // Only plain admin accounts are deletable: a superadmin must be demoted
-    // deliberately rather than removed in passing.
     return targetRole === Role.ADMIN;
+}
+/**
+ * Deleting staff follows the same line: admins only, never oneself.
+ * Locking every superadmin out of the system is not an undo-able mistake.
+ */
+export function mayDeleteStaff(actor, targetId, targetRole) {
+    return mayManageStaff(actor, targetId, targetRole);
+}
+/**
+ * A superadmin is only ever created by a superadmin — whatever page the
+ * actor holds. This is the one rung nobody climbs with a grant.
+ */
+export function mayCreateStaffAs(actor, role) {
+    if (!isStaff(actor.role))
+        return false;
+    if (role === Role.SUPERADMIN)
+        return actor.role === Role.SUPERADMIN;
+    return role === Role.ADMIN;
 }
 /**
  * A member granted a privilege acts only inside their OWN branch — they can

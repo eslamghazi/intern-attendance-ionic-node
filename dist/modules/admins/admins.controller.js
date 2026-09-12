@@ -32,16 +32,20 @@ let AdminsController = class AdminsController {
         const data = await this.adminsService.getAssignments();
         return new ApiResponse(data);
     }
-    async updateAdmin(id, body) {
-        const data = await this.adminsService.updateAdmin(id, body);
+    // Managing staff is a PAGE now, like everything else: a superadmin holds it
+    // by role, and may grant it to an admin. What an admin so granted may touch
+    // is decided per target by mayManageStaff — other admins, never a
+    // superadmin, never themselves.
+    async updateAdmin(caller, id, body) {
+        const data = await this.adminsService.updateAdmin(caller, id, body);
         return new ApiResponse(data);
     }
-    async createAssignment(body) {
-        const data = await this.adminsService.createAssignment(body.admin_id, body.group_id ?? null, body.branch_id ?? null);
+    async createAssignment(caller, body) {
+        const data = await this.adminsService.createAssignment(caller, body.admin_id, body.group_id ?? null, body.branch_id ?? null);
         return new ApiResponse(data);
     }
-    async deleteAssignment(id) {
-        await this.adminsService.deleteAssignment(id);
+    async deleteAssignment(caller, id) {
+        await this.adminsService.deleteAssignment(caller, id);
         return new ApiResponse({ ok: true });
     }
 };
@@ -67,34 +71,40 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AdminsController.prototype, "getAssignments", null);
 __decorate([
-    Roles(Role.SUPERADMIN),
+    Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('admins', 'edit'),
     Patch(':id'),
-    ApiOperation({ summary: 'Update admin profile and permissions (Superadmin only)' }),
+    ApiOperation({ summary: 'Update a staff account and its grant' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
-    __param(0, Param('id')),
-    __param(1, Body()),
+    __param(0, CallerDecorator()),
+    __param(1, Param('id')),
+    __param(2, Body()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, UpdateAdminDto]),
+    __metadata("design:paramtypes", [Object, String, UpdateAdminDto]),
     __metadata("design:returntype", Promise)
 ], AdminsController.prototype, "updateAdmin", null);
 __decorate([
-    Roles(Role.SUPERADMIN),
+    Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('admins', 'edit'),
     Post('assignments'),
-    ApiOperation({ summary: 'Assign admin to branch or group (Superadmin only)' }),
+    ApiOperation({ summary: 'Assign a staff account to a branch or group' }),
     SwaggerResponse({ status: 201, type: (ApiResponse) }),
-    __param(0, Body()),
+    __param(0, CallerDecorator()),
+    __param(1, Body()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [CreateAdminAssignmentDto]),
+    __metadata("design:paramtypes", [Object, CreateAdminAssignmentDto]),
     __metadata("design:returntype", Promise)
 ], AdminsController.prototype, "createAssignment", null);
 __decorate([
-    Roles(Role.SUPERADMIN),
+    Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('admins', 'edit'),
     Delete('assignments/:id'),
-    ApiOperation({ summary: 'Delete admin assignment (Superadmin only)' }),
+    ApiOperation({ summary: 'Remove a staff assignment' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
-    __param(0, Param('id')),
+    __param(0, CallerDecorator()),
+    __param(1, Param('id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], AdminsController.prototype, "deleteAssignment", null);
 AdminsController = __decorate([

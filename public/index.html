@@ -1,10 +1,34 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
   <head>
     <meta charset="utf-8" />
-    <title>نظام الحضور | Attendance System</title>
+    <title>نظام الحضور</title>
 
     <base href="/" />
+
+    <!--
+      What a link to this app looks like when it is shared.
+
+      A preview crawler (WhatsApp, Telegram, Facebook, Slack) reads THIS file
+      and never runs the app, so everything it shows has to be here. The
+      values below are the defaults; the API rewrites the title, description,
+      image and URL on the way out with the organisation's own name and logo
+      (server/src/infrastructure/web/index-page.ts), because those live in
+      Settings and the domain is only known at request time.
+    -->
+    <meta name="description" content="نظام تسجيل حضور طلاب الامتياز — بالوجه والموقع" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="نظام الحضور" />
+    <meta property="og:title" content="نظام الحضور" />
+    <meta property="og:description" content="نظام تسجيل حضور طلاب الامتياز — بالوجه والموقع" />
+    <meta property="og:image" content="/icon-512.png" />
+    <meta property="og:url" content="/" />
+    <meta property="og:locale" content="ar_EG" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="نظام الحضور" />
+    <meta name="twitter:description" content="نظام تسجيل حضور طلاب الامتياز — بالوجه والموقع" />
+    <meta name="twitter:image" content="/icon-512.png" />
+    <meta name="theme-color" content="#0d9488" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,7 +36,7 @@
       href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
-    
+
     <meta name="color-scheme" content="light dark" />
     <meta
       name="viewport"
@@ -20,19 +44,19 @@
     />
     <meta name="format-detection" content="telephone=no" />
     <meta name="msapplication-tap-highlight" content="no" />
-    
+
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <link rel="icon" href="/logo.svg" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    
+
     <!-- add to homescreen for ios -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="نظام الحضور" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-    <script type="module" crossorigin src="/assets/index-XNmdNW_K.js"></script>
+    <script type="module" crossorigin src="/assets/index-CYUJqIUC.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-B-6gVxDO.css">
   <link rel="manifest" href="/manifest.webmanifest"></head>
   <body>
-    <div id="root"></div>
+    <div id="root"></div>
   </body>
 </html>

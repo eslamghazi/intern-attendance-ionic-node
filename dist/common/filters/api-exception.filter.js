@@ -16,12 +16,15 @@ import { env } from '../../config/env.js';
 import { I18nService } from '../i18n/i18n.service.js';
 import { AuditService } from '../../modules/audit/audit.service.js';
 import { AuditEvent } from '../enums/index.js';
+import { IndexPageService } from '../../infrastructure/web/index-page.service.js';
 let ApiExceptionFilter = class ApiExceptionFilter {
     i18n;
     audit;
-    constructor(i18n, audit) {
+    indexPage;
+    constructor(i18n, audit, indexPage) {
         this.i18n = i18n;
         this.audit = audit;
+        this.indexPage = indexPage;
         if (!this.i18n) {
             this.i18n = new I18nService();
         }
@@ -97,12 +100,19 @@ let ApiExceptionFilter = class ApiExceptionFilter {
         const request = ctx.getRequest();
         const api = toApiError(exception);
         const lang = this.i18n?.resolveLanguage(request.headers) ?? 'ar';
-        // SPA fallback: serve index.html for non-API, non-health frontend routes
+        // SPA fallback: serve index.html for non-API, non-health frontend routes —
+        // branded, the same page GET / serves, so a deep link shared to a member
+        // previews the same way as the root.
         if (api.status === 404 &&
             !request.url.startsWith('/api') &&
-            !request.url.startsWith('/health') &&
-            typeof response.sendFile === 'function') {
-            return response.sendFile('index.html');
+            !request.url.startsWith('/health')) {
+            if (this.indexPage?.available) {
+                return this.indexPage
+                    .render({ protocol: request.protocol, host: request.host })
+                    .then((html) => response.status(200).header('content-type', 'text/html; charset=utf-8').send(html));
+            }
+            if (typeof response.sendFile === 'function')
+                return response.sendFile('index.html');
         }
         if (api.status >= 500) {
             console.error(`[API 5xx] ${request.method} ${request.url}:`, exception);
@@ -146,8 +156,10 @@ ApiExceptionFilter = __decorate([
     Injectable(),
     __param(0, Optional()),
     __param(1, Optional()),
+    __param(2, Optional()),
     __metadata("design:paramtypes", [I18nService,
-        AuditService])
+        AuditService,
+        IndexPageService])
 ], ApiExceptionFilter);
 export { ApiExceptionFilter };
 //# sourceMappingURL=api-exception.filter.js.map

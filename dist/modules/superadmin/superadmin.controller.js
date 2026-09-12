@@ -13,6 +13,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Page } from '../../common/decorators/page.decorator.js';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import { Role } from '../../common/enums/index.js';
 import { ApiResponse } from '../../common/dto/api-response.dto.js';
@@ -32,6 +33,9 @@ let SuperadminController = class SuperadminController {
     constructor(service) {
         this.service = service;
     }
+    // The backup page is grantable: listing and downloading open with the grant.
+    // Restoring does not — it creates superadmins, and a superadmin is only ever
+    // created by a superadmin, whatever page the actor holds.
     async list() {
         const data = await this.service.list();
         return new ApiResponse(data);
@@ -59,7 +63,8 @@ let SuperadminController = class SuperadminController {
     }
 };
 __decorate([
-    Roles(Role.SUPERADMIN),
+    Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('backup'),
     Get('accounts'),
     ApiOperation({ summary: 'List the superadmin accounts (Superadmin only)' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -68,7 +73,8 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], SuperadminController.prototype, "list", null);
 __decorate([
-    Roles(Role.SUPERADMIN),
+    Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('backup', 'export'),
     Get('backup'),
     ApiOperation({ summary: 'Download a superadmin backup file (Superadmin only)' }),
     __param(0, CallerDecorator()),
