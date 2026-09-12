@@ -2,13 +2,15 @@ import { Controller, Get, Res, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse } from '@nestjs/swagger';
 import type { FastifyReply } from 'fastify';
 import { Public } from '../../common/decorators/public.decorator.js';
-import { pool } from '../../db/pool.js';
+import { HealthRepository } from './health.repository.js';
 import { ApiResponse, ApiErrorResponse } from '../../common/dto/api-response.dto.js';
 import { HealthResponseDto } from './dto/health-response.dto.js';
 
 @ApiTags('Health')
 @Controller()
 export class HealthController {
+  constructor(private readonly health: HealthRepository) {}
+
   @Public()
   @Get('health')
   @ApiOperation({ summary: 'Liveness probe' })
@@ -23,7 +25,13 @@ export class HealthController {
   @SwaggerResponse({ status: 200, type: ApiResponse<HealthResponseDto> })
   async getReady(@Res({ passthrough: true }) res: FastifyReply): Promise<ApiResponse<HealthResponseDto> | ApiErrorResponse> {
     try {
-      await pool.query('select 1');
+      if (!(await this.health.isReady())) {
+        // Reachable, but the schema is not there — see HealthRepository. Not
+        // ready is the honest answer, and it keeps an unmigrated instance out
+        // of the load balancer instead of letting it fail every request.
+        res.status(HttpStatus.SERVICE_UNAVAILABLE);
+        return new ApiErrorResponse('service_unavailable', 'Database is not migrated', { db: false });
+      }
       res.status(HttpStatus.OK);
       return new ApiResponse(new HealthResponseDto('ready', true));
     } catch {

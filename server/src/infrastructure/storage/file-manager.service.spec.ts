@@ -1,28 +1,36 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { FileManager, FileCategory } from './file-manager.service.js';
+import { FileManager, FileKind } from './file-manager.service.js';
+import type { UnitOfWorkService } from '../database/unit-of-work.service.js';
 
 describe('FileManager', () => {
   let fileManager: FileManager;
 
   beforeEach(() => {
-    fileManager = new FileManager();
+    // Every case here is path and URL arithmetic — none of them opens a
+    // transaction. A stub that throws says so, and would fail loudly rather
+    // than silently if one ever started to.
+    const uow = {
+      transaction: () => {
+        throw new Error('FileManager unexpectedly opened a transaction in this test');
+      },
+    } as unknown as UnitOfWorkService;
+
+    fileManager = new FileManager(uow);
   });
 
   it('identifies public categories correctly', () => {
-    expect(fileManager.isPublic(FileCategory.AVATAR)).toBe(true);
-    expect(fileManager.isPublic(FileCategory.FACE)).toBe(false);
-    expect(fileManager.isPublic(FileCategory.PROBE)).toBe(false);
-    expect(fileManager.isPublic(FileCategory.DOCUMENT)).toBe(false);
-    expect(fileManager.isPublic(FileCategory.ATTENDANCE)).toBe(false);
+    expect(fileManager.isPubliclyReadable('avatars')).toBe(true);
+    expect(fileManager.isPubliclyReadable('faces')).toBe(false);
+    expect(fileManager.isPubliclyReadable('probes')).toBe(false);
   });
 
-  it('generates direct url for public category', () => {
-    const url = fileManager.getUrl(FileCategory.AVATAR, 'user-1/profile.jpg');
+  it('generates direct url for public kind', () => {
+    const url = fileManager.getUrl('avatars', 'user-1/profile.jpg');
     expect(url).toContain('/storage/avatars/object?path=user-1%2Fprofile.jpg');
   });
 
-  it('generates signed url for private category', () => {
-    const url = fileManager.getUrl(FileCategory.FACE, 'user-1/face.jpg');
+  it('generates signed url for private kind', () => {
+    const url = fileManager.getUrl('faces', 'user-1/face.jpg');
     expect(url).toContain('/storage/faces/object?');
     expect(url).toContain('signature=');
     expect(url).toContain('expires=');
@@ -42,6 +50,6 @@ describe('FileManager', () => {
   });
 
   it('throws not found on path traversal attempt', async () => {
-    await expect(fileManager.download(FileCategory.AVATAR, '../../etc/passwd')).rejects.toThrow('object not found');
+    await expect(fileManager.download('avatars', '../../etc/passwd')).rejects.toThrow('object not found');
   });
 });

@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { defineCustomElements } from '@ionic/pwa-elements/loader';
 import App from './App';
+import { STORAGE_KEYS } from './lib/config';
 import './lib/i18n';
 
 // Enables the in-app camera UI on the web so capture uses the camera
@@ -12,7 +13,7 @@ defineCustomElements(window);
 // controls (date/time picker icons) use the right color-scheme immediately.
 (() => {
   try {
-    const mode = localStorage.getItem('theme') || 'system';
+    const mode = localStorage.getItem(STORAGE_KEYS.THEME) || 'system';
     const dark =
       mode === 'dark' ||
       (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);

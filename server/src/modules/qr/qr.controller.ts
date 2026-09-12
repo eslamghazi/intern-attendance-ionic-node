@@ -1,9 +1,9 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
-import { badRequest } from '../../http/errors.js';
+import { badRequest } from '../../common/errors.js';
 import { QrService } from './qr.service.js';
 import { ApiResponse } from '../../common/dto/api-response.dto.js';
 import { MintQrDto, RedeemQrDto, MintQrResponseDto, RedeemQrResponseDto } from './dto/qr.dto.js';
@@ -16,6 +16,7 @@ import { Role } from '../../common/enums/index.js';
 export class QrController {
   constructor(private readonly qrService: QrService) {}
 
+  @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
   @Post()
   @ApiOperation({ summary: 'Mint a new time-limited QR token' })
   @SwaggerResponse({ status: 201, type: ApiResponse<MintQrResponseDto> })
@@ -34,6 +35,7 @@ export class QrController {
   }
 
   @Roles(Role.MEMBER)
+  @HttpCode(HttpStatus.OK)
   @Post('redeem')
   @ApiOperation({ summary: 'Redeem a QR code to unlock location bypass for check-in' })
   @SwaggerResponse({ status: 200, type: ApiResponse<RedeemQrResponseDto> })

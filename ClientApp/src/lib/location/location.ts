@@ -3,6 +3,7 @@ import { Geolocation } from '@capacitor/geolocation';
 import { MockLocationDetector } from '@capgo/capacitor-mock-location-detector';
 import { LOCATION } from '../config';
 import { haversineMeters } from '../geo';
+import type { JsonObject } from '../json.types';
 
 export interface LocationReading {
   lat: number;
@@ -106,7 +107,7 @@ async function ipCoarseLocation(): Promise<{ lat: number; lng: number } | null> 
       const timer = setTimeout(() => ctrl.abort(), LOCATION.ipLookupTimeoutMs);
       const res = await fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
       if (!res.ok) continue;
-      const j = (await res.json()) as Record<string, unknown>;
+      const j = (await res.json()) as JsonObject;
       const lat = Number(j.latitude ?? j.lat);
       const lng = Number(j.longitude ?? j.lng ?? j.lon);
       if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };

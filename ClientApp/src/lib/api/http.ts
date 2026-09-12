@@ -1,10 +1,10 @@
-// Transport for the Node API — the replacement for `supabase-js` as a network
-// client. Everything in src/lib/api/ moves onto this one function.
+// Transport for the Node API. Everything in src/lib/api/ goes through this one
+// function.
 //
-// Three behaviours here are carried over from the Supabase client on purpose,
-// because other parts of the app depend on them:
+// Three behaviours are load-bearing, because other parts of the app depend on
+// them:
 //   1. reads are `cache: 'no-store'`, so an export taken right after an edit can
-//      never return pre-edit rows (see the note in supabase.ts);
+//      never return pre-edit rows;
 //   2. a network failure or 5xx flips the serverStatus store, which is what
 //      drives the "server unreachable" screen — a 4xx must NOT;
 //   3. thrown errors carry the raw Postgres `code`/`details`, so dbError.ts
@@ -12,9 +12,11 @@
 import { Preferences } from '@capacitor/preferences';
 import { env } from '../env';
 import { setReachable } from '../serverStatus';
+import { STORAGE_KEYS } from '../config';
+import type { JsonObject, JsonValue } from '../json.types';
 
-const TOKEN_KEY = 'member_token';
-const REFRESH_KEY = 'member_refresh_token';
+const TOKEN_KEY = STORAGE_KEYS.TOKEN;
+const REFRESH_KEY = STORAGE_KEYS.REFRESH;
 
 /** Error shape the app already knows how to read (see dbError.ts). */
 export class ApiError extends Error {
@@ -104,13 +106,13 @@ interface SessionResponsePayload {
   refresh_token?: string;
 }
 
-interface ApiPayloadEnvelope<D = unknown> {
+interface ApiPayloadEnvelope<D = JsonValue> {
   ok?: boolean;
   code?: string;
   message?: string;
   data?: D;
   total?: number;
-  meta?: Record<string, unknown>;
+  meta?: JsonObject;
   error?: {
     code?: string;
     message?: string;
@@ -174,7 +176,7 @@ export async function apiFetch<T, B = HttpBodyType>(path: string, options: Reque
   const { method = 'GET', body, anonymous = false, signal } = options;
 
   const send = async (): Promise<Response> => {
-    const activeLang = typeof localStorage !== 'undefined' ? localStorage.getItem('lang') || 'ar' : 'ar';
+    const activeLang = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.LANG) || 'ar' : 'ar';
     const headers: Record<string, string> = {
       Accept: 'application/json',
       'Accept-Language': activeLang,
@@ -238,7 +240,8 @@ export async function apiFetch<T, B = HttpBodyType>(path: string, options: Reque
   // Auto-unwrap new backend architecture envelopes
   if (payload && typeof payload === 'object' && payload.ok === true) {
     if (typeof payload.total === 'number' && Array.isArray(payload.data)) {
-      // Map PaginatedResponse safely to all expected legacy formats
+      // The same page under every name a caller might ask for, so a screen
+      // reading `rows` and one reading `items` both work off one envelope.
       return { 
         data: payload.data,
         items: payload.data,
@@ -256,7 +259,7 @@ export async function apiFetch<T, B = HttpBodyType>(path: string, options: Reque
 
 /**
  * Probe the API. Any HTTP response means the server is serving; only a thrown
- * network error or a 5xx counts as down. Mirrors the old GoTrue health probe.
+ * network error or a 5xx counts as down.
  */
 export async function pingApi(): Promise<boolean> {
   if (!env.isApiConfigured) return false;

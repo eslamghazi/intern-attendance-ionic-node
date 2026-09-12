@@ -91,7 +91,8 @@ export async function startQrScan(opts: StartQrScanOptions): Promise<QrScanHandl
   };
 
   // Try, in order: explicit back-camera id, then environment, then user (front).
-  const attempts: Array<() => Promise<unknown>> = [];
+  // The resolved value is thrown away; only whether an attempt threw matters.
+  const attempts: Array<() => Promise<null | void>> = [];
   try {
     const cameras = (await Html5Qrcode.getCameras()) as CameraDevice[];
     const backId = pickBackCamera(cameras);

@@ -1,33 +1,25 @@
-import {
-  Controller,
-  Post,
-  Get,
-  Delete,
-  Body,
-  Param,
-  Headers,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Caller as CallerDecorator, Claims as ClaimsDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
-import type { JwtClaims } from '../../db/context.js';
+import type { JwtClaims } from '../../infrastructure/database/context.js';
 import { AuthService } from './auth.service.js';
-import { badRequest } from '../../http/errors.js';
+import { badRequest } from '../../common/errors.js';
 import { ApiResponse } from '../../common/dto/api-response.dto.js';
 import {
   LoginDto,
   RefreshTokenDto,
   LogoutDto,
   ChangePasswordDto,
-  InitialPasswordDto,
   ResetMemberPasswordDto,
   ResetStaffPasswordDto,
   CreateStaffDto,
   LoginResultDto,
 } from './dto/auth.dto.js';
 import { AuthMapper } from './auth.mapper.js';
+import type { MeResponse } from './auth.types.js';
 import { Role } from '../../common/enums/index.js';
 
 @ApiTags('Auth')
@@ -36,6 +28,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @HttpCode(HttpStatus.OK)
   @Post('login')
   @ApiOperation({ summary: 'Sign in with national ID and password' })
   @SwaggerResponse({ status: 200, type: ApiResponse<LoginResultDto> })
@@ -55,6 +48,7 @@ export class AuthController {
   }
 
   @Public()
+  @HttpCode(HttpStatus.OK)
   @Post('refresh')
   @ApiOperation({ summary: 'Renew access token using refresh token' })
   @SwaggerResponse({ status: 200, type: ApiResponse<LoginResultDto> })
@@ -70,6 +64,7 @@ export class AuthController {
   }
 
   @Public()
+  @HttpCode(HttpStatus.OK)
   @Post('logout')
   @ApiOperation({ summary: 'Invalidate current refresh token' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -79,6 +74,8 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
+  @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
+  @HttpCode(HttpStatus.OK)
   @Post('logout-all')
   @ApiOperation({ summary: 'Invalidate all refresh tokens for caller' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true; revoked: number }> })
@@ -88,18 +85,21 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
+  @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
   @Get('me')
   @ApiOperation({ summary: 'Get current authenticated user profile' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<unknown> })
+  @SwaggerResponse({ status: 200, type: ApiResponse<MeResponse> })
   async me(
     @CallerDecorator() caller: Caller | null,
     @ClaimsDecorator() _claims: JwtClaims,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ApiResponse<MeResponse>> {
     const data = await this.authService.getMe(caller!);
     return new ApiResponse(data);
   }
 
   @ApiBearerAuth()
+  @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
+  @HttpCode(HttpStatus.OK)
   @Post('password')
   @ApiOperation({ summary: 'Change current user password' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true; access_token: string; refresh_token: string }> })
@@ -121,27 +121,8 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
-  @Post('password/initial')
-  @ApiOperation({ summary: 'Set initial password for first-time login' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true; access_token: string; refresh_token: string }> })
-  async setInitialPassword(
-    @CallerDecorator() caller: Caller | null,
-    @Body() body: InitialPasswordDto,
-    @Headers('user-agent') userAgent: string | undefined,
-  ): Promise<ApiResponse<{ ok: true; access_token: string; refresh_token: string }>> {
-    if (!body?.new || body.new.length < 6) {
-      throw badRequest('invalid_body', 'the new password must be 6+ chars');
-    }
-    const pair = await this.authService.setInitialPassword(
-      caller!,
-      body.new,
-      userAgent ?? null,
-    );
-    return new ApiResponse({ ok: true, ...pair });
-  }
-
-  @ApiBearerAuth()
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @HttpCode(HttpStatus.OK)
   @Post('members/reset-password')
   @ApiOperation({ summary: 'Reset a member password (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true; password: string }> })
@@ -164,6 +145,7 @@ export class AuthController {
 
   @ApiBearerAuth()
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @HttpCode(HttpStatus.OK)
   @Post('staff/reset-password')
   @ApiOperation({ summary: 'Reset a staff password (Admin/Superadmin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true; password: string }> })

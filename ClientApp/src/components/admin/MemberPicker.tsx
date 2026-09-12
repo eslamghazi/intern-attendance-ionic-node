@@ -14,10 +14,11 @@ import { useTranslation } from 'react-i18next';
 import { listMemberPage, type MemberPageItem, type SearchField } from '../../lib/api/members';
 import Pager from '../ui/Pager';
 import SearchBox from './SearchBox';
+import { LIMITS } from '../../lib/config';
 
 /** Names per page. The list starts populated (no search needed) and pages
  *  through, so browsing a thousand members never builds a thousand list items. */
-const PER_PAGE = 25;
+const PER_PAGE = LIMITS.PICKER_PAGE_SIZE;
 
 /** Search for members by name / national id / code and pick one (or several).
  *  Shared by the admin face tools so both find people the same way. */

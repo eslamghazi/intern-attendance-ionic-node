@@ -1,15 +1,15 @@
 // Shared, app-wide pagination. One source of truth for page size + the paging
 // state hook, used by every server-paged admin grid so they behave identically.
-import { useEffect, useState } from 'react';
-import { PAGE_SIZE, REPORT_PAGE_SIZE } from './config';
+import { useEffect, useState, type DependencyList } from 'react';
+import { MAX_PAGE_SIZE, PAGE_SIZE } from './config';
 
-export { PAGE_SIZE, REPORT_PAGE_SIZE };
+export { PAGE_SIZE, MAX_PAGE_SIZE };
 
 export interface Pagination {
   page: number;
   setPage: (p: number) => void;
   pageSize: number;
-  /** PostgREST range for the current page: `.range(from, to)`. */
+  /** Inclusive row range for the current page. */
   from: number;
   to: number;
   /** Total page count for a given server row count. */
@@ -24,7 +24,7 @@ export interface Pagination {
  * - `pageSize` : defaults to the app-wide PAGE_SIZE.
  */
 export function usePagination(
-  resetDeps: unknown[] = [],
+  resetDeps: DependencyList = [],
   pageSize: number = PAGE_SIZE,
 ): Pagination {
   const [page, setPage] = useState(1);
@@ -42,4 +42,36 @@ export function usePagination(
     to: from + pageSize - 1,
     pagesFor: (total: number) => Math.max(1, Math.ceil(total / pageSize)),
   };
+}
+
+/**
+ * Every page of a listing, in order.
+ *
+ * For the screens that genuinely need a whole month at once — the roster grid
+ * and the attendance matrix both compute column totals over every member the
+ * filters match, not over the twelve rows on display.
+ *
+ * They used to do that by asking for a single 5000-row page, which meant the
+ * server had to allow a page that large, which meant `page_size` no longer meant
+ * anything. Looping keeps the cap honest: a page is a page, and "all of it" is
+ * spelled out here, once.
+ *
+ * STOPS ON A SHORT PAGE as well as on the count. A row deleted between two
+ * requests lowers `total` and would otherwise leave this asking for a page that
+ * no longer exists, forever.
+ */
+export async function fetchAllPages<T>(
+  fetchPage: (page: number, pageSize: number) => Promise<{ rows: T[]; total: number }>,
+): Promise<{ rows: T[]; total: number }> {
+  const out: T[] = [];
+  let total = 0;
+
+  for (let page = 1; ; page++) {
+    const res = await fetchPage(page, MAX_PAGE_SIZE);
+    out.push(...res.rows);
+    total = res.total;
+    if (res.rows.length < MAX_PAGE_SIZE || out.length >= total) break;
+  }
+
+  return { rows: out, total };
 }

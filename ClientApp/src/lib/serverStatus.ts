@@ -26,7 +26,7 @@ export function subscribeReachable(l: Listener): () => void {
 }
 
 /**
- * Probe the Supabase health endpoint. Any HTTP response (even an auth error)
+ * Probe the API's health endpoint. Any HTTP response (even an auth error)
  * means the server is up; only a thrown network error or a 5xx means it's down.
  * Used by the "server unreachable" screen's retry + auto-retry.
  */

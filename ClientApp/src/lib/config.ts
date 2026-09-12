@@ -1,13 +1,18 @@
 // Centralized app constants: tunables, sizes, defaults and magic values.
 // Anything here is a knob you might reasonably want to change in one place.
 
-/** Storage buckets. `avatars` is public (profile photos); the rest are private. */
-export const BUCKETS = {
+/** Storage kinds. `avatars` is public (profile photos); the rest are private. */
+/**
+ * The kinds of file the API stores. Mirrors FILE_KINDS on the server, which is
+ * where the rules about each one live — this is only the vocabulary the URLs
+ * use, so the two lists must agree.
+ */
+export const FILE_KINDS = {
   faces: 'faces',
   probes: 'probes',
   avatars: 'avatars',
 } as const;
-export type Bucket = (typeof BUCKETS)[keyof typeof BUCKETS];
+export type FileKind = (typeof FILE_KINDS)[keyof typeof FILE_KINDS];
 
 /** Base URL for the large ML assets (models + mediapipe wasm). Hosted on a
  *  separate GitHub repo and served via jsDelivr, so this repo stays light. The
@@ -138,16 +143,14 @@ export const APP_TIMEZONE = 'Africa/Cairo';
 /** Rows per page for the admin server-side paginated lists/grids. */
 export const PAGE_SIZE = 12;
 
-/** Max rows fetched (unpaginated) when building a printable report. */
-export const REPORT_PAGE_SIZE = 5000;
-
 /**
- * Largest page the API will return for a listing endpoint. It caps `page_size`
- * server-side too, so asking for more is refused rather than silently truncated
- * — which is what PostgREST used to do, and the reason the old client had to
- * window every growing query by hand.
+ * Largest page the API will serve — must match the server's MAX_PAGE_SIZE.
+ *
+ * Screens that need a whole month fetch it with fetchAllPages(), which loops at
+ * this size. Nothing asks for a single giant page any more: a report is built by
+ * the server (lib/api/exports.ts), so no page has to be big enough to hold one.
  */
-export const MAX_PAGE_SIZE = 5000;
+export const MAX_PAGE_SIZE = 200;
 
 /** Calendar months 1..12 (for month pickers). */
 export const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
@@ -176,3 +179,71 @@ export const CALAIX = {
   logo: '/Calaix_Logos/Calaix_AI.svg',
   icon: '/Calaix_Logos/calaix-icon.svg',
 } as const;
+
+/**
+ * EVERY key this app writes to device storage.
+ *
+ * Together in one place so the whole storage footprint is one screen — which is
+ * what makes a collision visible, and what makes "what does this app keep on the
+ * phone?" a question with an answer rather than a search.
+ */
+export const STORAGE_KEYS = {
+  /** The access token. Short-lived; see REFRESH. */
+  TOKEN: 'member_token',
+  /** The refresh token — the one that actually keeps someone signed in. */
+  REFRESH: 'member_refresh_token',
+  /** Chosen language, read before React mounts so the first paint is correct. */
+  LANG: 'lang',
+  /** Light / dark preference. */
+  THEME: 'theme',
+  /** Set when the install prompt is dismissed, so it is not shown again. */
+  INSTALL_DISMISSED: 'pwa_install_dismissed',
+  /** CacheStorage kind for the face model. Versioned: bump to invalidate. */
+  FACE_MODEL_CACHE: 'face-model-v1',
+} as const;
+
+/** Intervals and delays, in milliseconds. */
+export const TIMING = {
+  /** How often a disconnected client retries the API before giving up visibly. */
+  SERVER_RETRY_MS: 5_000,
+  /** How often to ask the service worker whether a new build exists. */
+  UPDATE_CHECK_MS: 60 * 60 * 1000,
+  /** How often the shared clock re-syncs with the server. */
+  CLOCK_SYNC_MS: 30 * 1000,
+  /** How long a member's QR stays revealed before it hides itself again. */
+  QR_REVEAL_MS: 15_000,
+} as const;
+
+/** Bounds the UI enforces before the API is asked. */
+export const LIMITS = {
+  /** Rows the audit screen pages by — deliberately not PAGE_SIZE: a log is
+   *  scanned, not browsed, so a taller page is the right shape here. */
+  AUDIT_PAGE_SIZE: 50,
+  /** Rows the member picker loads per scroll. */
+  PICKER_PAGE_SIZE: 25,
+  /** Most members the dummy-data generator will create in one go. */
+  DUMMY_MEMBERS_MAX: 500,
+  /** A logo is stored inline as a data URL, so it is carried by every settings
+   *  read. Past this it stops being an icon and starts being a payload. */
+  LOGO_MAX_BYTES: 400 * 1024,
+} as const;
+
+/** Camera capture and liveness geometry. */
+export const CAPTURE = {
+  /** The saved image is a square crop of this size. */
+  OUT_SIZE: 512,
+  /** The guide overlay drawn while framing a face. */
+  GUIDE_COLOR: '#2dd36f',
+  /** Fewest tracked points before a parallax reading is trusted. */
+  PARALLAX_MIN_POINTS: 12,
+} as const;
+
+/**
+ * Mean Earth radius, metres.
+ *
+ * The CLIENT only needs a rough distance — "am I near the branch?" for a hint
+ * before the request. The authoritative answer uses the WGS84 ellipsoid on the
+ * server (domain/attendance/geofence.ts), and the two are allowed to differ by
+ * a few metres because only one of them decides anything.
+ */
+export const EARTH_RADIUS_M = 6_371_000;

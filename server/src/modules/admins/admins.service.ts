@@ -1,23 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { UnitOfWorkService } from '../../common/database/unit-of-work.service.js';
+import { UnitOfWorkService } from '../../infrastructure/database/unit-of-work.service.js';
 import { AdminsRepository } from './admins.repository.js';
-import { notFound } from '../../http/errors.js';
-import type { JwtClaims } from '../../db/context.js';
-import { BaseService } from '../../common/database/base.service.js';
-import { profiles } from '../../db/schema/index.js';
+import { notFound } from '../../common/errors.js';
+import type { JwtClaims } from '../../infrastructure/database/context.js';
+import { BaseService } from '../../infrastructure/database/base.service.js';
+import { profiles } from '../../infrastructure/database/schema/index.js';
 import { AdminDto, AdminAssignmentResponseDto, UpdateAdminDto } from './dto/admin.dto.js';
 import { AdminsMapper } from './admins.mapper.js';
 
 import type { IAdminsService } from './interfaces/admins.interface.js';
+import type { AdminPatch } from './admins.types.js';
 
 @Injectable()
-export class AdminsService extends BaseService<
-  typeof profiles.$inferSelect,
-  string,
-  typeof profiles.$inferInsert,
-  Partial<typeof profiles.$inferInsert>,
-  AdminDto
-> implements IAdminsService {
+export class AdminsService extends BaseService<typeof profiles, AdminDto> implements IAdminsService {
   constructor(
     uow: UnitOfWorkService,
     repo: AdminsRepository,
@@ -29,27 +24,29 @@ export class AdminsService extends BaseService<
     return AdminsMapper.toDto(entity);
   }
 
-  async getAdmins(claims: JwtClaims): Promise<AdminDto[]> {
-    return this.uow.asCaller(claims, async () => {
+  async getAdmins(): Promise<AdminDto[]> {
+    return this.uow.transaction(async () => {
       const rows = await (this.repo as AdminsRepository).getAdmins();
       return AdminsMapper.toList(rows);
     });
   }
 
-  async getAssignments(claims: JwtClaims): Promise<AdminAssignmentResponseDto[]> {
-    return this.uow.asCaller(claims, async () => {
+  async getAssignments(): Promise<AdminAssignmentResponseDto[]> {
+    return this.uow.transaction(async () => {
       const rows = await (this.repo as AdminsRepository).getAssignments();
       return AdminsMapper.toAssignmentList(rows);
     });
   }
 
-  async updateAdmin(claims: JwtClaims, id: string, b: UpdateAdminDto): Promise<{ ok: true }> {
-    return this.uow.asCaller(claims, async () => {
-      const patch: Record<string, unknown> = {
+  async updateAdmin(id: string, b: UpdateAdminDto): Promise<{ ok: true }> {
+    return this.uow.transaction(async () => {
+      const patch: AdminPatch = {
         fullName: b.full_name,
         nationalId: b.national_id,
         phone: b.phone || null,
       };
+      // `null` clears the grant and is a real edit; `undefined` is the caller
+      // not mentioning permissions at all, which must leave them standing.
       if (b.permissions !== undefined) {
         patch.permissions = b.permissions;
       }
@@ -61,20 +58,20 @@ export class AdminsService extends BaseService<
   }
 
   async createAssignment(
-    claims: JwtClaims,
+    
     adminId: string,
     groupId: string | null,
     branchId: string | null,
   ): Promise<AdminAssignmentResponseDto> {
-    return this.uow.asCaller(claims, async () => {
+    return this.uow.transaction(async () => {
       const created = await (this.repo as AdminsRepository).createAssignment(adminId, groupId, branchId);
       if (!created) throw notFound();
       return AdminsMapper.toAssignmentDto(created);
     });
   }
 
-  async deleteAssignment(claims: JwtClaims, id: string): Promise<void> {
-    return this.uow.asCaller(claims, async () => {
+  async deleteAssignment(id: string): Promise<void> {
+    return this.uow.transaction(async () => {
       const deleted = await (this.repo as AdminsRepository).deleteAssignment(id);
       if (!deleted) throw notFound();
     });

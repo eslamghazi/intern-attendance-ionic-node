@@ -3,9 +3,9 @@
 // Takes a `tx` rather than opening its own: every caller is already inside one,
 // and a second transaction would hold a second pool connection while the first
 // is still open. That is the deadlock the storage layer already hit once.
-import type { DbContext } from '../../db/context.js';
+import type { DbContext } from '../../infrastructure/database/context.js';
 import { eq } from 'drizzle-orm';
-import { adminAssignments, members, branches } from '../../db/schema/index.js';
+import { adminAssignments, members, branches } from '../../infrastructure/database/schema/index.js';
 import {
   adminScope,
   coversRequestedFilter,
@@ -14,7 +14,7 @@ import {
   type Unit,
 } from '../../domain/access/scope.js';
 import type { Caller } from '../../domain/identity/role.js';
-import { forbidden, notFound } from '../../http/errors.js';
+import { forbidden, notFound } from '../errors.js';
 
 /** What this caller can reach. */
 export async function scopeOf(tx: DbContext, caller: Caller): Promise<Scope> {
@@ -71,6 +71,39 @@ export async function requireMember(
   if (!coversUnit(scope, unit)) throw notFound('member_not_found');
 }
 
+/**
+ * Refuse unless the caller may read THIS member's own records.
+ *
+ * For the routes a member genuinely needs — their attendance history, their day,
+ * their face template — which all take a `member_id` in the request and, until
+ * now, believed it. A member could read any other member's attendance simply by
+ * changing the number in the URL.
+ *
+ * `requireMember` alone cannot express this: a member's scope is `none`, so it
+ * refuses them their OWN row too. Staff still go through it, so an assigned
+ * admin stays inside their assignments.
+ *
+ * The 404 is deliberate and matches requireMember: "not yours" and "no such
+ * member" must be indistinguishable, or the status code becomes an oracle for
+ * which member ids exist.
+ */
+export async function requireSelfOrMember(
+  tx: DbContext,
+  caller: Caller,
+  memberId: string,
+): Promise<void> {
+  if (caller.role === 'admin' || caller.role === 'superadmin') {
+    return requireMember(tx, caller, memberId);
+  }
+
+  const rows = await tx.select({ id: members.id })
+    .from(members)
+    .where(eq(members.profileId, caller.id))
+    .limit(1);
+
+  if (!rows[0] || rows[0].id !== memberId) throw notFound('member_not_found');
+}
+
 /** Refuse unless the caller's scope reaches the branch. */
 export async function requireBranch(
   tx: DbContext,
@@ -82,4 +115,18 @@ export async function requireBranch(
   if (!coversUnit(scope, { branchId, groupId: null })) {
     throw forbidden('outside your assignments');
   }
+}
+
+/**
+ * The caller's reach, in the shape directoryWhere wants.
+ *
+ * `undefined` for a superadmin — unrestricted. An assigned admin gets their
+ * branches and groups; a caller with no reach at all gets empty lists, which
+ * directoryWhere turns into "match nothing" rather than "match everything".
+ */
+export async function scopeFilter(tx: DbContext, caller: Caller) {
+  const scope = await scopeOf(tx, caller);
+  if (scope.kind === 'all') return undefined;
+  if (scope.kind === 'none') return { branchIds: [], groupIds: [] };
+  return { branchIds: scope.branchIds, groupIds: scope.groupIds };
 }

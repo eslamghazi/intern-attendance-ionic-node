@@ -11,9 +11,11 @@ export const GRANTABLE_PAGES = [
   'members',
   'rosters',
   'review',
+  'audit',
   'presence',
   'faceTest',
   'faceImages',
+  'memberLookup',
 ] as const;
 
 /** Pages only the superadmin ever sees. */
@@ -34,15 +36,20 @@ export const PAGE_OPS: Record<GrantablePage, Op[]> = {
   members: ['create', 'edit', 'delete', 'export'],
   rosters: ['edit', 'export'],
   review: ['edit', 'export'],
+  // Read-only by nature: the trail is written by the server and nothing may
+  // edit or delete a row through the UI.
+  audit: ['export'],
   presence: ['export'],
   faceTest: [],
   faceImages: ['export', 'delete'],
+  // Read-only: there is nothing to create, edit or delete here.
+  memberLookup: [],
 };
 
 export interface Permissions {
   pages: AdminPage[];
-  ops?: Op[]; // legacy global ops — kept so older records still work
-  pageOps?: Partial<Record<AdminPage, Op[]>>; // preferred: ops granted per page
+  ops?: Op[]; // granted on every page the admin has
+  pageOps?: Partial<Record<AdminPage, Op[]>>; // granted per page; wins over `ops`
 }
 
 /** Default when an admin has no explicit permissions yet — full base access. */

@@ -13,7 +13,7 @@ import {
 } from './harness.mjs';
 
 /** Read a JWT's payload. Not verified — these checks are about its CONTENTS:
- *  the lifetime, and that the claims RLS reads are unchanged. */
+ *  the lifetime, and the claim set the guards read. */
 const decode = (jwt) => JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString());
 
 console.log('\n--- sign-in hands out a pair ---');
@@ -28,8 +28,13 @@ const claims = decode(first.body.access_token);
 const lifetime = claims.exp - claims.iat;
 check('access token lives 15 minutes, not 30 days', lifetime, 900);
 console.log(`       exp - iat = ${lifetime}s (was ${30 * 24 * 3600}s)`);
-check('claims RLS reads are unchanged', `${claims.aud}/${claims.role}/${claims.user_role}`,
-  'authenticated/authenticated/superadmin');
+// The claim set is the API's own now. It used to be copied verbatim into
+// request.jwt.claims for every query, so `aud` carried the hosted auth
+// service's fixed audience and a second `role` claim named a Postgres role to
+// SET ROLE into. Neither the GUC nor the role switch exists any more.
+check('the audience is this application', claims.aud, 'intern-attendance');
+check('  the role the guard reads is present', claims.user_role, 'superadmin');
+check('  and no Postgres role is named in the token', claims.role, undefined);
 
 console.log('\n--- the refresh token is opaque and stored hashed ---');
 check('not a JWT', first.body.refresh_token.includes('.'), false);

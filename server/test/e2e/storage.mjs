@@ -98,11 +98,11 @@ const anonAv = await fetch(ORIGIN + avUrl.body.url);
 check('a signed-out caller can fetch it', anonAv.status, 200);
 
 console.log('\n--- admin delete removes both halves ---');
-const before = psql(`select count(*) from public.attachments where bucket='faces' and path='${aId}/face.jpg'`);
+const before = psql(`select count(*) from public.attachments where kind='faces' and path='${aId}/face.jpg'`);
 check('the row exists', before, '1');
 const del = await call('DELETE', '/storage/faces', { token: suToken, body: { paths: [`${aId}/face.jpg`] } });
 check('delete accepted', del.status, 200);
-check('  the row is gone', psql(`select count(*) from public.attachments where bucket='faces' and path='${aId}/face.jpg'`), '0');
+check('  the row is gone', psql(`select count(*) from public.attachments where kind='faces' and path='${aId}/face.jpg'`), '0');
 const goneUrl = await call('GET', `/storage/faces/url?path=${encodeURIComponent(aId + '/face.jpg')}`, { token: aToken });
 check('  and no URL can be minted', goneUrl.status, 404);
 

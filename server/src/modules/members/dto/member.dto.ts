@@ -1,18 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { MAX_PAGE_SIZE } from '../../../domain/member/filter.js';
 import { Type, Transform } from 'class-transformer';
 import { z } from 'zod';
-import {
-  IsArray,
-  IsBoolean,
-  IsInt,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Max,
-  Min,
-  ValidateNested,
-} from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Max, Min, ValidateNested } from 'class-validator';
 import type { MemberFilters, SearchField } from '../../../domain/member/filter.js';
 
 export const filterQuery = z.object({
@@ -184,10 +174,14 @@ export class CreateMemberResultDto {
 
 
 export class UpdateMemberDto {
-  @ApiPropertyOptional({ example: 'm1d0e513-5b8b-4c74-8b6b-1a5ec4c74000' })
-  @IsOptional()
+  // REQUIRED. The route's `:id` is the member; the person's name, national ID
+  // and picture live on the profile, which is a different row with a different
+  // id. Marked optional, an omitted one reached the repository as `undefined`
+  // and became `where id = undefined` — a query that matches nobody, after
+  // which the route still answered `{ ok: true }`.
+  @ApiProperty({ example: 'm1d0e513-5b8b-4c74-8b6b-1a5ec4c74000' })
   @IsUUID()
-  profile_id?: string;
+  profile_id!: string;
 
   @ApiProperty({ example: 'Ahmed Mohamed' })
   @IsString()
@@ -337,13 +331,23 @@ export class MemberFilterQueryDto implements MemberFilters {
   @Min(1)
   page?: number = 1;
 
-  @ApiPropertyOptional({ default: 50, minimum: 1, maximum: 500 })
+  @ApiPropertyOptional({ default: 50, minimum: 1, maximum: MAX_PAGE_SIZE })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(500)
+  @Max(MAX_PAGE_SIZE)
   page_size?: number = 50;
+
+  /**
+   * Which file an /export route should produce. Ignored by the listing routes,
+   * and declared here because every export query extends this one — the three
+   * of them cannot then disagree about the parameter's name or its default.
+   */
+  @ApiPropertyOptional({ description: 'Export format', enum: ['xlsx', 'pdf'], default: 'xlsx' })
+  @IsOptional()
+  @IsIn(['xlsx', 'pdf'])
+  format?: 'xlsx' | 'pdf';
 }
 
 export class BulkFlagDto extends MemberFilterQueryDto {

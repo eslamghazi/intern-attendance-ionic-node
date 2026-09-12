@@ -51,6 +51,7 @@ const PAYLOAD: CheckPayload = {
   isMock: false,
   livenessPassed: true,
   faceScore: 0.8,
+  probeEmbedding: null,
   probePath: null,
   probeBase64: null,
   integrityToken: null,

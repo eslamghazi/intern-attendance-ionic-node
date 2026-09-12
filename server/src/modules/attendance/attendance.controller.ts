@@ -1,9 +1,9 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
-import { ApiError, badRequest } from '../../http/errors.js';
+import { ApiError, badRequest } from '../../common/errors.js';
 import type { CheckPayload } from '../../domain/attendance/types.js';
 import { AttendanceService, AttendanceRefused } from './attendance.service.js';
 import { ApiResponse } from '../../common/dto/api-response.dto.js';
@@ -24,6 +24,7 @@ function toPayload(b: RecordAttendanceDto): CheckPayload {
     isMock: Boolean(b.is_mock),
     livenessPassed: Boolean(b.liveness_passed),
     faceScore: b.face_score ?? null,
+    probeEmbedding: Array.isArray(b.probe_embedding) ? b.probe_embedding : null,
     probePath: b.probe_path ?? null,
     probeBase64: b.probe_base64 ?? null,
     integrityToken: b.integrity_token ?? null,
@@ -38,6 +39,8 @@ function toPayload(b: RecordAttendanceDto): CheckPayload {
 export class AttendanceController {
   constructor(private readonly service: AttendanceService) {}
 
+  @Roles(Role.MEMBER)
+  @HttpCode(HttpStatus.OK)
   @Post('record')
   @ApiOperation({ summary: 'Record biometric and geofenced check-in or check-out' })
   @SwaggerResponse({ status: 200, type: ApiResponse<AttendanceResultDto> })
@@ -63,6 +66,7 @@ export class AttendanceController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @HttpCode(HttpStatus.OK)
   @Post('set')
   @ApiOperation({ summary: 'Manually record or override member attendance (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<SetAttendanceResponseDto> })

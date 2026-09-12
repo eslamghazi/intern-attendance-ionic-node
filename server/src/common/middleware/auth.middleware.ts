@@ -1,12 +1,14 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
-import { asService } from '../../db/context.js';
-import * as schema from '../../db/schema/index.js';
+import { UnitOfWorkService } from '../../infrastructure/database/unit-of-work.service.js';
+import * as schema from '../../infrastructure/database/schema/index.js';
 import { bearerToken, verifyToken } from '../auth/jwt.js';
 import { Role } from '../enums/index.js';
 
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {
+  constructor(private readonly uow: UnitOfWorkService) {}
+
   async use(req: any, res: any, next: (error?: any) => void) {
     req.caller = null;
     req.claims = null;
@@ -27,7 +29,7 @@ export class AuthMiddleware implements NestMiddleware {
     }
 
     try {
-      const profile = await asService(async (tx) => {
+      const profile = await this.uow.transaction(async (tx) => {
         const rows = await tx
           .select({ role: schema.profiles.role, isActive: schema.profiles.isActive })
           .from(schema.profiles)

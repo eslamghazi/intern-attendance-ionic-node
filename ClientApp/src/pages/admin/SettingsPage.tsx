@@ -28,13 +28,13 @@ import {
   type SettingGroup,
 } from '../../lib/api/settings';
 import { qk } from '../../lib/api/keys';
-import { TOAST_MS } from '../../lib/config';
+import { TOAST_MS, LIMITS } from '../../lib/config';
 import type { AppSettings } from '../../lib/types';
 import AdminHeader from '../../components/AdminHeader';
 import { useConfirm } from '../../components/ui/useConfirm';
 import { useFeedback } from '../../components/ui/useFeedback';
 
-const MAX_LOGO_BYTES = 400 * 1024; // ~400KB stored inline as a data URL
+const MAX_LOGO_BYTES = LIMITS.LOGO_MAX_BYTES;
 
 export default function SettingsPage() {
   const { t } = useTranslation();

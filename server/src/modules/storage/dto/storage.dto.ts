@@ -1,7 +1,8 @@
 import { z } from 'zod';
-import { FileCategory } from '../../../infrastructure/storage/file-manager.service.js';
+import { FILE_KIND_NAMES, type FileKind } from '../../../config/constants.js';
 
-export const categoryParamSchema = z.nativeEnum(FileCategory);
+/** The `:kind` path segment. Rejects anything that is not a declared kind. */
+export const kindParamSchema = z.enum(FILE_KIND_NAMES as [FileKind, ...FileKind[]]);
 
 export const objectPathSchema = z
   .string()
@@ -39,7 +40,7 @@ import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-valid
 import { Type } from 'class-transformer';
 
 export class UploadObjectDto {
-  @ApiProperty({ description: 'File path inside storage category bucket' })
+  @ApiProperty({ description: 'Path within the file kind' })
   @IsString()
   @IsNotEmpty()
   path!: string;

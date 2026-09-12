@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { MAX_PAGE_SIZE } from '../../../domain/member/filter.js';
 import {
   IsUUID,
   IsString,
@@ -72,7 +73,7 @@ export class GetRosterViewQueryDto extends MemberFilterQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(500)
+  @Max(MAX_PAGE_SIZE)
   @IsOptional()
   override page_size: number = 50;
 }

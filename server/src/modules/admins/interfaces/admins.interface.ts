@@ -1,37 +1,26 @@
-import type { JwtClaims } from '../../../db/context.js';
-import type { IBaseService } from '../../../common/database/interfaces/base-service.interface.js';
-import type { IGenericRepository } from '../../../common/database/interfaces/generic-repository.interface.js';
-import { profiles } from '../../../db/schema/index.js';
+import type { JwtClaims } from '../../../infrastructure/database/context.js';
+import type { IBaseService } from '../../../infrastructure/database/interfaces/base-service.interface.js';
+import type { IGenericRepository } from '../../../infrastructure/database/interfaces/generic-repository.interface.js';
+import { profiles } from '../../../infrastructure/database/schema/index.js';
 import type { AdminDto, AdminAssignmentResponseDto, UpdateAdminDto } from '../dto/admin.dto.js';
+import type { AdminPatch } from '../admins.types.js';
 
-export interface IAdminsService extends IBaseService<
-  typeof profiles.$inferSelect,
-  string,
-  typeof profiles.$inferInsert,
-  Partial<typeof profiles.$inferInsert>,
-  AdminDto
-> {
-  getAdmins(claims: JwtClaims): Promise<AdminDto[]>;
-  getAssignments(claims: JwtClaims): Promise<AdminAssignmentResponseDto[]>;
-  updateAdmin(claims: JwtClaims, id: string, b: UpdateAdminDto): Promise<{ ok: true }>;
+export interface IAdminsService extends IBaseService<typeof profiles, AdminDto> {
+  getAdmins(): Promise<AdminDto[]>;
+  getAssignments(): Promise<AdminAssignmentResponseDto[]>;
+  updateAdmin(id: string, b: UpdateAdminDto): Promise<{ ok: true }>;
   createAssignment(
-    claims: JwtClaims,
     adminId: string,
     groupId: string | null,
     branchId: string | null,
   ): Promise<AdminAssignmentResponseDto>;
-  deleteAssignment(claims: JwtClaims, id: string): Promise<void>;
+  deleteAssignment(id: string): Promise<void>;
 }
 
-export interface IAdminsRepository extends IGenericRepository<
-  typeof profiles.$inferSelect,
-  string,
-  typeof profiles.$inferInsert,
-  Partial<typeof profiles.$inferInsert>
-> {
+export interface IAdminsRepository extends IGenericRepository<typeof profiles> {
   getAdmins(): Promise<any[]>;
   getAssignments(): Promise<any[]>;
-  updateAdmin(id: string, patch: Record<string, unknown>): Promise<{ id: string } | null>;
+  updateAdmin(id: string, patch: AdminPatch): Promise<{ id: string } | null>;
   createAssignment(adminId: string, groupId: string | null, branchId: string | null): Promise<{ id: string } | null>;
   deleteAssignment(id: string): Promise<{ id: string } | null>;
 }

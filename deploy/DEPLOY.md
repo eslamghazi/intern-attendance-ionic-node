@@ -10,8 +10,9 @@ a `git checkout` away.
 
 ## 1. The server
 
-A Hostinger VPS running **Ubuntu 22.04**. Size it for Postgres with pgvector
-and PostGIS, not for a static site:
+A Hostinger VPS running **Ubuntu 22.04**. Size it for a Postgres plus a Node
+API, not for a static site (stock Postgres — this schema installs no
+extensions):
 
 | | minimum | comfortable |
 |---|---|---|
@@ -180,28 +181,15 @@ The second one is the important one.
 
 ## 6. Moving the live data across
 
-Only if you are migrating from the old Supabase project. Both scripts are
-dry-runnable and neither writes to the source.
+The one-off import scripts that copied rows and image files out of the previous
+hosted platform have been deleted along with the rest of that migration's
+tooling — the move is done, and a script that can only run against a system that
+no longer exists is a trap rather than a safety net.
 
-```bash
-cd /home/attendance/intern-attendance/server
-
-# Rows. Prints a source/target row-count table and writes nothing.
-SOURCE_DATABASE_URL='postgres://…supabase…' \
-DATABASE_URL='postgres://attendance:…@127.0.0.1:5432/attendance' \
-  node scripts/import-from-supabase.mjs --dry-run
-
-# Then for real, then the images:
-… node scripts/import-from-supabase.mjs
-… node scripts/import-storage.mjs
-```
-
-The import verifies every table's row count, the face embeddings, and that no
-staff account arrived without a password — a staff row with no hash cannot sign
-in at all, and finding that out at cutover is the worst possible moment.
-
-**Neither script has been run against real data yet.** Take a Supabase backup
-first, and do the dry run.
+Moving data between two deployments of THIS system is an ordinary
+`pg_dump` / `pg_restore`, plus a copy of `STORAGE_DIR` (the face and probe
+images, which are files on disk rather than rows). `deploy/backup.sh` already
+takes both together for exactly that reason — see the next section.
 
 ---
 
@@ -265,12 +253,10 @@ of which exist on a laptop. Section 5 is the part to walk through carefully.
 
 ## What is still outstanding
 
-- **The old Supabase keys are not rotated.** `ClientApp/.env` held a live
-  service-role key, an account-wide `sbp_` management token, the JWT secret and
-  a plaintext superadmin password. It is not in this repository's history — that
-  was checked — but the values existed in a working file for months and a
-  service-role key keeps working until revoked. Revoke the `sbp_` token and
-  rotate the project keys in the Supabase dashboard, or delete the project once
-  the import is done.
-- `import-from-supabase.mjs` and `import-storage.mjs` have never been run
-  against the real project.
+- **Secrets that lived in a working `.env` for months should be rotated.**
+  `ClientApp/.env` once held the JWT secret and a plaintext superadmin password.
+  Neither is in this repository's history — that was checked — but a value that
+  sat in a developer's working file is not a secret any more. Regenerate with
+  `node server/scripts/generate-secrets.mjs` and change the superadmin password.
+  Rotating `APP_JWT_SECRET` costs each signed-in client one 401, which its HTTP
+  layer answers by presenting the refresh token; nobody is signed out.

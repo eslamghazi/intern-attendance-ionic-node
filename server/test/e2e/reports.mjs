@@ -165,6 +165,83 @@ check('  A and B were rostered and A came late', day.body?.late, 1);
 check('  one of the three came', day.body?.attended, 1);
 check('  and two did not', day.body?.absent, 2);
 
+/* --------------------------------------------------------------- the exports */
+
+// The export routes had no end-to-end coverage at all: every one of them was
+// only ever checked by reading. They are also the only place the report
+// vocabulary, the workbook writer and the print document meet a real request.
+console.log('\n--- the member\'s own month, as a file ---');
+
+const aToken = (await login('30101011234561', '30101011234561')).body?.access_token;
+check('member A signed in', typeof aToken, 'string');
+
+const xlsx = await call(
+  'GET',
+  `/attendance/history/export?member_id=${members.A}&year=${pastYear}&month=${pastMonth}&format=xlsx`,
+  { token: aToken, raw: true },
+);
+check('a member exports their own history', xlsx.status, 200);
+check('  as a spreadsheet',
+  (xlsx.headers.get('content-type') ?? '').includes('spreadsheetml'), true);
+// A zip container: every .xlsx starts 'PK'. An empty or HTML body would not.
+check('  and it is a real workbook', xlsx.bytes.subarray(0, 2).toString(), 'PK');
+check('  named for the month',
+  (xlsx.headers.get('content-disposition') ?? '').includes(`${pastYear}`), true);
+
+const pdf = await call(
+  'GET',
+  `/attendance/history/export?member_id=${members.A}&year=${pastYear}&month=${pastMonth}&format=pdf`,
+  { token: aToken, raw: true },
+);
+check('the print document comes back as HTML', pdf.status, 200);
+check('  with the right content type',
+  (pdf.headers.get('content-type') ?? '').includes('text/html'), true);
+const html = pdf.bytes.toString('utf8');
+// The legend is generated from ATTENDANCE_OUTCOME, so its presence is what says
+// the shared vocabulary reached the file rather than a hand-written copy.
+check('  and carries the legend', /report|legend|دليل/i.test(html), true);
+
+// THE SCOPE. getHistory refuses a member asking about anyone else, and the
+// export inherits that check rather than restating it.
+const foreign = await call(
+  'GET',
+  `/attendance/history/export?member_id=${members.B}&year=${pastYear}&month=${pastMonth}`,
+  { token: aToken, raw: true },
+);
+check('a member CANNOT export another member\'s history', foreign.status >= 400, true);
+
+console.log('\n--- the dashboard, as a file ---');
+
+const suToken = (await login(SUPERADMIN.nationalId, SUPERADMIN.password)).body?.access_token;
+
+const dash = await call(
+  'GET',
+  `/attendance/dashboard/export?year=${pastYear}&month=${pastMonth}&format=xlsx`,
+  { token: suToken, raw: true },
+);
+check('the dashboard exports', dash.status, 200);
+check('  as a real workbook', dash.bytes.subarray(0, 2).toString(), 'PK');
+
+const dashPdf = await call(
+  'GET',
+  `/attendance/dashboard/export?year=${pastYear}&month=${pastMonth}&format=pdf`,
+  { token: suToken, raw: true },
+);
+check('  and as a print document', dashPdf.status, 200);
+// The settled month has 7 attended of 12, so the rate must be in the file. If
+// the numbers were not reaching it, this is what says so.
+check('  carrying the month\'s real numbers',
+  /58|7/.test(dashPdf.bytes.toString('utf8')), true);
+
+// A MEMBER has no business here — the dashboard is every member the caller can
+// reach, not their own record.
+const memberDash = await call(
+  'GET',
+  `/attendance/dashboard/export?year=${pastYear}&month=${pastMonth}`,
+  { token: aToken, raw: true },
+);
+check('a member cannot export the dashboard', memberDash.status, 403);
+
 /* ------------------------------------------------------------------- clean up */
 
 wipe();

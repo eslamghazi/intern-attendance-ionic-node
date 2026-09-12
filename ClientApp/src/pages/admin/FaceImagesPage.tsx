@@ -32,7 +32,7 @@ import {
   signedUrls,
 } from '../../lib/face/images';
 import { usePermissions } from '../../lib/usePermissions';
-import { BUCKETS, TOAST_MS } from '../../lib/config';
+import { FILE_KINDS, TOAST_MS } from '../../lib/config';
 import { appToday } from '../../lib/clock';
 import { formatDateTime } from '../../lib/date';
 import type { MemberPageItem } from '../../lib/api/members';
@@ -59,7 +59,7 @@ function daysAgo(n: number): string {
  * Browse the biometric images the system stored: the check-in / check-out shots
  * for chosen days, or each member's enrolled face print.
  *
- * Both buckets are private; nothing here is a public link — every tile is a
+ * Both kinds are private; nothing here is a public link — every tile is a
  * short-lived signed URL, minted in one batch per view.
  */
 export default function FaceImagesPage() {
@@ -84,7 +84,7 @@ export default function FaceImagesPage() {
       if (mode === 'faceprint') {
         const rows = await listFacePhotos(ids);
         const urls = await signedUrls(
-          BUCKETS.faces,
+          FILE_KINDS.faces,
           rows.map((r) => r.photo_path ?? '').filter(Boolean),
         );
         // Only members that actually HAVE a stored photo — an empty frame for
@@ -106,7 +106,7 @@ export default function FaceImagesPage() {
       }
       const probes = await listProbeImages({ memberIds: ids, from, to });
       const urls = await signedUrls(
-        BUCKETS.probes,
+        FILE_KINDS.probes,
         probes.map((p) => p.path),
       );
       // Same rule here: a path whose file is gone yields no tile.
@@ -133,7 +133,7 @@ export default function FaceImagesPage() {
     },
   });
 
-  const bucket = mode === 'faceprint' ? BUCKETS.faces : BUCKETS.probes;
+  const kind = mode === 'faceprint' ? FILE_KINDS.faces : FILE_KINDS.probes;
   const refresh = () => qc.invalidateQueries({ queryKey: ['face-images'] });
 
   /** Delete files, with a loader and a count in the toast. */
@@ -141,7 +141,7 @@ export default function FaceImagesPage() {
     if (!paths.length) return;
     await showLoading({ message: t('common.processing') });
     try {
-      const removed = await removeImages(bucket, paths);
+      const removed = await removeImages(kind, paths);
       refresh();
       present({
         message: t('admin.imagesDeleted', { count: removed }),
@@ -179,7 +179,7 @@ export default function FaceImagesPage() {
   const exportOne = async (tile: Tile) => {
     await showLoading({ message: t('common.processing') });
     try {
-      await downloadImage(bucket, tile.path, `${tile.memberName} - ${tile.path.split('/').pop()}`);
+      await downloadImage(kind, tile.path, `${tile.memberName} - ${tile.path.split('/').pop()}`);
     } catch (e) {
       present({
         message: (e as Error)?.message || t('common.error'),
@@ -197,7 +197,7 @@ export default function FaceImagesPage() {
     await showLoading({ message: t('common.processing') });
     try {
       const count = await downloadImagesZip(
-        bucket,
+        kind,
         tiles.map((x) => ({ path: x.path, folder: x.memberName })),
         `${mode === 'faceprint' ? 'face-prints' : 'attendance-photos'}_${appToday()}.zip`,
       );

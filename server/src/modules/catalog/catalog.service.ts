@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { UnitOfWorkService } from '../../common/database/unit-of-work.service.js';
+import { UnitOfWorkService } from '../../infrastructure/database/unit-of-work.service.js';
 import { CatalogRepository } from './catalog.repository.js';
-import type { JwtClaims } from '../../db/context.js';
-import { notFound } from '../../http/errors.js';
+import type { JwtClaims } from '../../infrastructure/database/context.js';
+import { notFound, badRequest } from '../../common/errors.js';
 import { CatalogMapper } from './catalog.mapper.js';
 import type {
   CreateInstitutionDto,
@@ -23,6 +23,11 @@ import type {
 } from './dto/catalog.dto.js';
 
 import type { ICatalogService } from './interfaces/catalog.interface.js';
+import type { Caller } from '../../common/types.js';
+import { scopeOf } from '../../common/auth/access.service.js';
+import { coversUnit } from '../../domain/access/scope.js';
+import type { JsonValue } from '../../common/json.types.js';
+import type { LatLng, LatLngRing } from '../../domain/attendance/types.js';
 
 @Injectable()
 export class CatalogService implements ICatalogService {
@@ -32,59 +37,118 @@ export class CatalogService implements ICatalogService {
   ) {}
 
   /* Institutions */
-  async getInstitutions(claims: JwtClaims): Promise<InstitutionResponseDto[]> {
-    return this.uow.asCaller(claims, async () => {
+  async getInstitutions(): Promise<InstitutionResponseDto[]> {
+    return this.uow.transaction(async () => {
       const rows = await this.repo.getInstitutions();
       return CatalogMapper.toInstitutionList(rows);
     });
   }
 
-  async createInstitution(claims: JwtClaims, data: CreateInstitutionDto): Promise<InstitutionResponseDto> {
-    return this.uow.asCaller(claims, async () => {
+  async createInstitution(data: CreateInstitutionDto): Promise<InstitutionResponseDto> {
+    return this.uow.transaction(async () => {
       const row = await this.repo.insertInstitution(data.name, data.code ?? 0);
       return CatalogMapper.toInstitutionDto(row);
     });
   }
 
-  async updateInstitution(claims: JwtClaims, id: string, data: UpdateInstitutionDto): Promise<InstitutionResponseDto> {
-    return this.uow.asCaller(claims, async () => {
+  async updateInstitution(id: string, data: UpdateInstitutionDto): Promise<InstitutionResponseDto> {
+    return this.uow.transaction(async () => {
       const result = await this.repo.updateInstitution(id, data.name, data.code ?? 0);
       if (!result) throw notFound();
       return CatalogMapper.toInstitutionDto(result);
     });
   }
 
-  async deleteInstitution(claims: JwtClaims, id: string): Promise<void> {
-    return this.uow.asCaller(claims, async () => {
+  async deleteInstitution(id: string): Promise<void> {
+    return this.uow.transaction(async () => {
       const result = await this.repo.deleteInstitution(id);
       if (!result) throw notFound();
     });
   }
 
   /* Branches */
-  async getBranches(claims: JwtClaims): Promise<BranchResponseDto[]> {
-    return this.uow.asCaller(claims, async () => {
+  async getBranches(): Promise<BranchResponseDto[]> {
+    return this.uow.transaction(async () => {
       const rows = await this.repo.getBranches();
       return CatalogMapper.toBranchList(rows);
     });
   }
 
-  async getBranchesOptions(claims: JwtClaims): Promise<BranchOptionResponseDto[]> {
-    return this.uow.asCaller(claims, async () => {
+  /**
+   * The branches a caller may pick from.
+   *
+   * NARROWED to their assignments, and that is not cosmetic. These options fill
+   * the branch selector on every report screen, and the reads behind those
+   * screens are scoped — so an unnarrowed list offers an admin branches whose
+   * data they will then be shown none of. Worse, the names themselves are the
+   * one thing an assigned admin is not supposed to enumerate.
+   */
+  async getBranchesOptions(caller: Caller): Promise<BranchOptionResponseDto[]> {
+    return this.uow.transaction(async (tx) => {
       const rows = await this.repo.getBranchesOptions();
-      return CatalogMapper.toBranchOptionList(rows);
+      const scope = await scopeOf(tx, caller);
+      const visible =
+        scope.kind === 'all'
+          ? rows
+          : scope.kind === 'none'
+            ? []
+            : rows.filter((r) => coversUnit(scope, { branchId: r.id, groupId: null }));
+      return CatalogMapper.toBranchOptionList(visible);
     });
   }
 
-  async createBranch(claims: JwtClaims, b: CreateBranchDto): Promise<BranchResponseDto> {
-    return this.uow.asCaller(claims, async () => {
+  /**
+   * The polygon geofence, checked before it is stored.
+   *
+   * WHY THIS IS HERE
+   *
+   * `area_coords` is a plain jsonb column, so the database will accept any shape
+   * at all — it has no geometry type to object with.
+   *
+   * Without a check here the failure moves to the worst possible place: the
+   * column accepts `lat: 310.5`, the admin is told the branch saved, and
+   * readRing() quietly rejects the ring at CHECK-IN time and falls back to the
+   * radius. The geofence is then silently not the one on the map, and the first
+   * person to find out is a student being refused.
+   *
+   * So it is refused at the point of entry, where there is someone to tell.
+   *
+   * Fewer than three vertices is NOT an error: that is how the admin UI stores
+   * "circle mode", and it means "no polygon" — the same reading readRing() has.
+   */
+  private validatedRing(coords: JsonValue[] | null | undefined): LatLngRing {
+    if (!Array.isArray(coords) || coords.length < 3) return null;
+
+    const ring: LatLng[] = [];
+    for (const [i, entry] of coords.entries()) {
+      const at = `point ${i + 1}`;
+      if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+        throw badRequest('invalid_area', `${at} of the area is not a coordinate`);
+      }
+      const { lat, lng } = entry;
+      if (typeof lat !== 'number' || typeof lng !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+        throw badRequest('invalid_area', `${at} of the area has a non-numeric lat/lng`);
+      }
+      if (lat < -90 || lat > 90) {
+        throw badRequest('invalid_area', `${at}: latitude ${lat} is outside -90..90`);
+      }
+      if (lng < -180 || lng > 180) {
+        throw badRequest('invalid_area', `${at}: longitude ${lng} is outside -180..180`);
+      }
+      ring.push({ lat, lng });
+    }
+    return ring;
+  }
+
+  async createBranch(b: CreateBranchDto): Promise<BranchResponseDto> {
+    return this.uow.transaction(async () => {
       const row = await this.repo.insertBranch({
         name: b.name,
         address: b.address || null,
         latitude: b.latitude,
         longitude: b.longitude,
         radiusMeters: b.radius_meters,
-        areaCoords: b.area_coords && b.area_coords.length >= 3 ? (b.area_coords as any) : null,
+        areaCoords: this.validatedRing(b.area_coords),
         institutionId: b.institution_id || null,
         bypassFace: b.bypass_face ?? false,
         bypassLocation: b.bypass_location ?? false,
@@ -97,15 +161,15 @@ export class CatalogService implements ICatalogService {
     });
   }
 
-  async updateBranch(claims: JwtClaims, id: string, b: UpdateBranchDto): Promise<BranchResponseDto> {
-    return this.uow.asCaller(claims, async () => {
+  async updateBranch(id: string, b: UpdateBranchDto): Promise<BranchResponseDto> {
+    return this.uow.transaction(async () => {
       const result = await this.repo.updateBranch(id, {
         name: b.name,
         address: b.address || null,
         latitude: b.latitude,
         longitude: b.longitude,
         radiusMeters: b.radius_meters,
-        areaCoords: b.area_coords && b.area_coords.length >= 3 ? (b.area_coords as any) : null,
+        areaCoords: this.validatedRing(b.area_coords),
         institutionId: b.institution_id || null,
         bypassFace: b.bypass_face ?? false,
         bypassLocation: b.bypass_location ?? false,
@@ -119,30 +183,40 @@ export class CatalogService implements ICatalogService {
     });
   }
 
-  async deleteBranch(claims: JwtClaims, id: string): Promise<void> {
-    return this.uow.asCaller(claims, async () => {
+  async deleteBranch(id: string): Promise<void> {
+    return this.uow.transaction(async () => {
       const result = await this.repo.deleteBranch(id);
       if (!result) throw notFound();
     });
   }
 
   /* Groups */
-  async getGroups(claims: JwtClaims): Promise<GroupResponseDto[]> {
-    return this.uow.asCaller(claims, async () => {
+  async getGroups(): Promise<GroupResponseDto[]> {
+    return this.uow.transaction(async () => {
       const rows = await this.repo.getGroups();
       return CatalogMapper.toGroupList(rows);
     });
   }
 
-  async getGroupsOptions(claims: JwtClaims): Promise<GroupOptionResponseDto[]> {
-    return this.uow.asCaller(claims, async () => {
+  /** The groups a caller may pick from — narrowed like the branches above. */
+  async getGroupsOptions(caller: Caller): Promise<GroupOptionResponseDto[]> {
+    return this.uow.transaction(async (tx) => {
       const rows = await this.repo.getGroupsOptions();
-      return CatalogMapper.toGroupOptionList(rows);
+      const scope = await scopeOf(tx, caller);
+      const visible =
+        scope.kind === 'all'
+          ? rows
+          : scope.kind === 'none'
+            ? []
+            : rows.filter((r) =>
+                coversUnit(scope, { branchId: null, groupId: r.id }),
+              );
+      return CatalogMapper.toGroupOptionList(visible);
     });
   }
 
-  async createGroup(claims: JwtClaims, g: CreateGroupDto): Promise<GroupResponseDto> {
-    return this.uow.asCaller(claims, async () => {
+  async createGroup(g: CreateGroupDto): Promise<GroupResponseDto> {
+    return this.uow.transaction(async () => {
       const row = await this.repo.insertGroup({
         name: g.name,
         year: g.year,
@@ -158,8 +232,8 @@ export class CatalogService implements ICatalogService {
     });
   }
 
-  async updateGroup(claims: JwtClaims, id: string, g: UpdateGroupDto): Promise<GroupResponseDto> {
-    return this.uow.asCaller(claims, async () => {
+  async updateGroup(id: string, g: UpdateGroupDto): Promise<GroupResponseDto> {
+    return this.uow.transaction(async () => {
       const result = await this.repo.updateGroup(id, {
         name: g.name,
         year: g.year,
@@ -176,30 +250,30 @@ export class CatalogService implements ICatalogService {
     });
   }
 
-  async deleteGroup(claims: JwtClaims, id: string): Promise<void> {
-    return this.uow.asCaller(claims, async () => {
+  async deleteGroup(id: string): Promise<void> {
+    return this.uow.transaction(async () => {
       const result = await this.repo.deleteGroup(id);
       if (!result) throw notFound();
     });
   }
 
   /* Shifts */
-  async getShifts(claims: JwtClaims): Promise<ShiftResponseDto[]> {
-    return this.uow.asCaller(claims, async () => {
+  async getShifts(): Promise<ShiftResponseDto[]> {
+    return this.uow.transaction(async () => {
       const rows = await this.repo.getShifts();
       return CatalogMapper.toShiftList(rows);
     });
   }
 
-  async getShiftsKeys(claims: JwtClaims): Promise<ShiftKeyOptionResponseDto[]> {
-    return this.uow.asCaller(claims, async () => {
+  async getShiftsKeys(): Promise<ShiftKeyOptionResponseDto[]> {
+    return this.uow.transaction(async () => {
       const rows = await this.repo.getShiftsKeys();
       return rows.map((r) => ({ id: r.id, key: r.key ?? null }));
     });
   }
 
-  async createShift(claims: JwtClaims, s: CreateShiftDto): Promise<ShiftResponseDto> {
-    return this.uow.asCaller(claims, async () => {
+  async createShift(s: CreateShiftDto): Promise<ShiftResponseDto> {
+    return this.uow.transaction(async () => {
       const row = await this.repo.insertShift({
         name: s.name,
         key: s.key || null,
@@ -218,8 +292,8 @@ export class CatalogService implements ICatalogService {
     });
   }
 
-  async updateShift(claims: JwtClaims, id: string, s: UpdateShiftDto): Promise<ShiftResponseDto> {
-    return this.uow.asCaller(claims, async () => {
+  async updateShift(id: string, s: UpdateShiftDto): Promise<ShiftResponseDto> {
+    return this.uow.transaction(async () => {
       const result = await this.repo.updateShift(id, {
         name: s.name,
         key: s.key || null,
@@ -239,8 +313,8 @@ export class CatalogService implements ICatalogService {
     });
   }
 
-  async deleteShift(claims: JwtClaims, id: string): Promise<void> {
-    return this.uow.asCaller(claims, async () => {
+  async deleteShift(id: string): Promise<void> {
+    return this.uow.transaction(async () => {
       const result = await this.repo.deleteShift(id);
       if (!result) throw notFound();
     });

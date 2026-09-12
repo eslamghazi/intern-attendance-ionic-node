@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { UnitOfWorkService } from '../../common/database/unit-of-work.service.js';
+import { UnitOfWorkService } from '../../infrastructure/database/unit-of-work.service.js';
 import { AttendanceRepository } from './attendance.repository.js';
 import { cairoNow } from '../../domain/clock.js';
 import { previousDate } from '../../domain/attendance/windows.js';
@@ -10,11 +10,12 @@ import {
   type CheckPayload,
   type Refusal,
 } from '../../domain/attendance/types.js';
-import { notFound, forbidden } from '../../http/errors.js';
+import { notFound, forbidden } from '../../common/errors.js';
 import type { Caller } from '../../domain/identity/role.js';
 import { scopeOf } from '../../common/auth/access.service.js';
 import { coversUnit } from '../../domain/access/scope.js';
-import { FileCategory, FileManager } from '../../infrastructure/storage/file-manager.service.js';
+import { FileKind, FileManager } from '../../infrastructure/storage/file-manager.service.js';
+import { probePath } from '../../infrastructure/storage/paths.js';
 import {
   CheckType,
   AuditEvent,
@@ -22,22 +23,6 @@ import {
   AttendanceStatus,
   CheckoutStatus,
 } from '../../common/enums/index.js';
-
-export interface SetAttendanceInput {
-  memberId: string;
-  date: string;
-  status: AttendanceStatus | null;
-  clear: boolean;
-  shiftId: string | null;
-}
-
-export interface CheckResult {
-  ok: true;
-  type: CheckType;
-  status: string;
-  distance: number;
-  shift: string | null;
-}
 
 export class AttendanceRefused extends Error {
   constructor(readonly refusal: Refusal) {
@@ -47,6 +32,8 @@ export class AttendanceRefused extends Error {
 }
 
 import type { IAttendanceService } from './interfaces/attendance.interface.js';
+import type { CheckResult, SetAttendanceInput } from './attendance.types.js';
+export type { CheckResult, SetAttendanceInput } from './attendance.types.js';
 
 @Injectable()
 export class AttendanceService implements IAttendanceService {
@@ -56,30 +43,55 @@ export class AttendanceService implements IAttendanceService {
     private readonly fileManager: FileManager,
   ) {}
 
+  /**
+   * Keep the capture taken at this check-in or check-out.
+   *
+   * The path is built by infrastructure/storage/paths.ts and is meant to be
+   * legible to someone browsing the directory over SFTP, because that is what
+   * actually happens when a student disputes a record:
+   *
+   *   probes/year-2026/2026-09/2026-09-11/branch-el-mabarra/
+   *     member-2026010001/check-in__07-58__morning-shift.jpg
+   *
+   * The old name was `2026/2026010001/2026-09-11-<shift-uuid>-check_in.jpg`:
+   * the shift was a raw UUID, the year appeared twice, nothing named the
+   * branch, and every member's captures piled into one directory that only ever
+   * grew.
+   *
+   * Failing to store a probe must never fail the check-in — the attendance
+   * record is the thing that matters and the image is corroboration — so the
+   * catch returns the path the client sent and lets the check-in stand.
+   */
   private async storeProbe(
     payload: CheckPayload,
     keep: boolean,
     profileId: string,
     memberId: string,
     date: string,
-    shiftId: string,
+    shiftName: string | null,
   ): Promise<string | null> {
     if (!keep || !payload.probeBase64) return payload.probePath;
     try {
       const bytes = this.fileManager.decodeBase64Image(payload.probeBase64);
       if (!bytes) return payload.probePath;
+
       const naming = await this.repo.probeNaming(profileId);
-      const folder = naming?.groupYear ? String(naming.groupYear) : 'group';
-      const code = String(naming?.code ?? memberId).replace(/[^A-Za-z0-9_-]+/g, '_');
-      const path = `${folder}/${code}/${date}-${shiftId}-${payload.type}.jpg`;
-      
+      const path = probePath({
+        date,
+        branchName: naming?.branchName ?? null,
+        memberCode: naming?.code ?? memberId,
+        shiftName,
+        type: payload.type,
+      });
+
       await this.fileManager.upload({
-        category: FileCategory.PROBE,
+        kind: 'probes',
         path,
         body: bytes,
         contentType: 'image/jpeg',
         owner: profileId,
-        tx: { execute: async () => {}, query: async () => [] } as any, // Not strictly required if storage is standalone
+        // The capture is OF this member, which is what decides who may read it.
+        subject: profileId,
       });
       return path;
     } catch {
@@ -88,7 +100,7 @@ export class AttendanceService implements IAttendanceService {
   }
 
   async recordAttendance(callerId: string, payload: CheckPayload): Promise<CheckResult> {
-    return this.uow.asService(async () => {
+    return this.uow.transaction(async () => {
       const member = await this.repo.loadMemberContext(callerId);
       if (!member || !member.isActive) throw new AttendanceRefused(refuse(403, AttendanceRefusalReason.NOT_A_MEMBER));
 
@@ -128,7 +140,38 @@ export class AttendanceService implements IAttendanceService {
         ? null
         : await this.repo.geofenceCheck(member.branchId, payload.lat, payload.lng);
 
-      const gates = checkGates(payload, settings, bypass, member, geofence);
+      // THE FACE SCORE IS THE SERVER'S. THERE IS NO CLIENT FALLBACK.
+      //
+      // The client used to send the similarity as a number and the gate
+      // compared that number to the threshold — so anything that could post the
+      // request could post 0.99 and walk past the face gate. The client already
+      // had the vector that produced its score (bestSimilarity returns it); it
+      // simply never sent it.
+      //
+      // It sends it now, and the score is recomputed here against the enrolled
+      // template — the one copy an attacker cannot substitute. `payload.faceScore`
+      // is never read by the gate again.
+      //
+      // A client that does not send an embedding is REFUSED rather than
+      // believed. Accepting its number "until the phones update" would leave
+      // the hole open with a deadline nobody owns, and the refusal is specific
+      // enough to act on.
+      let checked = payload;
+      if (!bypass.face) {
+        if (!payload.probeEmbedding) {
+          throw new AttendanceRefused(refuse(422, AttendanceRefusalReason.FACE_REQUIRED));
+        }
+        const verified = await this.repo.verifyFaceScore(member.id, payload.probeEmbedding);
+        if (verified === null) {
+          // No enrolled template to compare against. checkGates refuses this as
+          // NOT_ENROLLED; reaching here means the template vanished between the
+          // two reads, which is a server problem, not the member's.
+          throw new AttendanceRefused(refuse(500, AttendanceRefusalReason.FACE_REQUIRED));
+        }
+        checked = { ...payload, faceScore: verified };
+      }
+
+      const gates = checkGates(checked, settings, bypass, member, geofence);
       if (gates.audit) await this.repo.writeAudit(callerId, gates.audit.event, gates.audit.detail);
       if (gates.refusal) throw new AttendanceRefused(gates.refusal);
 
@@ -154,8 +197,8 @@ export class AttendanceService implements IAttendanceService {
         }
 
         const { shift, status } = decision.value;
-        const probePath = await this.storeProbe(
-          payload, settings.storeProbeImages, callerId, member.id, date, shift.id,
+        const storedProbePath = await this.storeProbe(
+          payload, settings.storeProbeImages, callerId, member.id, date, shift.name,
         );
 
         const written = await this.repo.writeCheckIn({
@@ -170,10 +213,10 @@ export class AttendanceService implements IAttendanceService {
           lng: payload.lng,
           accuracy: payload.accuracy,
           distance,
-          faceScore: payload.faceScore,
+          faceScore: checked.faceScore,
           livenessPassed: payload.livenessPassed,
           isMock: payload.isMock,
-          probePath,
+          probePath: storedProbePath,
           bypass: snapshot,
         });
 
@@ -203,8 +246,8 @@ export class AttendanceService implements IAttendanceService {
       }
 
       const out = decision.value;
-      const probePath = await this.storeProbe(
-        payload, settings.storeProbeImages, callerId, member.id, date, out.record.shiftId ?? 'x',
+      const storedProbePath = await this.storeProbe(
+        payload, settings.storeProbeImages, callerId, member.id, date, out.shift?.name ?? null,
       );
 
       await this.repo.writeCheckOut({
@@ -215,10 +258,10 @@ export class AttendanceService implements IAttendanceService {
         lng: payload.lng,
         accuracy: payload.accuracy,
         distance,
-        faceScore: payload.faceScore,
+        faceScore: checked.faceScore,
         livenessPassed: payload.livenessPassed,
         isMock: payload.isMock,
-        probePath,
+        probePath: storedProbePath,
         bypass: snapshot,
       });
       await this.repo.writeAudit(callerId, AuditEvent.CHECK_OUT, { date: out.date, status: out.record.status, distance });
@@ -228,7 +271,7 @@ export class AttendanceService implements IAttendanceService {
   }
 
   async setAttendanceManually(caller: Caller, input: SetAttendanceInput): Promise<{ ok: true; cleared?: true }> {
-    return this.uow.asCaller(caller as any, async () => {
+    return this.uow.transaction(async () => {
       const scope = await scopeOf((this.repo as any).db, caller);
       
       const member = await this.repo.getMemberBranch(input.memberId);

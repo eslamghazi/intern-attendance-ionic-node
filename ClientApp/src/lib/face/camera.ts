@@ -18,11 +18,10 @@ export interface Capture {
  * Capture a single front-camera photo for liveness + embedding.
  *
  * ALWAYS prefers our own in-app camera — on the phone as much as in a browser.
- * The OS camera hands back a still photo and nothing else: no live frames means
- * no liveness challenge at all, so on native the head-turn / expression checks
- * used to be skipped entirely and a printed photo would have walked straight
- * through. getUserMedia works inside the Capacitor WebView, so there is no
- * reason to give that up.
+ * The OS camera hands back a still photo and nothing else, and no live frames
+ * means no liveness challenge at all — the head-turn and expression checks
+ * cannot run, and a printed photo held up to the lens passes. getUserMedia works
+ * inside the Capacitor WebView, so there is no reason to give that up.
  *
  * The OS camera stays as a fallback for a WebView with no getUserMedia; that
  * path still yields a file path ML Kit can screen for a single frontal face.

@@ -3,7 +3,6 @@ import type { Role } from './types';
 /** All client route paths — the single source of truth for navigation. */
 export const ROUTES = {
   login: '/login',
-  changePassword: '/change-password',
   enroll: '/enroll',
   member: {
     home: '/member/home',
@@ -25,9 +24,11 @@ export const ROUTES = {
     departments: '/admin/departments',
     admins: '/admin/admins',
     review: '/admin/review',
+    audit: '/admin/audit',
     presence: '/admin/presence',
     faceTest: '/admin/face-test',
     faceImages: '/admin/face-images',
+    memberLookup: '/admin/lookup',
     qr: '/admin/qr',
     rosterMaker: '/admin/roster-maker',
     settings: '/admin/settings',

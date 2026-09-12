@@ -1,18 +1,43 @@
 import { Injectable } from '@nestjs/common';
-import { GenericRepository } from '../../common/database/generic.repository.js';
-import { faceTemplates, members, memberDirectory, appSettings } from '../../db/schema/index.js';
-import { eq, inArray, isNotNull, and, sql } from 'drizzle-orm';
+import { GenericRepository } from '../../infrastructure/database/generic.repository.js';
+import { EMBEDDING_DIM, isEmbedding } from '../../domain/face/similarity.js';
+import { badRequest } from '../../common/errors.js';
+import { faceTemplates, members, memberDirectory, appSettings } from '../../infrastructure/database/schema/index.js';
+import { eq, inArray, isNotNull, and } from 'drizzle-orm';
 import { EnrollmentStatus } from '../../common/enums/index.js';
 
 import type { IFaceRepository } from './interfaces/face.interface.js';
+import type { JsonValue } from '../../common/json.types.js';
+
+
+/**
+ * The `[0.1,0.2,…]` the client posts, into the numbers the column stores.
+ *
+ * Throws rather than truncating or padding: an embedding of the wrong length is
+ * a bug in whatever produced it, and storing it anyway would quietly make every
+ * later face comparison against this member meaningless — a failure that shows
+ * up weeks later as "the app stopped recognising me".
+ */
+function parseEmbedding(value: string): number[] {
+  let parsed: JsonValue;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw badRequest('bad_embedding', 'the embedding is not valid JSON');
+  }
+
+  if (!isEmbedding(parsed)) {
+    const shape = Array.isArray(parsed) ? `an array of ${parsed.length}` : typeof parsed;
+    throw badRequest(
+      'bad_embedding',
+      `expected ${EMBEDDING_DIM} finite numbers, got ${shape}`,
+    );
+  }
+  return parsed;
+}
 
 @Injectable()
-export class FaceRepository extends GenericRepository<
-  typeof faceTemplates.$inferSelect,
-  string,
-  typeof faceTemplates.$inferInsert,
-  Partial<typeof faceTemplates.$inferInsert>
-> implements IFaceRepository {
+export class FaceRepository extends GenericRepository<typeof faceTemplates> implements IFaceRepository {
   constructor() {
     super(faceTemplates, faceTemplates.memberId);
   }
@@ -32,6 +57,9 @@ export class FaceRepository extends GenericRepository<
         group_year: memberDirectory.groupYear,
         member_code: memberDirectory.memberCode,
         national_id: memberDirectory.nationalId,
+        // For the enrolment photo's path — see infrastructure/storage/paths.ts.
+        branch_name: memberDirectory.branchName,
+        group_name: memberDirectory.groupName,
       })
       .from(memberDirectory)
       .where(eq(memberDirectory.profileId, profileId))
@@ -116,24 +144,22 @@ export class FaceRepository extends GenericRepository<
     return rows[0]?.embedding ?? null;
   }
 
+  /**
+   * Store a member's enrolment embedding.
+   *
+   * Parsed to numbers before it goes near the query, so the column's own type
+   * does the serialising and a wrong shape is a validation error the client can
+   * act on rather than a database error at insert time.
+   */
   async upsertTemplate(memberId: string, embeddingStr: string, photoPath: string | null, qualityScore: number | null) {
-    // Drizzle ORM doesn't natively map string vectors to the pgvector type cleanly in raw bindings without sql``
-    // So we use sql\`${embeddingStr}::vector\` for the embedding field.
+    const embedding = parseEmbedding(embeddingStr);
+
     await this.db
       .insert(faceTemplates)
-      .values({
-        memberId,
-        embedding: sql`${embeddingStr}::vector` as any,
-        photoPath,
-        qualityScore,
-      })
+      .values({ memberId, embedding, photoPath, qualityScore })
       .onConflictDoUpdate({
         target: faceTemplates.memberId,
-        set: {
-          embedding: sql`${embeddingStr}::vector` as any,
-          photoPath,
-          qualityScore,
-        },
+        set: { embedding, photoPath, qualityScore },
       });
   }
 

@@ -21,13 +21,8 @@ import {
   AttendanceRefusalReason,
   AuditEvent,
 } from '../../common/enums/index.js';
-
-export interface SlotContext {
-  settings: AttendanceSettings;
-  /** Minutes since midnight, Cairo, of the effective (possibly frozen) clock. */
-  minutesOfDay: number;
-  defaults: WindowDefaults;
-}
+import type { OpenSlot, SlotContext } from './types.js';
+export type { OpenSlot, SlotContext } from './types.js';
 
 /**
  * Pick the shift a check-in applies to.
@@ -69,11 +64,6 @@ export function decideCheckIn(
 
   const w = win(shift);
   return decided({ shift, status: w.nowP > w.ciLateP ? AttendanceStatus.LATE : AttendanceStatus.PRESENT });
-}
-
-export interface OpenSlot {
-  record: AttendanceRecord;
-  date: string;
 }
 
 /**

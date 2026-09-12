@@ -1,7 +1,7 @@
 // Surprise presence spot-check (in-app polling).
 //
-// The Edge Function took an `action` discriminator on one endpoint; the API has
-// a route per operation instead. Signatures are unchanged, so no page moves.
+// One endpoint with an `action` discriminator used to cover all of these; the
+// API has a route per operation instead.
 import { apiFetch } from './http';
 
 export interface PresenceCheckRow {

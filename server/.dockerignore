@@ -5,4 +5,3 @@ dist
 storage-data
 .env
 *.log
-db/legacy

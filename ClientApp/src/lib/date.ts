@@ -2,9 +2,10 @@
  *  NOTE: reads the DEVICE clock — this is ONLY the offline fallback for
  *  getServerNow when the server RPC is unreachable. Everywhere else, current
  *  date/time comes from the single app clock (src/lib/clock.ts). */
+import { APP_TIMEZONE } from './config';
 export function cairoDateLabel(): string {
   const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Africa/Cairo',
+    timeZone: APP_TIMEZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -17,7 +18,7 @@ export function cairoDateLabel(): string {
 export function formatTime(iso: string | null | undefined): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleTimeString('en-US', {
-    timeZone: 'Africa/Cairo',
+    timeZone: APP_TIMEZONE,
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
@@ -29,13 +30,13 @@ export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);
   const date = d.toLocaleDateString('en-GB', {
-    timeZone: 'Africa/Cairo',
+    timeZone: APP_TIMEZONE,
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   });
   const time = d.toLocaleTimeString('en-US', {
-    timeZone: 'Africa/Cairo',
+    timeZone: APP_TIMEZONE,
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
@@ -68,7 +69,7 @@ export function formatMonth(year: number, month: number, locale = 'ar-EG'): stri
     return new Intl.DateTimeFormat(locale, {
       month: 'long',
       year: 'numeric',
-      timeZone: 'Africa/Cairo',
+      timeZone: APP_TIMEZONE,
     }).format(new Date(Date.UTC(year, month - 1, 1)));
   } catch {
     return `${String(month).padStart(2, '0')}/${year}`;

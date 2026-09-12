@@ -17,7 +17,7 @@ import MemberPicker from '../../components/admin/MemberPicker';
 import SectionHeader from '../../components/ui/SectionHeader';
 import { getSettings } from '../../lib/api/settings';
 import { qk } from '../../lib/api/keys';
-import { BUCKETS, FACE, TOAST_MS } from '../../lib/config';
+import { FILE_KINDS, FACE, TOAST_MS } from '../../lib/config';
 import { captureFace } from '../../lib/face/camera';
 import { bestSimilarity, isModelReady } from '../../lib/face/face';
 import { signedUrl } from '../../lib/face/images';
@@ -70,7 +70,7 @@ export default function FaceTestPage() {
     queryFn: async () => {
       const rows = await listFacePhotos([member!.member_id]);
       const path = rows[0]?.photo_path;
-      return path ? await signedUrl(BUCKETS.faces, path) : null;
+      return path ? await signedUrl(FILE_KINDS.faces, path) : null;
     },
   });
 

@@ -1,18 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { GenericRepository } from '../../common/database/generic.repository.js';
-import { presenceChecks, presenceConfirmations, members, attendance, profiles, memberDepartments } from '../../db/schema/index.js';
+import { GenericRepository } from '../../infrastructure/database/generic.repository.js';
+import { presenceChecks, presenceConfirmations, members, attendance, profiles, memberDepartments } from '../../infrastructure/database/schema/index.js';
 import { eq, inArray, isNull, isNotNull, and, desc, asc, notExists, exists, gt, arrayContains } from 'drizzle-orm';
 import { PresenceStatus, PresenceDecision, CheckoutStatus } from '../../common/enums/index.js';
 
 import type { IPresenceRepository } from './interfaces/presence.interface.js';
 
 @Injectable()
-export class PresenceRepository extends GenericRepository<
-  typeof presenceChecks.$inferSelect,
-  string,
-  typeof presenceChecks.$inferInsert,
-  Partial<typeof presenceChecks.$inferInsert>
-> implements IPresenceRepository {
+export class PresenceRepository extends GenericRepository<typeof presenceChecks> implements IPresenceRepository {
   constructor() {
     super(presenceChecks, presenceChecks.id);
   }

@@ -1,10 +1,15 @@
 // Who someone is, and what that lets them do at the API layer.
 //
-// This is NOT the authorization model. That lives in the 47 RLS policies, which
-// decide which ROWS a request can see and is the only thing standing between a
-// member and another member's data. What is here is the coarser question the
-// API answers first — "is this endpoint for you at all?" — so a member never
-// reaches an admin handler and gets a confusing empty result instead of a 403.
+// This is only HALF the authorization model, and the coarser half: "is this
+// endpoint for you at all?", answered by the guards before a handler runs, so a
+// member never reaches an admin route and gets a confusing empty result instead
+// of a 403.
+//
+// WHICH ROWS a request may see is the other half, and it lives in
+// domain/access/scope.ts — an admin's assignments, applied per query. Neither
+// half substitutes for the other: role alone would let one admin read another
+// branch's members, and scope alone would let a member call an admin route and
+// receive an empty list rather than a refusal.
 //
 // Both layers matter. Skipping this one leaks the shape of the system; skipping
 // the policies leaks the data.
@@ -13,10 +18,12 @@
  * `public.role` is an enum of exactly these three.
  *
  * There is no 'manager', even though the admin UI still offers the tier and the
- * old create-staff Edge Function accepted it — inserting one always raised
+ * old create-staff endpoint accepted it — inserting one always raised
  * invalid_text_representation, so the feature never worked.
  */
 import { Role, ROLES, STAFF_ROLES } from '../../common/enums/index.js';
+import type { Caller } from './types.js';
+export type { Caller } from './types.js';
 export { Role, ROLES, STAFF_ROLES };
 
 export function isRole(value: unknown): value is Role {
@@ -26,13 +33,6 @@ export function isRole(value: unknown): value is Role {
 /** Staff run the admin dashboard; members are the people being recorded. */
 export function isStaff(role: Role): boolean {
   return STAFF_ROLES.includes(role);
-}
-
-/** The signed-in person, as every handler sees them. */
-export interface Caller {
-  id: string;
-  role: Role;
-  nationalId?: string;
 }
 
 /**
@@ -59,17 +59,6 @@ export function mayDeleteStaff(actor: Caller, targetId: string, targetRole: Role
   // Only plain admin accounts are deletable: a superadmin must be demoted
   // deliberately rather than removed in passing.
   return targetRole === Role.ADMIN;
-}
-
-/**
- * The forced first password change, where there is no old password to prove.
- *
- * GoTrue allowed this for any signed-in session, which meant a borrowed
- * unlocked phone could take over an account. It is gated on the one state where
- * the user provably has no password of their own yet.
- */
-export function mayChangePasswordWithoutCurrent(mustChangePassword: boolean): boolean {
-  return mustChangePassword;
 }
 
 /**

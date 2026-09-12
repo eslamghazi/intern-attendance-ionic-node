@@ -1,6 +1,6 @@
 {
-  "id": "0f831e45-30c6-425c-88c9-c38396f66399",
-  "prevId": "a34fd328-3e08-46da-b5e5-c92f6cc745b7",
+  "id": "f498b4e0-d87a-4dd1-9491-61b20e188555",
+  "prevId": "ddfe10dd-cbea-4225-a7a9-4ff4bff3f854",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -320,6 +320,20 @@
           "primaryKey": false,
           "notNull": true,
           "default": true
+        },
+        "store_probe_images": {
+          "name": "store_probe_images",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "capture_hold_seconds": {
+          "name": "capture_hold_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 3
         }
       },
       "indexes": {},
@@ -339,6 +353,106 @@
         "app_settings_liveness_mode_check": {
           "name": "app_settings_liveness_mode_check",
           "value": "liveness_mode = ANY (ARRAY['action'::text, 'turn'::text, 'both'::text])"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.attachments": {
+      "name": "attachments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "path": {
+          "name": "path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "subject_id": {
+          "name": "subject_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "byte_size": {
+          "name": "byte_size",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "content_type": {
+          "name": "content_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'application/octet-stream'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "attachments_owner_id_fkey": {
+          "name": "attachments_owner_id_fkey",
+          "tableFrom": "attachments",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "attachments_kind_path_key": {
+          "name": "attachments_kind_path_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "kind",
+            "path"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "attachments_kind_check": {
+          "name": "attachments_kind_check",
+          "value": "kind in ('faces', 'probes', 'avatars')"
         }
       },
       "isRLSEnabled": false
@@ -635,7 +749,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "attendance_checkout_status_check": {
+          "name": "attendance_checkout_status_check",
+          "value": "checkout_status is null or checkout_status in ('checked_out', 'early_leave', 'left_work')"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.audit_log": {
@@ -756,12 +875,6 @@
           "notNull": true,
           "default": 150
         },
-        "geom": {
-          "name": "geom",
-          "type": "geography(Point,4326)",
-          "primaryKey": false,
-          "notNull": false
-        },
         "is_active": {
           "name": "is_active",
           "type": "boolean",
@@ -802,12 +915,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "area": {
-          "name": "area",
-          "type": "geography(Point,4326)",
-          "primaryKey": false,
-          "notNull": false
-        },
         "qr_enabled": {
           "name": "qr_enabled",
           "type": "boolean",
@@ -837,27 +944,10 @@
           "default": false
         }
       },
-      "indexes": {
-        "hospitals_geom_idx": {
-          "name": "hospitals_geom_idx",
-          "columns": [
-            {
-              "expression": "geom",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "gist_geography_ops"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "gist",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
-        "hospitals_institution_id_fkey": {
-          "name": "hospitals_institution_id_fkey",
+        "branches_institution_id_fkey": {
+          "name": "branches_institution_id_fkey",
           "tableFrom": "branches",
           "tableTo": "institutions",
           "columnsFrom": [
@@ -874,83 +964,11 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "hospitals_radius_meters_check": {
-          "name": "hospitals_radius_meters_check",
+        "branches_radius_meters_check": {
+          "name": "branches_radius_meters_check",
           "value": "(radius_meters >= 20) AND (radius_meters <= 5000)"
         }
       },
-      "isRLSEnabled": false
-    },
-    "storage.buckets": {
-      "name": "buckets",
-      "schema": "storage",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "owner": {
-          "name": "owner",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "public": {
-          "name": "public",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "file_size_limit": {
-          "name": "file_size_limit",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "allowed_mime_types": {
-          "name": "allowed_mime_types",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "buckets_name_key": {
-          "name": "buckets_name_key",
-          "nullsNotDistinct": false,
-          "columns": [
-            "name"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.departments": {
@@ -1025,7 +1043,7 @@
         },
         "embedding": {
           "name": "embedding",
-          "type": "vector(512)",
+          "type": "real[]",
           "primaryKey": false,
           "notNull": true
         },
@@ -1177,8 +1195,8 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "batches_institution_id_fkey": {
-          "name": "batches_institution_id_fkey",
+        "groups_institution_id_fkey": {
+          "name": "groups_institution_id_fkey",
           "tableFrom": "groups",
           "tableTo": "institutions",
           "columnsFrom": [
@@ -1190,8 +1208,8 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "batches_hospital_id_fkey": {
-          "name": "batches_hospital_id_fkey",
+        "groups_branch_id_fkey": {
+          "name": "groups_branch_id_fkey",
           "tableFrom": "groups",
           "tableTo": "branches",
           "columnsFrom": [
@@ -1482,8 +1500,8 @@
         }
       },
       "indexes": {
-        "interns_batch_idx": {
-          "name": "interns_batch_idx",
+        "members_group_idx": {
+          "name": "members_group_idx",
           "columns": [
             {
               "expression": "group_id",
@@ -1497,8 +1515,8 @@
           "method": "btree",
           "with": {}
         },
-        "interns_hospital_idx": {
-          "name": "interns_hospital_idx",
+        "members_branch_idx": {
+          "name": "members_branch_idx",
           "columns": [
             {
               "expression": "branch_id",
@@ -1530,8 +1548,8 @@
         }
       },
       "foreignKeys": {
-        "interns_profile_id_fkey": {
-          "name": "interns_profile_id_fkey",
+        "members_profile_id_fkey": {
+          "name": "members_profile_id_fkey",
           "tableFrom": "members",
           "tableTo": "profiles",
           "columnsFrom": [
@@ -1543,8 +1561,8 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "interns_batch_id_fkey": {
-          "name": "interns_batch_id_fkey",
+        "members_group_id_fkey": {
+          "name": "members_group_id_fkey",
           "tableFrom": "members",
           "tableTo": "groups",
           "columnsFrom": [
@@ -1556,8 +1574,8 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "interns_hospital_id_fkey": {
-          "name": "interns_hospital_id_fkey",
+        "members_branch_id_fkey": {
+          "name": "members_branch_id_fkey",
           "tableFrom": "members",
           "tableTo": "branches",
           "columnsFrom": [
@@ -1572,133 +1590,11 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "interns_profile_id_key": {
-          "name": "interns_profile_id_key",
+        "members_profile_id_key": {
+          "name": "members_profile_id_key",
           "nullsNotDistinct": false,
           "columns": [
             "profile_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "storage.objects": {
-      "name": "objects",
-      "schema": "storage",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "bucket_id": {
-          "name": "bucket_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "owner": {
-          "name": "owner",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "metadata": {
-          "name": "metadata",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::jsonb"
-        },
-        "path_tokens": {
-          "name": "path_tokens",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": false,
-          "generated": {
-            "as": "string_to_array(name, '/'::text)",
-            "type": "stored"
-          }
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "last_accessed_at": {
-          "name": "last_accessed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "objects_bucket_name_idx": {
-          "name": "objects_bucket_name_idx",
-          "columns": [
-            {
-              "expression": "bucket_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "name",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "objects_bucket_id_fkey": {
-          "name": "objects_bucket_id_fkey",
-          "tableFrom": "objects",
-          "tableTo": "buckets",
-          "schemaTo": "storage",
-          "columnsFrom": [
-            "bucket_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "objects_bucket_id_name_key": {
-          "name": "objects_bucket_id_name_key",
-          "nullsNotDistinct": false,
-          "columns": [
-            "bucket_id",
-            "name"
           ]
         }
       },
@@ -2031,13 +1927,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "must_change_password": {
-          "name": "must_change_password",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
         "is_active": {
           "name": "is_active",
           "type": "boolean",
@@ -2255,6 +2144,143 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.refresh_tokens": {
+      "name": "refresh_tokens",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "profile_id": {
+          "name": "profile_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "family_id": {
+          "name": "family_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "issued_at": {
+          "name": "issued_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rotated_at": {
+          "name": "rotated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_agent": {
+          "name": "user_agent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "refresh_tokens_family_idx": {
+          "name": "refresh_tokens_family_idx",
+          "columns": [
+            {
+              "expression": "family_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "refresh_tokens_profile_idx": {
+          "name": "refresh_tokens_profile_idx",
+          "columns": [
+            {
+              "expression": "profile_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "refresh_tokens_expires_idx": {
+          "name": "refresh_tokens_expires_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "refresh_tokens_profile_id_fkey": {
+          "name": "refresh_tokens_profile_id_fkey",
+          "tableFrom": "refresh_tokens",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "profile_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "refresh_tokens_token_hash_key": {
+          "name": "refresh_tokens_token_hash_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token_hash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.roster_days": {
       "name": "roster_days",
       "schema": "",
@@ -2302,6 +2328,21 @@
               "asc": true,
               "nulls": "last"
             },
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "roster_days_date_idx": {
+          "name": "roster_days_date_idx",
+          "columns": [
             {
               "expression": "date",
               "isExpression": false,
@@ -2523,8 +2564,10 @@
         "check_out",
         "master_login",
         "staff_deleted",
+        "member_lookup_out_of_scope",
         "outside_window",
-        "checkout_blocked"
+        "checkout_blocked",
+        "server_error"
       ]
     },
     "public.enrollment_status": {
@@ -2545,10 +2588,7 @@
       ]
     }
   },
-  "schemas": {
-    "auth": "auth",
-    "storage": "storage"
-  },
+  "schemas": {},
   "sequences": {},
   "roles": {},
   "policies": {},

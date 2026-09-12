@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { GenericRepository } from '../../common/database/generic.repository.js';
-import { eq, sql, and, ne } from 'drizzle-orm';
-import { members, profiles } from '../../db/schema/index.js';
+import { GenericRepository } from '../../infrastructure/database/generic.repository.js';
+import { eq, and, ne } from 'drizzle-orm';
+import { members, profiles } from '../../infrastructure/database/schema/index.js';
 
 export interface ProfileEdit {
   fullName: string;
@@ -12,14 +12,10 @@ export interface ProfileEdit {
 }
 
 import type { IProfileRepository } from './interfaces/profile.interface.js';
+import type { ProfilePatch } from './profile.types.js';
 
 @Injectable()
-export class ProfileRepository extends GenericRepository<
-  typeof profiles.$inferSelect,
-  string,
-  typeof profiles.$inferInsert,
-  Partial<typeof profiles.$inferInsert>
-> implements IProfileRepository {
+export class ProfileRepository extends GenericRepository<typeof profiles> implements IProfileRepository {
   constructor() {
     super(profiles, profiles.id);
   }
@@ -29,13 +25,6 @@ export class ProfileRepository extends GenericRepository<
       .update(members)
       .set({ enrollmentStatus: 'enrolled' })
       .where(eq(members.profileId, profileId));
-  }
-
-  async markPasswordChanged(profileId: string): Promise<void> {
-    await this.db
-      .update(profiles)
-      .set({ mustChangePassword: false })
-      .where(eq(profiles.id, profileId));
   }
 
   async isNationalIdTaken(nationalId: string, excludeProfileId: string): Promise<boolean> {
@@ -48,7 +37,7 @@ export class ProfileRepository extends GenericRepository<
   }
 
   async updateOwnProfile(profileId: string, edit: ProfileEdit): Promise<void> {
-    const updateData: Record<string, unknown> = {};
+    const updateData: ProfilePatch = {};
     if (edit.fullName !== '') updateData.fullName = edit.fullName;
     updateData.phone = edit.phone === '' ? null : edit.phone;
     updateData.email = edit.email === '' ? null : edit.email;

@@ -1,25 +1,18 @@
 // Which credential opens which account.
 //
 // This used to live in two places at once: the client ran a three-step chain
-// (try member-login, fall back to GoTrue, fall back to master-login) and the
-// database ran verify_member_login() and verify_master_password() beneath it.
-// Neither half could see the other, so "the master password must not open a
-// superadmin" was enforced only by the order the client happened to try things
-// in — and a caller talking to the Edge Functions directly skipped it.
+// (try member-login, fall back to the staff auth service, fall back to
+// master-login) and the database ran verify_member_login() and
+// verify_master_password() beneath it. Neither half could see the other, so
+// "the master password must not open a superadmin" was enforced only by the
+// order the client happened to try things in — and a caller reaching the
+// backend directly skipped it.
 //
 // It is one rule, so it is written once, here, with no database and no bcrypt
 // in sight: the caller does the hashing and passes in two booleans.
 import { masterPasswordMayOpen, Role } from './role.js';
-
-export type LoginOutcome =
-  /** The account's own password. */
-  | 'own'
-  /** The admin-configured master password, on an account it may open. */
-  | 'master'
-  /** Neither matched. */
-  | 'refused'
-  /** The master password matched, but the target is a superadmin. */
-  | 'forbidden';
+import type { LoginOutcome } from './types.js';
+export type { LoginOutcome } from './types.js';
 
 /**
  * Precedence: the account's own password always wins, so a member who has set
@@ -41,11 +34,11 @@ export function resolveLogin(role: Role, ownOk: boolean, masterOk: boolean): Log
  * The password of an account that has never set one, or null if it has.
  *
  * A member is created from a roster upload with no password at all, and signs
- * in the first time with their national ID. That was the `password_hash is
- * null` branch of verify_member_login(): a plain string comparison, not a hash.
+ * in the first time with their national ID — so a null `password_hash` means
+ * "not set yet", and the comparison for that case is a plain string one.
  *
- * Staff have no such branch. GoTrue minted a hash when the account was created,
- * so a staff row with no hash is a broken row, not a new one — and letting it
+ * Staff have no such branch: a hash is minted when the account is created, so a
+ * staff row without one is a broken row rather than a new one — and letting it
  * fall through to "national ID works" would turn a data problem into a way in.
  */
 export function initialPassword(account: {

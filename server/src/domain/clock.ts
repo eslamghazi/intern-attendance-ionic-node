@@ -9,7 +9,10 @@
 // nothing here reads the host's local zone.
 import { formatInTimeZone } from 'date-fns-tz';
 
-export const CAIRO = 'Africa/Cairo';
+import { APP_TIMEZONE } from '../config/constants.js';
+
+/** Re-exported under the name the domain uses. See config/constants.ts. */
+export const CAIRO = APP_TIMEZONE;
 
 export interface CairoNow {
   /** yyyy-MM-dd */
@@ -31,6 +34,18 @@ export function cairoNow(at: Date = new Date()): CairoNow {
 /** 'yyyy-MM-dd' for an instant, in Cairo. */
 export function cairoDate(at: Date = new Date()): string {
   return formatInTimeZone(at, CAIRO, 'yyyy-MM-dd');
+}
+
+/**
+ * 'HH:mm' in Cairo for a stored timestamp, or '' when there is none.
+ *
+ * For reports, where a blank cell is the right way to say "did not check out" —
+ * a missing time must not become 'Invalid Date' or the epoch.
+ */
+export function cairoClock(at: string | Date | null | undefined): string {
+  if (!at) return '';
+  const d = at instanceof Date ? at : new Date(at);
+  return Number.isNaN(d.getTime()) ? '' : formatInTimeZone(d, CAIRO, 'HH:mm');
 }
 
 /** 'HH:mm:ss' for an instant, in Cairo. */

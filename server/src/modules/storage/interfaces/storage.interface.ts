@@ -1,6 +1,6 @@
 import type { Caller } from '../../../domain/identity/role.js';
-import type { JwtClaims } from '../../../db/context.js';
-import type { FileCategory } from '../../../infrastructure/storage/file-manager.service.js';
+import type { JwtClaims } from '../../../infrastructure/database/context.js';
+import type { FileKind } from '../../../infrastructure/storage/file-manager.service.js';
 
 import type { UploadObjectResponseDto } from '../dto/storage.dto.js';
 
@@ -8,12 +8,12 @@ export interface IStorageService {
   uploadObject(
     caller: Caller,
     claims: JwtClaims,
-    category: FileCategory,
+    kind: FileKind,
     path: string,
     bytes: Buffer,
     contentType: string,
   ): Promise<UploadObjectResponseDto>;
-  deleteObjects(category: FileCategory, paths: string[]): Promise<void>;
+  deleteObjects(kind: FileKind, paths: string[]): Promise<void>;
 }
 
 export interface IStorageRepository {

@@ -1,13 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { GenericRepository } from '../../common/database/generic.repository.js';
+import { GenericRepository } from '../../infrastructure/database/generic.repository.js';
 import { eq, inArray, asc } from 'drizzle-orm';
-import { profiles, adminAssignments, groups, branches } from '../../db/schema/index.js';
+import { profiles, adminAssignments, groups, branches } from '../../infrastructure/database/schema/index.js';
 import { STAFF_ROLES } from '../../common/enums/index.js';
 
 import type { IAdminsRepository } from './interfaces/admins.interface.js';
+import type { AdminPatch } from './admins.types.js';
 
 @Injectable()
-export class AdminsRepository extends GenericRepository<typeof profiles.$inferSelect, string, typeof profiles.$inferInsert, Partial<typeof profiles.$inferInsert>> implements IAdminsRepository {
+export class AdminsRepository extends GenericRepository<typeof profiles> implements IAdminsRepository {
   constructor() {
     super(profiles, profiles.id);
   }
@@ -51,7 +52,7 @@ export class AdminsRepository extends GenericRepository<typeof profiles.$inferSe
     }));
   }
 
-  async updateAdmin(id: string, patch: Record<string, unknown>) {
+  async updateAdmin(id: string, patch: AdminPatch) {
     const rows = await this.db
       .update(profiles)
       .set(patch)

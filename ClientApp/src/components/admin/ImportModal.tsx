@@ -38,21 +38,24 @@ const MODE_DESC: Record<ImportMode, { label: string; desc: string }> = {
 };
 
 /** Reusable import dialog: file -> options (conflict mode) -> preview -> apply. */
-export default function ImportModal({
+export default function ImportModal<TRow, TMeta>({
   isOpen,
   strategy,
   onClose,
   onApplied,
 }: {
   isOpen: boolean;
-  strategy: ImportStrategy | null;
+  // Generic, and never read: the modal drives the flow and hands the prepared
+  // rows straight back to the strategy that parsed them. What a row is stays
+  // the page's business.
+  strategy: ImportStrategy<TRow, TMeta> | null;
   onClose: () => void;
   onApplied?: (summary: ImportSummary) => void;
 }) {
   const { t } = useTranslation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>('choose');
-  const [prepared, setPrepared] = useState<ImportPrepared | null>(null);
+  const [prepared, setPrepared] = useState<ImportPrepared<TRow, TMeta> | null>(null);
   const [fileName, setFileName] = useState('');
   const [mode, setMode] = useState<ImportMode>('update');
   const [summary, setSummary] = useState<ImportSummary | null>(null);

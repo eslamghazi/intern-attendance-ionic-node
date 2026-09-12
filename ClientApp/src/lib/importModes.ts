@@ -20,9 +20,17 @@ export interface ImportRowPreview {
   error?: string;
 }
 
-export interface ImportPrepared {
+/**
+ * A parsed sheet, ready to apply.
+ *
+ * Generic in the row, because only the page that parsed the file knows what a
+ * row is — members and roster days share this modal and nothing else. Typed as
+ * `unknown[]` it was the pages that paid: every `isExisting` began by casting
+ * its argument back to the type it had just produced.
+ */
+export interface ImportPrepared<TRow, TMeta = never> {
   /** Valid rows ready to apply (already filtered of invalid/unmatched rows). */
-  rows: unknown[];
+  rows: TRow[];
   /** Every parsed row with its resolved status + error, for the preview table. */
   preview: ImportRowPreview[];
   /** How many valid rows already exist in the DB. */
@@ -36,9 +44,9 @@ export interface ImportPrepared {
   /** Human-readable notes, e.g. "3 row(s) skipped: unknown branch". */
   notes: string[];
   /** Whether a given row already exists (drives skip/fail filtering). */
-  isExisting: (row: unknown) => boolean;
+  isExisting: (row: TRow) => boolean;
   /** Strategy-specific extra payload carried from prepare() to apply(). */
-  meta?: unknown;
+  meta?: TMeta;
 }
 
 export interface ImportSummary {
@@ -48,7 +56,7 @@ export interface ImportSummary {
   failed: number;
 }
 
-export interface ImportStrategy {
+export interface ImportStrategy<TRow, TMeta = never> {
   /** i18n key for the modal title. */
   titleKey: string;
   accept: string;
@@ -58,8 +66,8 @@ export interface ImportStrategy {
   modes: ImportMode[];
   defaultMode: ImportMode;
   downloadTemplate?: () => void | Promise<void>;
-  prepare: (file: File) => Promise<ImportPrepared>;
-  apply: (prepared: ImportPrepared, mode: ImportMode) => Promise<ImportSummary>;
+  prepare: (file: File) => Promise<ImportPrepared<TRow, TMeta>>;
+  apply: (prepared: ImportPrepared<TRow, TMeta>, mode: ImportMode) => Promise<ImportSummary>;
 }
 
 export interface ModeCounts {
@@ -74,7 +82,7 @@ export interface ModeCounts {
 }
 
 /** Project the prepared rows into the counts a given mode would produce. */
-export function countFor(p: ImportPrepared, mode: ImportMode): ModeCounts {
+export function countFor<TRow, TMeta>(p: ImportPrepared<TRow, TMeta>, mode: ImportMode): ModeCounts {
   return {
     create: p.fresh,
     update: mode === 'update' ? p.existing : 0,

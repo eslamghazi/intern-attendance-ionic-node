@@ -1,4 +1,4 @@
-import type { JwtClaims } from '../db/context.js';
+import type { JwtClaims } from '../infrastructure/database/context.js';
 import { Role } from './enums/index.js';
 
 /** The signed-in person, as every handler sees them. Matches domain/identity/role.ts Caller exactly. */

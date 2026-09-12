@@ -27,6 +27,9 @@ COPY server/package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=server-build /app/server/dist ./dist
+# The API applies its own pending migrations at start-up (MigrationService), so
+# this image needs the .sql files and the runner, not just the compiled app.
+COPY server/db ./db
 COPY server/scripts ./scripts
 COPY --from=client-build /app/ClientApp/dist ./public
 

@@ -1,13 +1,15 @@
 // Authentication against the Node API.
 //
-// The old flow made three network calls in sequence: member-login, then GoTrue
-// signInWithPassword, then master-login. All three checks are server-side
-// facts, so they are now one request with the same precedence.
+// ONE request for sign-in, whichever credential is used. Which credential wins
+// when more than one would match is a server-side rule, written down in
+// server/src/domain/identity/credentials.ts — deciding it here, by the order the
+// client happens to try things in, would make the precedence an accident of
+// client code that no test covers.
 //
 // Sign-in returns a PAIR: a short-lived access JWT and a refresh token. The
-// access token used to last 30 days on its own, which meant a session could not
-// be ended — signing out deleted the client's copy and nothing else, and a
-// token lifted off a phone stayed valid for a month.
+// pairing is what makes signing out real — the server revokes the refresh token,
+// so the session ends at the next renewal rather than merely being forgotten by
+// this device.
 //
 // Everything that mints a new pair stores it here, so callers keep their
 // existing shape and none of them has to know about tokens.
@@ -22,7 +24,6 @@ export interface LoginResult {
   expires_in: number;
   token_type: 'Bearer';
   role: Role;
-  must_change_password: boolean;
   profile: { id: string; full_name: string };
 }
 
@@ -82,16 +83,6 @@ export async function changePassword(current: string, next: string): Promise<voi
   const pair = await apiFetch<TokenPair>('/auth/password', {
     method: 'POST',
     body: { current, new: next },
-  });
-  await setSession(pair);
-}
-
-/** The forced first change, where there is no old password to prove. Accepted
- *  only while the account is flagged must_change_password. */
-export async function setInitialPassword(next: string): Promise<void> {
-  const pair = await apiFetch<TokenPair>('/auth/password/initial', {
-    method: 'POST',
-    body: { new: next },
   });
   await setSession(pair);
 }

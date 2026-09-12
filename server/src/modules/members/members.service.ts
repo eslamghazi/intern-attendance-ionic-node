@@ -1,13 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { UnitOfWorkService } from '../../common/database/unit-of-work.service.js';
+import { UnitOfWorkService } from '../../infrastructure/database/unit-of-work.service.js';
 import { MembersRepository, MemberInput, ItemResult, DirectoryRow, MemberPageItem } from './members.repository.js';
 import type { Caller } from '../../common/types.js';
 import { coversUnit } from '../../domain/access/scope.js';
-import type { JwtClaims } from '../../db/context.js';
+import { scopeOf } from '../../common/auth/access.service.js';
+import { AuditEvent } from '../../common/enums/index.js';
+import { AuditService } from '../audit/audit.service.js';
+import type { JwtClaims } from '../../infrastructure/database/context.js';
 import { type MemberFilters } from '../../domain/member/filter.js';
-import { BaseService } from '../../common/database/base.service.js';
-import { members } from '../../db/schema/index.js';
+import { BaseService } from '../../infrastructure/database/base.service.js';
+import { members } from '../../infrastructure/database/schema/index.js';
 import { MemberDto } from './dto/member.dto.js';
+import type { UpdateMemberDto } from './dto/member.dto.js';
+import type { LookupResult, MemberFieldPatch } from './members.types.js';
 import { MembersMapper } from './members.mapper.js';
 
 function toMemberRow(r: DirectoryRow) {
@@ -38,32 +43,14 @@ function toMemberRow(r: DirectoryRow) {
   };
 }
 
-const MEMBER_COLUMNS = [
-  'group_id',
-  'branch_id',
-  'is_active',
-  'bypass_face',
-  'bypass_location',
-  'bypass_checkout_window',
-  'frozen_at',
-  'can_generate_qr',
-  'can_make_roster',
-  'can_reset_face',
-] as const;
-
 import type { IMembersService } from './interfaces/members.interface.js';
 
 @Injectable()
-export class MembersService extends BaseService<
-  typeof members.$inferSelect,
-  string,
-  typeof members.$inferInsert,
-  Partial<typeof members.$inferInsert>,
-  MemberDto
-> implements IMembersService {
+export class MembersService extends BaseService<typeof members, MemberDto> implements IMembersService {
   constructor(
     uow: UnitOfWorkService,
     repo: MembersRepository,
+    private readonly audit: AuditService,
   ) {
     super(uow, repo);
   }
@@ -76,7 +63,7 @@ export class MembersService extends BaseService<
     const { scopeOf } = await import('../../common/auth/access.service.js');
     
     // Explicitly type scope as any or the correct type to avoid TS2345
-    const scope: any = await this.uow.asService(async () => scopeOf((this.repo as any).db, caller));
+    const scope: any = await this.uow.transaction(async () => scopeOf((this.repo as any).db, caller));
 
     const results: ItemResult[] = [];
     for (const item of items) {
@@ -91,7 +78,7 @@ export class MembersService extends BaseService<
 
       try {
         results.push(
-          await this.uow.asService(async () => {
+          await this.uow.transaction(async () => {
             return (this.repo as MembersRepository).upsertMember(caller.id, item);
           }),
         );
@@ -112,72 +99,107 @@ export class MembersService extends BaseService<
     };
   }
 
-  async getNationalIds(claims: JwtClaims) {
-    return this.uow.asCaller(claims, async () => {
+  async getNationalIds() {
+    return this.uow.transaction(async () => {
       return (this.repo as MembersRepository).getNationalIds();
     });
   }
 
-  async getMembers(claims: JwtClaims, filters: MemberFilters, pageSize: number, offset: number) {
-    return this.uow.asCaller(claims, async () => {
-      const rows = await (this.repo as MembersRepository).getMembersDirectory(filters, pageSize, offset);
-      return {
-        rows: rows.map(toMemberRow),
-        total: rows.length ? Number(rows[0]!.total) : 0,
-      };
+  async getMembers(filters: MemberFilters, pageSize: number, offset: number) {
+    return this.uow.transaction(async () => {
+      const { rows, total } = await (this.repo as MembersRepository).getMembersDirectory(filters, pageSize, offset);
+      return { rows: rows.map(toMemberRow), total };
     });
   }
 
-  async getMembersPage(claims: JwtClaims, filters: MemberFilters, pageSize: number, offset: number) {
-    return this.uow.asCaller(claims, async () => {
-      const rows = await (this.repo as MembersRepository).getMembersPage(filters, pageSize, offset);
-      return {
-        items: rows.map(({ total: _total, ...item }) => item),
-        total: rows.length ? Number(rows[0]!.total) : 0,
-      };
+  /** Every member the filters match — the rows an export is built from. */
+  /**
+   * Find one member by their code or national id — ANY member, faculty-wide.
+   *
+   * THE ONE DELIBERATE HOLE IN THE BRANCH SCOPE, and it is a hole on purpose.
+   * A student turns up at the wrong hospital, or a supervisor needs to confirm
+   * who is standing in front of them; refusing because the member belongs to
+   * another branch would make the system wrong about the situation it exists to
+   * record.
+   *
+   * What keeps it from being a way around the scope:
+   *
+   *   * it answers ONE member, never a list — there is nothing to page through;
+   *   * the match is EXACT, so the caller already knew the identifier;
+   *   * a lookup outside the caller's own assignments is AUDITED, with who
+   *     looked up whom. The act is allowed and recorded, which is what makes it
+   *     different from the browsing the scope refuses.
+   */
+  async lookup(caller: Caller, identifier: string): Promise<LookupResult> {
+    return this.uow.transaction(async (tx) => {
+      const row = await (this.repo as MembersRepository).findByIdentifier(identifier);
+      if (!row) return { found: false as const };
+
+      const scope = await scopeOf(tx, caller);
+      const inScope =
+        scope.kind === 'all' ||
+        (scope.kind !== 'none' &&
+          coversUnit(scope, { branchId: row.branch_id ?? null, groupId: row.group_id ?? null }));
+
+      if (!inScope) {
+        await this.audit.record(caller.id, AuditEvent.MEMBER_LOOKUP_OUT_OF_SCOPE, {
+          member_id: row.member_id,
+          member_code: row.member_code,
+          branch_id: row.branch_id,
+          group_id: row.group_id,
+        });
+      }
+
+      return { found: true as const, in_scope: inScope, member: row };
     });
   }
 
-  async getFlagStats(claims: JwtClaims, filters: MemberFilters) {
-    return this.uow.asCaller(claims, async () => {
+  async getMembersForExport(filters: MemberFilters) {
+    return this.uow.transaction(async () =>
+      (this.repo as MembersRepository).getMembersForExport(filters),
+    );
+  }
+
+  async getMembersPage(filters: MemberFilters, pageSize: number, offset: number) {
+    return this.uow.transaction(async () => {
+      return (this.repo as MembersRepository).getMembersPage(filters, pageSize, offset);
+    });
+  }
+
+  async getFlagStats(filters: MemberFilters) {
+    return this.uow.transaction(async () => {
       return (this.repo as MembersRepository).getFlagStats(filters);
     });
   }
 
-  async getCountActive(claims: JwtClaims) {
-    return this.uow.asCaller(claims, async () => {
+  async getCountActive() {
+    return this.uow.transaction(async () => {
       return (this.repo as MembersRepository).getCountActive();
     });
   }
 
-  async getByProfile(claims: JwtClaims, profileId: string) {
-    return this.uow.asCaller(claims, async () => {
+  async getByProfile(profileId: string) {
+    return this.uow.transaction(async () => {
       const id = await (this.repo as MembersRepository).getMemberIdByProfileId(profileId);
       return { id };
     });
   }
 
-  async updateMember(claims: JwtClaims, id: string, b: any) {
-    return this.uow.asCaller(claims, async () => {
-      const profileSet: Record<string, unknown> = {
-        full_name: b.full_name,
-        national_id: b.national_id,
-        phone: b.phone || null,
-        email: b.email || null,
-      };
-      if (b.avatar_url !== undefined) profileSet.avatar_url = b.avatar_url;
-      await (this.repo as MembersRepository).updateColumns('profiles', b.profile_id, profileSet);
+  async updateMember(id: string, b: UpdateMemberDto) {
+    return this.uow.transaction(async () => {
+      const repo = this.repo as MembersRepository;
 
-      const memberSet: Record<string, unknown> = {};
-      for (const k of MEMBER_COLUMNS) if (b[k] !== undefined) memberSet[k] = b[k];
-      if (Object.keys(memberSet).length) await (this.repo as MembersRepository).updateColumns('members', id, memberSet);
+      await repo.updateColumns('profiles', b.profile_id, MembersMapper.toProfilePatch(b));
+
+      const memberSet = MembersMapper.toMemberPatch(b);
+      if (Object.keys(memberSet).length) await repo.updateColumns('members', id, memberSet);
 
       return { ok: true };
     });
   }
 
-  async deleteByProfile(caller: Caller, claims: JwtClaims, profileId: string) {
-    return this.uow.asCaller(claims, async () => {
+  async deleteByProfile(caller: Caller, profileId: string) {
+    return this.uow.transaction(async () => {
       const memberId = await (this.repo as MembersRepository).getMemberIdByProfileId(profileId);
       if (memberId) {
         const { requireMember } = await import('../../common/auth/access.service.js');
@@ -187,14 +209,20 @@ export class MembersService extends BaseService<
     });
   }
 
-  async bulkUpdate(claims: JwtClaims, filters: MemberFilters, patch: Record<string, unknown>) {
-    return this.uow.asCaller(claims, async () => {
-      return (this.repo as MembersRepository).bulkUpdateMembers(filters, patch);
+  /**
+   * Translate once, here — so no controller has to know a schema name, and no
+   * snake_case key can reach Drizzle to be quietly discarded.
+   */
+  async bulkUpdate(filters: MemberFilters, patch: MemberFieldPatch) {
+    const columns = MembersMapper.toMemberPatch(patch);
+    if (!Object.keys(columns).length) return { affected: 0 };
+    return this.uow.transaction(async () => {
+      return (this.repo as MembersRepository).bulkUpdateMembers(filters, columns);
     });
   }
 
-  async bulkDelete(claims: JwtClaims, filters: MemberFilters) {
-    return this.uow.asCaller(claims, async () => {
+  async bulkDelete(filters: MemberFilters) {
+    return this.uow.transaction(async () => {
       return (this.repo as MembersRepository).bulkDeleteProfiles(filters);
     });
   }

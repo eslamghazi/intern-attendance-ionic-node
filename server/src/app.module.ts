@@ -5,6 +5,7 @@ import { ApiExceptionFilter } from './common/filters/api-exception.filter.js';
 import { AuthGuard } from './common/guards/auth.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 
+import { AuditModule } from './modules/audit/audit.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { TimeModule } from './modules/time/time.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
@@ -21,8 +22,9 @@ import { PresenceModule } from './modules/presence/presence.module.js';
 import { AttendanceModule } from './modules/attendance/attendance.module.js';
 import { RosterModule } from './modules/roster/roster.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
-import { DatabaseModule } from './common/database/database.module.js';
+import { DatabaseModule } from './infrastructure/database/database.module.js';
 import { FileManagerModule } from './infrastructure/storage/file-manager.module.js';
+import { SchedulerModule } from './infrastructure/scheduler/scheduler.module.js';
 import { I18nModule } from './common/i18n/i18n.module.js';
 
 @Module({
@@ -30,6 +32,7 @@ import { I18nModule } from './common/i18n/i18n.module.js';
     I18nModule,
     FileManagerModule,
     DatabaseModule,
+    AuditModule,
 
     HealthModule,
     TimeModule,
@@ -47,6 +50,9 @@ import { I18nModule } from './common/i18n/i18n.module.js';
     AttendanceModule,
     RosterModule,
     ReportsModule,
+
+    // Last: it depends on the modules above and starts timers at bootstrap.
+    SchedulerModule,
   ],
   providers: [
     {

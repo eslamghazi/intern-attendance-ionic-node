@@ -1,14 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { UnitOfWorkService } from '../../common/database/unit-of-work.service.js';
+import { UnitOfWorkService } from '../../infrastructure/database/unit-of-work.service.js';
 import { SettingsRepository } from './settings.repository.js';
-import type { JwtClaims } from '../../db/context.js';
-import { badRequest } from '../../http/errors.js';
-import { appSettings } from '../../db/schema/index.js';
+import type { JwtClaims } from '../../infrastructure/database/context.js';
+import { badRequest } from '../../common/errors.js';
+import { appSettings } from '../../infrastructure/database/schema/index.js';
 import { SettingsMapper } from './settings.mapper.js';
 import { BrandingResponseDto } from './dto/settings.dto.js';
 import type { SettingsResponseDto, UpdateSettingsDto } from './dto/settings.dto.js';
 
 import type { ISettingsService } from './interfaces/settings.interface.js';
+import type { SettingsPatch } from './settings.types.js';
 
 @Injectable()
 export class SettingsService implements ISettingsService {
@@ -17,8 +18,8 @@ export class SettingsService implements ISettingsService {
     private readonly repo: SettingsRepository,
   ) {}
 
-  async getSettings(claims: JwtClaims | null): Promise<SettingsResponseDto | null> {
-    return this.uow.asCaller(claims, async () => {
+  async getSettings(): Promise<SettingsResponseDto | null> {
+    return this.uow.transaction(async () => {
       const row = await this.repo.getSettings();
       return SettingsMapper.toResponseDto(row);
     });
@@ -26,7 +27,7 @@ export class SettingsService implements ISettingsService {
 
   async getBranding(): Promise<BrandingResponseDto | null> {
     try {
-      return await this.uow.asService(async () => {
+      return await this.uow.transaction(async () => {
         const row = await this.repo.getBranding();
         const dto = SettingsMapper.toBrandingDto(row);
         if (dto) {
@@ -54,8 +55,11 @@ export class SettingsService implements ISettingsService {
     return dto;
   }
 
-  async updateSettings(claims: JwtClaims, dto: UpdateSettingsDto): Promise<{ ok: true }> {
-    const snakeToCamel: Record<string, keyof typeof appSettings.$inferInsert> = {
+  async updateSettings(dto: UpdateSettingsDto): Promise<{ ok: true }> {
+    // Every field of the DTO must appear here: `Record<keyof UpdateSettingsDto>`
+    // makes a forgotten setting a build failure rather than one that silently
+    // never saves.
+    const snakeToCamel: Record<keyof UpdateSettingsDto, keyof SettingsPatch> = {
       face_match_threshold: 'faceMatchThreshold',
       liveness_required: 'livenessRequired',
       liveness_mode: 'livenessMode',
@@ -86,16 +90,17 @@ export class SettingsService implements ISettingsService {
       checkin_method: 'checkinMethod',
     };
 
-    const updateObj: Record<string, unknown> = {};
-    for (const [key, val] of Object.entries(dto)) {
-      const camelKey = snakeToCamel[key] ?? key;
-      if (val !== undefined) {
-        updateObj[camelKey] = val;
-      }
+    // Driven by the map, not by the body: a key the map does not know is not a
+    // column, and Drizzle would drop it from the statement without a word — so
+    // an unmapped setting would report saved and change nothing.
+    const updateObj: SettingsPatch = {};
+    for (const field of Object.keys(snakeToCamel) as (keyof UpdateSettingsDto)[]) {
+      const value = dto[field];
+      if (value !== undefined) Object.assign(updateObj, { [snakeToCamel[field]]: value });
     }
     if (!Object.keys(updateObj).length) throw badRequest('empty', 'nothing to update');
 
-    return this.uow.asCaller(claims, async () => {
+    return this.uow.transaction(async () => {
       await this.repo.updateSettings(updateObj);
       return { ok: true };
     });

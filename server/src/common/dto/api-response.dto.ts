@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import type { JsonObject, JsonValue } from '../json.types.js';
 
 export class ApiResponse<T> {
   @ApiProperty({ example: true })
@@ -14,11 +15,11 @@ export class ApiResponse<T> {
   message_ar?: string;
 
   @ApiPropertyOptional({ description: 'Optional metadata' })
-  meta?: Record<string, unknown>;
+  meta?: JsonObject;
 
   constructor(
     data: T,
-    meta?: Record<string, unknown>,
+    meta?: JsonObject,
     messages?: { message?: string; message_ar?: string },
   ) {
     this.ok = true;
@@ -46,12 +47,12 @@ export class PaginatedResponse<T> {
   message_ar?: string;
 
   @ApiPropertyOptional({ description: 'Optional pagination metadata' })
-  meta?: Record<string, unknown>;
+  meta?: JsonObject;
 
   constructor(
     data: T[],
     total: number,
-    meta?: Record<string, unknown>,
+    meta?: JsonObject,
     messages?: { message?: string; message_ar?: string },
   ) {
     this.ok = true;
@@ -74,7 +75,7 @@ export class ApiErrorDetail {
   message_ar?: string;
 
   @ApiPropertyOptional({ description: 'Detailed validation or domain errors' })
-  details?: unknown;
+  details?: JsonValue;
 
   @ApiPropertyOptional({ description: 'Postgres SQL state and table info if applicable' })
   pg?: { code?: string; table?: string };
@@ -82,7 +83,7 @@ export class ApiErrorDetail {
   constructor(
     code: string = 'internal_error',
     message: string = 'Internal error',
-    details?: unknown,
+    details?: JsonValue,
     pg?: { code?: string; table?: string },
     message_ar?: string,
   ) {
@@ -102,11 +103,11 @@ export class ApiErrorResponse {
   error: ApiErrorDetail;
 
   constructor(error: ApiErrorDetail);
-  constructor(code: string, message: string, details?: unknown, pg?: { code?: string; table?: string }, message_ar?: string);
+  constructor(code: string, message: string, details?: JsonValue, pg?: { code?: string; table?: string }, message_ar?: string);
   constructor(
     arg1: ApiErrorDetail | string,
     arg2?: string,
-    details?: unknown,
+    details?: JsonValue,
     pg?: { code?: string; table?: string },
     message_ar?: string,
   ) {

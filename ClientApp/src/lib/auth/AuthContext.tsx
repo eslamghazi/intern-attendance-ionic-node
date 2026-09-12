@@ -29,7 +29,6 @@ interface AuthState {
   profile: Profile | null;
   member: Member | null;
   role: Role | null;
-  mustChangePassword: boolean;
   isEnrolled: boolean;
 }
 
@@ -47,7 +46,6 @@ const EMPTY: AuthState = {
   profile: null,
   member: null,
   role: null,
-  mustChangePassword: false,
   isEnrolled: false,
 };
 
@@ -77,7 +75,6 @@ async function loadBundle(): Promise<Partial<AuthState>> {
     profile: bundle.profile,
     member: bundle.member,
     role: bundle.profile.role,
-    mustChangePassword: bundle.profile.must_change_password,
     isEnrolled: bundle.is_enrolled,
   };
 }
@@ -94,7 +91,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile: bundle.profile ?? null,
       member: bundle.member ?? null,
       role: bundle.role ?? null,
-      mustChangePassword: bundle.mustChangePassword ?? false,
       isEnrolled: bundle.isEnrolled ?? false,
     });
   };

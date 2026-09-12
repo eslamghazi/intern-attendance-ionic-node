@@ -1,33 +1,22 @@
 import { Injectable } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
-import { UnitOfWorkService } from '../../common/database/unit-of-work.service.js';
+import { UnitOfWorkService } from '../../infrastructure/database/unit-of-work.service.js';
 import { AuthRepository, Account, StoredToken } from './auth.repository.js';
 import { classifyRefresh, expiresInSeconds, expiryFrom } from '../../domain/auth/refresh.js';
 import { initialPassword, resolveLogin } from '../../domain/identity/credentials.js';
 import {
   mayDeleteStaff,
   mayResetPasswordOf,
-  mayChangePasswordWithoutCurrent,
   type Caller,
 } from '../../domain/identity/role.js';
 import { Role, AuditEvent } from '../../common/enums/index.js';
 import { parseNationalId } from '../../domain/identity/nationalId.js';
 import { signProfileJwt } from '../../common/auth/jwt.js';
-import { env } from '../../env.js';
-import { badRequest, conflict, forbidden, notFound, unauthorized } from '../../http/errors.js';
+import { env } from '../../config/env.js';
+import { badRequest, conflict, forbidden, notFound, unauthorized } from '../../common/errors.js';
 
-const BCRYPT_COST = 10;
-
-export interface LoginResult {
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-  token_type: 'Bearer';
-  role: Role;
-  must_change_password: boolean;
-  profile: { id: string; full_name: string };
-}
+import { BCRYPT_COST } from '../../config/constants.js';
 
 class MasterPasswordRefused extends Error {
   constructor(readonly profileId: string, readonly role: Role) {
@@ -35,21 +24,10 @@ class MasterPasswordRefused extends Error {
   }
 }
 
-interface RefreshRefusal {
-  revokeFamilyId: string | null;
-  auditProfileId: string | null;
-}
-
-export interface NewStaff {
-  national_id: string;
-  full_name: string;
-  phone?: string | null;
-  password?: string;
-  role: Role;
-  assignments: { group_id?: string | null; branch_id?: string | null }[];
-}
-
 import type { IAuthService } from './interfaces/auth.interface.js';
+import { AuthMapper } from './auth.mapper.js';
+import type { LoginResult, MeResponse, NewStaff, RefreshRefusal } from './auth.types.js';
+export type { LoginResult, MeResponse, NewStaff, RefreshRefusal } from './auth.types.js';
 
 @Injectable()
 export class AuthService implements IAuthService {
@@ -57,7 +35,6 @@ export class AuthService implements IAuthService {
     private readonly uow: UnitOfWorkService,
     private readonly repo: AuthRepository,
   ) {}
-
 
   private mintRefreshToken(): string {
     return randomBytes(32).toString('base64url');
@@ -115,7 +92,7 @@ export class AuthService implements IAuthService {
       return await this.loginInTransaction(nationalId, password, userAgent);
     } catch (err) {
       if (err instanceof MasterPasswordRefused) {
-        await this.uow.asService(() =>
+        await this.uow.transaction(() =>
           this.repo.audit(err.profileId, AuditEvent.MASTER_LOGIN, { role: err.role, refused: true }),
         );
         throw forbidden('forbidden');
@@ -129,7 +106,7 @@ export class AuthService implements IAuthService {
     password: string,
     userAgent: string | null,
   ): Promise<LoginResult> {
-    return this.uow.asService(async () => {
+    return this.uow.transaction(async () => {
       const account = await this.repo.findAccountByNationalId(nationalId);
       if (!account || !account.isActive) throw notFound('not_found');
 
@@ -152,28 +129,26 @@ export class AuthService implements IAuthService {
         expires_in: pair.expiresIn,
         token_type: 'Bearer',
         role: account.role,
-        must_change_password: account.mustChangePassword,
         profile: { id: account.id, full_name: account.fullName },
       };
     });
   }
 
-  async getMe(caller: Caller) {
-    return this.uow.asCaller(null, async () => {
+  async getMe(caller: Caller): Promise<MeResponse> {
+    return this.uow.transaction(async () => {
       const profile = await this.repo.getProfile(caller.id);
       if (!profile) return { profile: null, member: null, is_enrolled: false };
 
-      if (caller.role !== Role.MEMBER) {
-        return { profile, member: null, is_enrolled: false };
-      }
+      // Staff belong to no branch or group, so there is no placement to read.
+      if (caller.role !== Role.MEMBER) return AuthMapper.toMeResponse(profile, null);
 
       const member = await this.repo.getMemberProfile(caller.id);
-      return { profile, member: member ?? null, is_enrolled: Boolean(member?.is_enrolled) };
+      return AuthMapper.toMeResponse(profile, member ?? null);
     });
   }
 
   async refresh(presented: string, userAgent: string | null): Promise<LoginResult> {
-    const outcome = await this.uow.asService<{ ok: true; value: LoginResult } | { ok: false; refusal: RefreshRefusal }>(
+    const outcome = await this.uow.transaction<{ ok: true; value: LoginResult } | { ok: false; refusal: RefreshRefusal }>(
       async () => {
         const stored = await this.repo.findTokenByHash(this.hashRefreshToken(presented));
         const verdict = classifyRefresh(stored, new Date());
@@ -215,7 +190,6 @@ export class AuthService implements IAuthService {
             expires_in: pair.expiresIn,
             token_type: 'Bearer',
             role: account.role,
-            must_change_password: account.mustChangePassword,
             profile: { id: account.id, full_name: account.fullName },
           },
         };
@@ -226,7 +200,7 @@ export class AuthService implements IAuthService {
 
     const { revokeFamilyId, auditProfileId } = outcome.refusal;
     if (revokeFamilyId) {
-      await this.uow.asService(async () => {
+      await this.uow.transaction(async () => {
         await this.repo.revokeFamily(revokeFamilyId);
         if (auditProfileId) {
           await this.repo.audit(auditProfileId, AuditEvent.LOGIN, {
@@ -241,14 +215,14 @@ export class AuthService implements IAuthService {
 
   async logout(presented: string | null): Promise<void> {
     if (!presented) return;
-    return this.uow.asService(async () => {
+    return this.uow.transaction(async () => {
       const stored = await this.repo.findTokenByHash(this.hashRefreshToken(presented));
       if (stored) await this.repo.revokeFamily(stored.familyId);
     });
   }
 
   async logoutEverywhere(caller: Caller): Promise<{ revoked: number }> {
-    return this.uow.asService(async () => ({
+    return this.uow.transaction(async () => ({
       revoked: await this.repo.revokeAllForProfile(caller.id),
     }));
   }
@@ -259,36 +233,12 @@ export class AuthService implements IAuthService {
     next: string,
     userAgent: string | null = null,
   ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
-    return this.uow.asService(async () => {
+    return this.uow.transaction(async () => {
       const account = await this.repo.findAccountById(caller.id);
       if (!account) throw notFound();
       if (!(await this.passwordOpens(account, current))) throw unauthorized('wrong_current');
       
-      await this.repo.storePasswordHash(account.id, await this.hash(next), false);
-      await this.repo.revokeAllForProfile(account.id);
-      
-      const pair = await this.issuePair(account, randomUUID(), userAgent);
-      return {
-        access_token: pair.accessToken,
-        refresh_token: pair.refreshToken,
-        expires_in: pair.expiresIn,
-      };
-    });
-  }
-
-  async setInitialPassword(
-    caller: Caller,
-    next: string,
-    userAgent: string | null = null,
-  ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
-    return this.uow.asService(async () => {
-      const account = await this.repo.findAccountById(caller.id);
-      if (!account) throw notFound();
-      if (!mayChangePasswordWithoutCurrent(account.mustChangePassword)) {
-        throw forbidden('use /auth/password: this account already has a password');
-      }
-      
-      await this.repo.storePasswordHash(account.id, await this.hash(next), false);
+      await this.repo.storePasswordHash(account.id, await this.hash(next));
       await this.repo.revokeAllForProfile(account.id);
       
       const pair = await this.issuePair(account, randomUUID(), userAgent);
@@ -304,7 +254,7 @@ export class AuthService implements IAuthService {
     actor: Caller,
     target: { profileId?: string; nationalId?: string; expect?: 'member' | 'staff'; password?: string },
   ): Promise<{ password: string }> {
-    return this.uow.asService(async () => {
+    return this.uow.transaction(async () => {
       const account = target.profileId
         ? await this.repo.findAccountById(target.profileId)
         : await this.repo.findAccountByNationalId(target.nationalId!);
@@ -319,7 +269,7 @@ export class AuthService implements IAuthService {
       if (!mayResetPasswordOf(actor.role, account.role)) throw forbidden();
 
       const password = this.defaultPassword(account, target.password);
-      await this.repo.storePasswordHash(account.id, await this.hash(password), true);
+      await this.repo.storePasswordHash(account.id, await this.hash(password));
       await this.repo.revokeAllForProfile(account.id);
       await this.repo.audit(actor.id, AuditEvent.PASSWORD_CHANGED, {
         reset_for: account.id,
@@ -338,7 +288,7 @@ export class AuthService implements IAuthService {
     const password = input.password || parsed.dobPassword!;
     const passwordHash = await this.hash(password);
 
-    const id = await this.uow.asService(async () => {
+    const id = await this.uow.transaction(async () => {
       if (await this.repo.findAccountByNationalId(input.national_id)) {
         throw conflict('duplicate', 'national id already in use');
       }
@@ -356,7 +306,7 @@ export class AuthService implements IAuthService {
   }
 
   async deleteStaff(actor: Caller, id: string): Promise<void> {
-    return this.uow.asService(async () => {
+    return this.uow.transaction(async () => {
       const account = await this.repo.findAccountById(id);
       if (!account) throw notFound();
       if (actor.id === id) throw badRequest('cannot_delete_self', 'cannot delete yourself');
@@ -376,11 +326,11 @@ export class AuthService implements IAuthService {
   }
 
   async masterPasswordIsSet(): Promise<boolean> {
-    return this.uow.asService(async () => (await this.repo.readMasterPasswordHash()) !== null);
+    return this.uow.transaction(async () => (await this.repo.readMasterPasswordHash()) !== null);
   }
 
   async setMasterPassword(password: string): Promise<void> {
     const stored = password === '' ? null : await this.hash(password);
-    return this.uow.asService(() => this.repo.writeMasterPasswordHash(stored));
+    return this.uow.transaction(() => this.repo.writeMasterPasswordHash(stored));
   }
 }

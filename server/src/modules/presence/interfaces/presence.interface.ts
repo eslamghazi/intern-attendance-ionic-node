@@ -1,6 +1,6 @@
 import type { Caller } from '../../../common/types.js';
-import type { IGenericRepository } from '../../../common/database/interfaces/generic-repository.interface.js';
-import { presenceChecks } from '../../../db/schema/index.js';
+import type { IGenericRepository } from '../../../infrastructure/database/interfaces/generic-repository.interface.js';
+import { presenceChecks } from '../../../infrastructure/database/schema/index.js';
 import type {
   CreatePresenceCheckDto,
   PresenceChecksResponseDto,
@@ -22,12 +22,7 @@ export interface IPresenceService {
   confirmByMember(callerId: string, checkId: string): Promise<{ ok: boolean }>;
 }
 
-export interface IPresenceRepository extends IGenericRepository<
-  typeof presenceChecks.$inferSelect,
-  string,
-  typeof presenceChecks.$inferInsert,
-  Partial<typeof presenceChecks.$inferInsert>
-> {
+export interface IPresenceRepository extends IGenericRepository<typeof presenceChecks> {
   getOwnedCheck(checkId: string, callerId: string): Promise<any>;
   getCheck(checkId: string): Promise<any>;
   findActiveTargets(

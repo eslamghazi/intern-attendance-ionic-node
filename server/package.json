@@ -5,7 +5,7 @@
   "type": "module",
   "author": "Calaix AI (https://calaixai.com)",
   "license": "UNLICENSED",
-  "description": "Node API for the intern-attendance app — replaces Supabase (PostgREST + GoTrue + Storage + Edge Functions). The Postgres schema, its 36 SQL functions and its 51 RLS policies are kept as-is.",
+  "description": "Node API for the intern-attendance app — NestJS + Fastify over plain PostgreSQL, with no extensions. Authorization lives in the API; the database has no RLS and no per-request role switching.",
   "engines": {
     "node": ">=20"
   },
@@ -19,15 +19,11 @@
     "seed:superadmin": "node scripts/seed-superadmin.mjs",
     "test": "vitest run",
     "test.watch": "vitest",
-    "import:data": "node scripts/import-from-supabase.mjs",
-    "import:storage": "node scripts/import-storage.mjs",
-    "db:pull": "drizzle-kit pull --config drizzle.pull.config.ts && node scripts/patch-drizzle-output.mjs",
-    "db:generate": "drizzle-kit generate && node scripts/patch-drizzle-output.mjs",
-    "db:push": "node -e \"console.error('REFUSED: drizzle-kit push would rewrite the live schema from the entities. Add a .sql file in db/forward instead — see drizzle.config.ts.'); process.exit(1)\"",
-    "db:extract": "node scripts/extract-programmables.mjs",
-    "verify:schema": "node scripts/verify-schema.mjs",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "node -e \"console.error('REFUSED: drizzle-kit push diffs against the LIVE database and would drop the triggers it cannot see. Change the models and run db:generate.'); process.exit(1)\"",
     "test:e2e": "node test/e2e/run.mjs",
-    "test:e2e:prod": "node test/e2e/run.mjs --prod"
+    "test:e2e:prod": "node test/e2e/run.mjs --prod",
+    "test:e2e:local": "node test/e2e/run.mjs --local"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.1",
@@ -45,6 +41,7 @@
     "date-fns-tz": "^3.2.0",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.45.2",
+    "exceljs": "^4.4.0",
     "fastify": "^5.2.1",
     "fastify-plugin": "^5.0.1",
     "jsonwebtoken": "^9.0.2",

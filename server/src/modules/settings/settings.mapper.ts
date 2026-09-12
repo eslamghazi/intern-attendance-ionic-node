@@ -1,4 +1,4 @@
-import type { appSettings } from '../../db/schema/index.js';
+import type { appSettings } from '../../infrastructure/database/schema/index.js';
 import { BrandingResponseDto, SettingsResponseDto } from './dto/settings.dto.js';
 
 type SettingsRow = typeof appSettings.$inferSelect;

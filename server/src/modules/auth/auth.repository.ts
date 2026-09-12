@@ -1,34 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { GenericRepository } from '../../common/database/generic.repository.js';
-import { eq, sql, isNull, and } from 'drizzle-orm';
-import { profiles, appSettings, refreshTokens, auditLog, adminAssignments, members, branches, groups, institutions } from '../../db/schema/index.js';
+import { AuditRepository } from '../audit/audit.repository.js';
+import { GenericRepository } from '../../infrastructure/database/generic.repository.js';
+import { eq, exists, isNull, and } from 'drizzle-orm';
+import { QueryBuilder } from 'drizzle-orm/pg-core';
+import { profiles, appSettings, refreshTokens, auditLog, adminAssignments, members, branches, groups, institutions, faceTemplates } from '../../infrastructure/database/schema/index.js';
 import type { Role } from '../../domain/identity/role.js';
 import type { StoredRefreshToken } from '../../domain/auth/refresh.js';
 import type { IAuthRepository } from './interfaces/auth.interface.js';
-
-export interface Account {
-  id: string;
-  role: Role;
-  fullName: string;
-  nationalId: string;
-  isActive: boolean;
-  mustChangePassword: boolean;
-  passwordHash: string | null;
-}
-
-export interface StoredToken extends StoredRefreshToken {
-  id: string;
-}
+import type { Account, StoredToken } from './auth.types.js';
+import type { JsonValue } from '../../common/json.types.js';
+export type { Account, StoredToken } from './auth.types.js';
 
 @Injectable()
-export class AuthRepository extends GenericRepository<
-  typeof profiles.$inferSelect,
-  string,
-  typeof profiles.$inferInsert,
-  Partial<typeof profiles.$inferInsert>
-> implements IAuthRepository {
+export class AuthRepository extends GenericRepository<typeof profiles> implements IAuthRepository {
 
-  constructor() {
+  constructor(private readonly auditRepo: AuditRepository) {
     super(profiles, profiles.id);
   }
 
@@ -39,7 +25,6 @@ export class AuthRepository extends GenericRepository<
       fullName: r.fullName,
       nationalId: r.nationalId,
       isActive: r.isActive ?? true,
-      mustChangePassword: r.mustChangePassword ?? false,
       passwordHash: r.passwordHash,
     };
   }
@@ -52,7 +37,6 @@ export class AuthRepository extends GenericRepository<
         fullName: profiles.fullName,
         nationalId: profiles.nationalId,
         isActive: profiles.isActive,
-        mustChangePassword: profiles.mustChangePassword,
         passwordHash: profiles.passwordHash,
       })
       .from(profiles)
@@ -69,7 +53,6 @@ export class AuthRepository extends GenericRepository<
         fullName: profiles.fullName,
         nationalId: profiles.nationalId,
         isActive: profiles.isActive,
-        mustChangePassword: profiles.mustChangePassword,
         passwordHash: profiles.passwordHash,
       })
       .from(profiles)
@@ -78,8 +61,33 @@ export class AuthRepository extends GenericRepository<
     return rows[0] ? this.toAccount(rows[0]) : null;
   }
 
+  /**
+   * The caller's own profile, for GET /auth/me.
+   *
+   * ENUMERATED, NOT `select *`. `profiles` holds `password_hash`, and a bare
+   * select handed it to the route, which returned it to the browser on every
+   * session start — the caller's own bcrypt hash, in a response the client
+   * caches. Naming the columns is what keeps it out of the process, the same
+   * rule SettingsRepository.getSettings() follows for the master password.
+   */
   async getProfile(profileId: string) {
-    const rows = await this.db.select().from(profiles).where(eq(profiles.id, profileId)).limit(1);
+    const rows = await this.db
+      .select({
+        id: profiles.id,
+        role: profiles.role,
+        fullName: profiles.fullName,
+        nationalId: profiles.nationalId,
+        phone: profiles.phone,
+        email: profiles.email,
+        avatarUrl: profiles.avatarUrl,
+        isActive: profiles.isActive,
+        permissions: profiles.permissions,
+        createdBy: profiles.createdBy,
+        createdAt: profiles.createdAt,
+      })
+      .from(profiles)
+      .where(eq(profiles.id, profileId))
+      .limit(1);
     return rows[0] ?? null;
   }
 
@@ -90,7 +98,18 @@ export class AuthRepository extends GenericRepository<
         branch: branches,
         group: groups,
         institution: institutions,
-        is_enrolled: sql<boolean>`exists (select 1 from face_templates ft where ft.member_id = ${members.id})`
+        // Drizzle's own exists() over a query-builder subquery. Correlated on
+        // members.id, so it reads as a column of this row — which is what it is.
+        //
+        // mapWith(Boolean) because exists() is typed SQL<unknown>: in a WHERE
+        // clause nobody asks what it returns, but selected as a column it is a
+        // boolean, and saying so is what keeps `unknown` out of /auth/me.
+        is_enrolled: exists(
+          new QueryBuilder()
+            .select({ id: faceTemplates.memberId })
+            .from(faceTemplates)
+            .where(eq(faceTemplates.memberId, members.id)),
+        ).mapWith(Boolean)
       })
       .from(members)
       .leftJoin(branches, eq(branches.id, members.branchId))
@@ -110,14 +129,10 @@ export class AuthRepository extends GenericRepository<
     };
   }
 
-  async storePasswordHash(
-    profileId: string,
-    hash: string,
-    mustChangePassword: boolean,
-  ): Promise<number> {
+  async storePasswordHash(profileId: string, hash: string): Promise<number> {
     const result = await this.db
       .update(profiles)
-      .set({ passwordHash: hash, mustChangePassword })
+      .set({ passwordHash: hash })
       .where(eq(profiles.id, profileId))
       .returning({ id: profiles.id });
     return result.length;
@@ -138,16 +153,9 @@ export class AuthRepository extends GenericRepository<
       .where(eq(appSettings.id, 1));
   }
 
-  async audit(actorId: string, event: string, detail: unknown): Promise<void> {
-    try {
-      await this.db.insert(auditLog).values({
-        actorId,
-        event: event as any,
-        detail,
-      });
-    } catch {
-      /* ignore */
-    }
+  /** Delegates to the one writer — see AuditRepository.record(). */
+  async audit(actorId: string | null, event: string, detail: JsonValue): Promise<void> {
+    await this.auditRepo.record(actorId, event, detail);
   }
 
   async findTokenByHash(tokenHash: string): Promise<StoredToken | null> {
@@ -237,7 +245,6 @@ export class AuthRepository extends GenericRepository<
       nationalId: input.national_id,
       phone: input.phone || null,
       passwordHash,
-      mustChangePassword: true,
       createdBy: actorId,
     });
   }

@@ -20,7 +20,6 @@ import {
   IonToggle,
   useIonActionSheet,
   useIonAlert,
-  useIonLoading,
   useIonToast,
 } from '@ionic/react';
 import {
@@ -41,6 +40,7 @@ import {
 } from 'ionicons/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { useServerExport } from '../../components/useServerExport';
 import { createMembers, listMemberNationalIds, type NewMember } from '../../lib/api/admin';
 import { listGroupOptions, listBranchOptions } from '../../lib/api/catalog';
 import {
@@ -61,13 +61,12 @@ import {
 import { uploadAvatar } from '../../lib/api/profile';
 import { useBranding } from '../../lib/branding';
 import { qk } from '../../lib/api/keys';
-import { NATIONAL_ID_LENGTH, REPORT_PAGE_SIZE, TOAST_MS } from '../../lib/config';
+import { NATIONAL_ID_LENGTH, TOAST_MS } from '../../lib/config';
 import { usePagination, PAGE_SIZE } from '../../lib/pagination';
 import { usePermissions } from '../../lib/usePermissions';
 import { downloadTemplate, parseSheet } from '../../lib/sheet';
 import { EXAMPLE } from '../../lib/exampleData';
 import AdminHeader from '../../components/AdminHeader';
-import { useReportExport } from '../../components/admin/useReportExport';
 import SearchBox from '../../components/admin/SearchBox';
 import GenerateDummyMembers from '../../components/admin/GenerateDummyMembers';
 import ImportModal from '../../components/admin/ImportModal';
@@ -116,11 +115,10 @@ function fromLocalInput(v: string): string | null {
 export default function MembersPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
-  const exportReport = useReportExport();
+  const serverExport = useServerExport();
   const { canOp } = usePermissions('members');
   const { memberPhotos } = useBranding();
   const [present] = useIonToast();
-  const [showLoading, dismissLoading] = useIonLoading();
   const confirm = useConfirm();
   const fb = useFeedback();
   const avatarRef = useRef<HTMLInputElement>(null);
@@ -188,36 +186,15 @@ export default function MembersPage() {
 
   const refresh = () => qc.invalidateQueries({ queryKey: qk.members });
 
-  const printList = async () => {
-    await showLoading({ message: t('common.processing') });
-    try {
-      const all = await listMembersPaged({ page: 1, pageSize: REPORT_PAGE_SIZE, search, field, filters });
-      await dismissLoading();
-      // Export follows the current search + filters (the fetch above already
-      // applied them); label the title with the search term when present.
-      exportReport({
-        title: `${t('nav.members')}${search ? ` — ${search}` : ''}`,
-        filename: 'members',
-        headers: [t('admin.memberCode'), t('auth.nationalId'), t('admin.fullName'), t('admin.email'), t('admin.group'), t('admin.branch'), t('attendance.status')],
-        rows: [
-          ...all.rows.map((r) => [
-            r.member_code ?? '',
-            r.profile?.national_id ?? '',
-            r.profile?.full_name ?? '',
-            r.profile?.email ?? '',
-            r.group?.name ?? '',
-            r.branch?.name ?? '',
-            t(`admin.${r.is_active ? 'active' : 'inactive'}`),
-          ]),
-          // How many members this export covers — the same number the page shows.
-          [t('rosters.total'), String(all.rows.length), '', '', '', '', ''],
-        ],
-      });
-    } catch {
-      await dismissLoading();
-      present({ message: t('common.error'), duration: TOAST_MS.short, color: 'danger' });
-    }
-  };
+  /**
+   * Export every member the CURRENT filters match.
+   *
+   * The filters travel and the file comes back built. Nothing here decides how
+   * many rows that is, which is the point — this used to ask for one 5000-row
+   * page and quietly export only what fitted.
+   */
+  const printList = () =>
+    serverExport('/members/export', { search, field, ...filters }, 'members');
 
   // Apply a "magic" flag to EVERY member matching the current search + filters.
   // (Single action sheet — the handler runs the mutation directly; no nested
@@ -488,8 +465,8 @@ export default function MembersPage() {
   // OWN group + branch (by name); the chosen conflict mode decides how national-ID
   // matches are handled (update / skip / fail).
   const [importOpen, setImportOpen] = useState(false);
-  const membersImport = useMemo<ImportStrategy>(() => {
-    const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
+  const membersImport = useMemo<ImportStrategy<NewMember>>(() => {
+    const norm = (s: string | number | null | undefined) => String(s ?? '').trim().toLowerCase();
     return {
       titleKey: 'admin.importMembers',
       accept: '.xlsx,.xls,.csv',
@@ -554,7 +531,7 @@ export default function MembersPage() {
           });
           preview.push({ cells, status: existingIds.has(nid) ? 'update' : 'new' });
         }
-        const isExisting = (row: unknown) => existingIds.has((row as NewMember).national_id);
+        const isExisting = (row: NewMember) => existingIds.has(row.national_id);
         const existing = rows.filter(isExisting).length;
         const notes: string[] = [];
         if (invalid) notes.push(t('admin.importSkipped', { count: invalid }));
@@ -570,7 +547,7 @@ export default function MembersPage() {
         };
       },
       apply: async (prep, mode) => {
-        const rows = prep.rows as NewMember[];
+        const rows = prep.rows;
         if (mode === 'fail' && prep.existing > 0) {
           return { created: 0, updated: 0, skipped: 0, failed: prep.existing };
         }

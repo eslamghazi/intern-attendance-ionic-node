@@ -1,13 +1,6 @@
-// Egyptian national-ID parsing. Ported verbatim from
-// supabase/functions/_shared/mod.ts — the derived date-of-birth password is the
-// default credential for every new account, so any change here silently locks
-// people out.
-export interface ParsedNationalId {
-  valid: boolean;
-  /** ddmmyyyy — the default password for a freshly created account. */
-  dobPassword?: string;
-}
 
+import type { ParsedNationalId } from './types.js';
+export type { ParsedNationalId } from './types.js';
 export function parseNationalId(input: string): ParsedNationalId {
   const s = (input || '').trim();
   if (!/^\d{14}$/.test(s)) return { valid: false };

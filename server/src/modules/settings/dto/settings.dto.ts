@@ -1,5 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  MinLength,
+  ValidateIf,
+} from 'class-validator';
+import { MASTER_PASSWORD_MIN } from '../../../config/constants.js';
 
 export class BrandingResponseDto {
   @ApiPropertyOptional({ example: 'Calaix Attendance' })
@@ -255,8 +267,27 @@ export class MasterPasswordStatusResponseDto {
 }
 
 export class SetMasterPasswordDto {
-  @ApiProperty({ example: 'SuperSecurePass123!', description: 'New master password' })
+  /**
+   * The new master password, or '' to remove it.
+   *
+   * NOT @IsNotEmpty. The empty string is the only way to turn this off —
+   * AuthService.setMasterPassword reads it as "store null" — and with a
+   * not-empty rule on it the request was refused at validation, so a master
+   * password that opens ANY admin account could be set and never withdrawn.
+   * The service has always handled it; nothing could get it that far.
+   *
+   * @IsString stays: it is what refuses null, a number or an object, each of
+   * which would otherwise reach bcrypt.
+   */
+  @ApiProperty({
+    example: 'SuperSecurePass123!',
+    description: `New master password (min ${MASTER_PASSWORD_MIN} characters), or '' to clear it`,
+  })
   @IsString()
-  @IsNotEmpty()
+  // Only when there IS one. `''` is the clear, and a length rule that applied to
+  // it would make the master password impossible to withdraw again — which is
+  // the bug this DTO already had once, from @IsNotEmpty.
+  @ValidateIf((o: SetMasterPasswordDto) => o.password !== '')
+  @MinLength(MASTER_PASSWORD_MIN)
   password!: string;
 }

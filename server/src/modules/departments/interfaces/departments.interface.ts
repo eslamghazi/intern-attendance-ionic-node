@@ -1,32 +1,21 @@
 import type { Caller } from '../../../domain/identity/role.js';
-import type { JwtClaims } from '../../../db/context.js';
-import type { IBaseService } from '../../../common/database/interfaces/base-service.interface.js';
-import type { IGenericRepository } from '../../../common/database/interfaces/generic-repository.interface.js';
-import { departments } from '../../../db/schema/index.js';
+import type { JwtClaims } from '../../../infrastructure/database/context.js';
+import type { IBaseService } from '../../../infrastructure/database/interfaces/base-service.interface.js';
+import type { IGenericRepository } from '../../../infrastructure/database/interfaces/generic-repository.interface.js';
+import { departments } from '../../../infrastructure/database/schema/index.js';
 import type { DepartmentDto } from '../dto/department.dto.js';
 import type { PutDepartmentPayload, PutMemberDepartmentPayload } from '../departments.service.js';
 
-export interface IDepartmentsService extends IBaseService<
-  typeof departments.$inferSelect,
-  string,
-  typeof departments.$inferInsert,
-  Partial<typeof departments.$inferInsert>,
-  DepartmentDto
-> {
-  getDepartments(claims: JwtClaims): Promise<DepartmentDto[]>;
-  getDepartmentsOptions(claims: JwtClaims, branchId?: string): Promise<DepartmentDto[]>;
-  putDepartment(caller: Caller, claims: JwtClaims, d: PutDepartmentPayload): Promise<{ ok: boolean; id?: string }>;
-  deleteDepartment(caller: Caller, claims: JwtClaims, id: string): Promise<{ ok: boolean }>;
-  getMemberDepartments(claims: JwtClaims, year: number, month: number): Promise<Record<string, string | null>>;
-  putMemberDepartment(claims: JwtClaims, b: PutMemberDepartmentPayload): Promise<{ ok: boolean; cleared?: boolean }>;
+export interface IDepartmentsService extends IBaseService<typeof departments, DepartmentDto> {
+  getDepartments(): Promise<DepartmentDto[]>;
+  getDepartmentsOptions(branchId?: string): Promise<DepartmentDto[]>;
+  putDepartment(caller: Caller, d: PutDepartmentPayload): Promise<{ ok: boolean; id?: string }>;
+  deleteDepartment(caller: Caller, id: string): Promise<{ ok: boolean }>;
+  getMemberDepartments(year: number, month: number): Promise<Record<string, string | null>>;
+  putMemberDepartment(b: PutMemberDepartmentPayload): Promise<{ ok: boolean; cleared?: boolean }>;
 }
 
-export interface IDepartmentsRepository extends IGenericRepository<
-  typeof departments.$inferSelect,
-  string,
-  typeof departments.$inferInsert,
-  Partial<typeof departments.$inferInsert>
-> {
+export interface IDepartmentsRepository extends IGenericRepository<typeof departments> {
   getDepartments(): Promise<any[]>;
   getDepartmentsOptions(branchId?: string): Promise<any[]>;
   getDepartmentBranchId(id: string): Promise<{ branchId: string | null } | null>;

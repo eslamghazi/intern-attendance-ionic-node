@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { IonButton, IonIcon } from '@ionic/react';
 import { close, downloadOutline, shareOutline } from 'ionicons/icons';
 import { useTranslation } from 'react-i18next';
+import { STORAGE_KEYS } from '../lib/config';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-const DISMISS_KEY = 'pwa_install_dismissed';
+const DISMISS_KEY = STORAGE_KEYS.INSTALL_DISMISSED;
 
 function isStandalone(): boolean {
   return (

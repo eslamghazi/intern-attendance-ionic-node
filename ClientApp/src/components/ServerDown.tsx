@@ -4,8 +4,9 @@ import { cloudOfflineOutline, refreshOutline } from 'ionicons/icons';
 import { useTranslation } from 'react-i18next';
 import { pingServer } from '../lib/serverStatus';
 import { queryClient } from '../lib/queryClient';
+import { TIMING } from '../lib/config';
 
-const AUTO_RETRY_MS = 5000;
+const AUTO_RETRY_MS = TIMING.SERVER_RETRY_MS;
 
 /**
  * Full-screen overlay shown whenever the API is unreachable (or

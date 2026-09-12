@@ -1,16 +1,9 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Delete,
-  Param,
-  Body,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
-import { badRequest } from '../../http/errors.js';
+import { badRequest } from '../../common/errors.js';
 import { PresenceService } from './presence.service.js';
 import { ApiResponse } from '../../common/dto/api-response.dto.js';
 import {
@@ -73,6 +66,7 @@ export class PresenceController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @HttpCode(HttpStatus.OK)
   @Post('checks/:id/confirm')
   @ApiOperation({ summary: 'Manually confirm a member presence during a spot-check (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<ActionSuccessResponseDto> })
@@ -88,6 +82,7 @@ export class PresenceController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @HttpCode(HttpStatus.OK)
   @Post('checks/:id/resolve')
   @ApiOperation({ summary: 'Resolve an expired or completed spot-check' })
   @SwaggerResponse({ status: 200, type: ApiResponse<ResolveCheckResponseDto> })
@@ -110,6 +105,7 @@ export class PresenceController {
   }
 
   @Roles(Role.MEMBER)
+  @HttpCode(HttpStatus.OK)
   @Post('confirm')
   @ApiOperation({ summary: 'Confirm presence for a spot-check (Member self-report)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<ActionSuccessResponseDto> })

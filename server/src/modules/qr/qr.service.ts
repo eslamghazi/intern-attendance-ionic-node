@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { UnitOfWorkService } from '../../common/database/unit-of-work.service.js';
+import { UnitOfWorkService } from '../../infrastructure/database/unit-of-work.service.js';
 import { QrRepository } from './qr.repository.js';
 import type { Caller } from '../../common/types.js';
 import { requireBranch } from '../../common/auth/access.service.js';
@@ -14,7 +14,7 @@ import {
   type CheckinMethod,
   type QrSettings as QrRules,
 } from '../../domain/qr/token.js';
-import { badRequest, forbidden, ApiError } from '../../http/errors.js';
+import { badRequest, forbidden, ApiError } from '../../common/errors.js';
 import { Role } from '../../common/enums/index.js';
 
 function rules(s: any): QrRules {
@@ -39,7 +39,7 @@ export class QrService implements IQrService {
     caller: Caller,
     parsed: { branch_id?: string; date: string; member_id?: string | null },
   ) {
-    return this.uow.asService(async () => {
+    return this.uow.transaction(async () => {
       let branchId = parsed.branch_id ?? '';
       let memberIsGenerator = false;
 
@@ -100,7 +100,7 @@ export class QrService implements IQrService {
   }
 
   async redeemQr(caller: Caller, tokenCode: string) {
-    return this.uow.asService(async () => {
+    return this.uow.transaction(async () => {
       const member = await this.repo.getMemberWithBranch(caller.id);
       if (!member || !member.branch_id) throw forbidden('not_a_member');
 

@@ -25,6 +25,7 @@ import {
 import { cloudUploadOutline, downloadOutline, duplicateOutline, informationCircleOutline } from 'ionicons/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { useServerExport } from '../../components/useServerExport';
 import { listBranchOptions, listShifts } from '../../lib/api/catalog';
 import {
   addRosterShift,
@@ -42,14 +43,14 @@ import {
 import { getDayAttendance } from '../../lib/api/attendance';
 import { listDepartmentOptions, listMemberDepartments, setMemberDepartment } from '../../lib/api/departments';
 import { qk } from '../../lib/api/keys';
-import { PAGE_SIZE, REPORT_PAGE_SIZE, TOAST_MS } from '../../lib/config';
+import { PAGE_SIZE, TOAST_MS } from '../../lib/config';
+import { fetchAllPages } from '../../lib/pagination';
 import { usePermissions } from '../../lib/usePermissions';
 import { useServerToday } from '../../lib/useServerToday';
 import { appToday } from '../../lib/clock';
 import { parseSheet } from '../../lib/sheet';
 import { downloadRosterTemplate } from '../../lib/rosterTemplate';
 import AdminHeader from '../../components/AdminHeader';
-import { useReportExport } from '../../components/admin/useReportExport';
 import GridFilters from '../../components/admin/GridFilters';
 import GridSummary from '../../components/admin/GridSummary';
 import EmptyState from '../../components/ui/EmptyState';
@@ -65,7 +66,7 @@ const pad = (n: number) => String(n).padStart(2, '0');
 export default function RosterPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
-  const exportReport = useReportExport();
+  const serverExport = useServerExport();
   const { canOp } = usePermissions('rosters');
   const [present] = useIonToast();
   const [presentSheet] = useIonActionSheet();
@@ -181,7 +182,7 @@ export default function RosterPage() {
   // days, cell = shift key(s). The chosen conflict mode decides how existing
   // (member, date, shift) assignments are handled (update / skip / fail).
   type RosterRow = { member_id: string; date: string; shift_id: string };
-  const rosterImport = useMemo<ImportStrategy>(() => {
+  const rosterImport = useMemo<ImportStrategy<RosterRow, { uploadedMembers: string[] }>>(() => {
     return {
       titleKey: 'rosters.monthly',
       accept: '.xlsx,.xls,.csv',
@@ -195,15 +196,17 @@ export default function RosterPage() {
         const shiftByKey = new Map(
           shifts.filter((s) => s.key).map((s) => [String(s.key).trim().toLowerCase(), s.id]),
         );
-        const all = await listRosterForBranchMonth({
-          branchId: uploadBranch,
-          year: uploadYear,
-          month: uploadMonth,
-          page: 1,
-          pageSize: REPORT_PAGE_SIZE,
-          search: '',
-          field: 'name',
-        });
+        const all = await fetchAllPages((page, pageSize) =>
+          listRosterForBranchMonth({
+            branchId: uploadBranch,
+            year: uploadYear,
+            month: uploadMonth,
+            page,
+            pageSize,
+            search: '',
+            field: 'name',
+          }),
+        );
         const memberByCode = new Map(
           all.rows
             .filter((r) => r.member_code)
@@ -256,7 +259,7 @@ export default function RosterPage() {
         const existingKeys = new Set(
           await listRosterDayKeys([...uploadedMembers], uploadYear, uploadMonth),
         );
-        const isExisting = (row: unknown) => existingKeys.has(keyOf(row as RosterRow));
+        const isExisting = (row: RosterRow) => existingKeys.has(keyOf(row));
         const existing = rows.filter(isExisting).length;
         const notes: string[] = [t('rosters.importAssignmentsNote')];
         if (unmatched) notes.push(t('rosters.importUnmatched', { count: unmatched }));
@@ -275,14 +278,14 @@ export default function RosterPage() {
         };
       },
       apply: async (prep, mode) => {
-        const rows = prep.rows as RosterRow[];
+        const rows = prep.rows;
         if (mode === 'fail' && prep.existing > 0) {
           return { created: 0, updated: 0, skipped: 0, failed: prep.existing };
         }
         const toWrite = mode === 'skip' ? rows.filter((r) => !prep.isExisting(r)) : rows;
         await upsertRosterDays(toWrite);
         // Uploading onto a department assigns everyone in the file to it.
-        const meta = prep.meta as { uploadedMembers: string[] } | undefined;
+        const meta = prep.meta;
         if (uploadDeptId && meta?.uploadedMembers.length) {
           await Promise.all(
             meta.uploadedMembers.map((id) =>
@@ -303,98 +306,14 @@ export default function RosterPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uploadBranch, uploadYear, uploadMonth, shifts, uploadDeptId, qc, t]);
 
-  const printRoster = async () => {
-    await showLoading({ message: t('common.processing') });
-    try {
-      const all = await listRosterForBranchMonth({
-        branchId,
-        year,
-        month,
-        page: 1,
-        pageSize: REPORT_PAGE_SIZE,
-        search,
-        field,
-      });
-      await dismissLoading();
-      const titleExtra = [branches.find((h) => h.id === branchId)?.name, search]
-        .filter(Boolean)
-        .join(' · ');
-      exportReport({
-        title: `${t('rosters.view')} — ${pad(month)}/${year}${titleExtra ? ` — ${titleExtra}` : ''}`,
-        filename: `roster_${year}_${pad(month)}`,
-        landscape: true,
-        headers: [
-          t('rosters.member'),
-          t('nav.departments'),
-          ...dayList.map(String),
-          ...shifts.map((sh) => sh.key || sh.name),
-          t('rosters.total'),
-        ],
-        rows: [
-          ...all.rows.map((r) => [
-            r.full_name,
-            deptNameOf(r.member_id),
-            ...dayList.map((d) => (r.days[d] ?? []).map((c) => c.label).join(' ')),
-            ...shifts.map((sh) =>
-              String(
-                dayList.reduce(
-                  (sum, d) => sum + (r.days[d] ?? []).filter((c) => c.shift_id === sh.id).length,
-                  0,
-                ),
-              ),
-            ),
-            String(dayList.reduce((sum, d) => sum + (r.days[d]?.length ?? 0), 0)),
-          ]),
-          // One closing row per shift type, then the all-shifts row.
-          ...shifts.map((sh) => {
-            const perDay = dayList.map((d) =>
-              all.rows.reduce(
-                (sum, r) => sum + (r.days[d] ?? []).filter((c) => c.shift_id === sh.id).length,
-                0,
-              ),
-            );
-            const month = perDay.reduce((a, b) => a + b, 0);
-            return [
-              sh.name,
-              '',
-              ...perDay.map(String),
-              ...shifts.map((other) => (other.id === sh.id ? String(month) : '')),
-              String(month),
-            ];
-          }),
-          [
-            t('rosters.total'),
-            '',
-            ...dayList.map((d) =>
-              String(all.rows.reduce((sum, r) => sum + (r.days[d]?.length ?? 0), 0)),
-            ),
-            ...shifts.map((sh) =>
-              String(
-                all.rows.reduce(
-                  (sum, r) =>
-                    sum +
-                    dayList.reduce(
-                      (s2, d) => s2 + (r.days[d] ?? []).filter((c) => c.shift_id === sh.id).length,
-                      0,
-                    ),
-                  0,
-                ),
-              ),
-            ),
-            String(
-              all.rows.reduce(
-                (sum, r) => sum + dayList.reduce((s2, d) => s2 + (r.days[d]?.length ?? 0), 0),
-                0,
-              ),
-            ),
-          ],
-        ],
-      });
-    } catch {
-      await dismissLoading();
-      present({ message: t('common.error'), duration: TOAST_MS.short, color: 'danger' });
-    }
-  };
+  /**
+   * Export the roster for every member the CURRENT filters match.
+   *
+   * Per-shift columns and the closing totals are computed server-side over the
+   * whole filtered set, not over the page on screen.
+   */
+  const printRoster = () =>
+    serverExport('/roster/export', { year, month, branchId, search, field }, `roster_${year}_${pad(month)}`);
 
   // Build the rich monthly template for the selected month: Arabic day names on
   // top, the branch's members pre-filled with their current shifts, per-member
@@ -403,15 +322,17 @@ export default function RosterPage() {
     await showLoading({ message: t('common.processing') });
     try {
       const uploadDays = new Date(uploadYear, uploadMonth, 0).getDate();
-      const all = await listRosterForBranchMonth({
-        branchId: uploadBranch,
-        year: uploadYear,
-        month: uploadMonth,
-        page: 1,
-        pageSize: REPORT_PAGE_SIZE,
-        search: '',
-        field: 'name',
-      });
+      const all = await fetchAllPages((page, pageSize) =>
+        listRosterForBranchMonth({
+          branchId: uploadBranch,
+          year: uploadYear,
+          month: uploadMonth,
+          page,
+          pageSize,
+          search: '',
+          field: 'name',
+        }),
+      );
       await downloadRosterTemplate({
         year: uploadYear,
         month: uploadMonth,

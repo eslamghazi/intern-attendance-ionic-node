@@ -8,6 +8,8 @@ import {
   IsOptional,
   IsUUID,
   Matches,
+  IsArray,
+  ArrayMaxSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CheckType, AttendanceStatus } from '../../../common/enums/index.js';
@@ -49,6 +51,18 @@ export class RecordAttendanceDto {
   @IsNumber()
   @IsOptional()
   face_score?: number | null;
+
+  @ApiPropertyOptional({
+    description:
+      'The 512-dim embedding of the captured face. The server recomputes the match from this; face_score alone is not trusted.',
+    type: [Number],
+    nullable: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsNumber({}, { each: true })
+  @ArrayMaxSize(512)
+  probe_embedding?: number[] | null;
 
   @ApiPropertyOptional({ description: 'Storage path for pre-uploaded probe image', nullable: true })
   @IsString()

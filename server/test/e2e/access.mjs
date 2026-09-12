@@ -1,9 +1,9 @@
-// An admin's reach — domain/access/scope.ts applied at the six surfaces that
-// bypass RLS entirely, plus the self-service profile endpoints.
+// An admin's reach — domain/access/scope.ts, applied end to end.
 //
-// Every one of these was unguarded: an admin assigned to one branch could
-// act on the whole faculty, because the rule lived in SQL and these requests
-// run as the service role.
+// The rule is unit-tested as a pure function; this suite proves it is actually
+// APPLIED, at every surface where an assigned admin could otherwise act on the
+// whole faculty. A scope check that exists but is not called on one of these
+// routes looks identical to one that works, from everywhere except here.
 
 import {
   SUPERADMIN,
@@ -55,10 +55,24 @@ psql(`insert into public.profiles (role, full_name, national_id) values ('member
 const bProfile = psql(`select id from public.profiles where national_id='30303031234565'`);
 psql(`insert into public.members (profile_id, group_id, branch_id) values ('${bProfile}','${groupB}','${branchB}')`);
 const bMember = psql(`select id from public.members where profile_id='${bProfile}'`);
+
+// What that member's own app receives. The rules their check-in screen applies
+// are read as branch.block_checkin, branch.bypass_face and so on, so if this
+// ever goes back to the database's camelCase every one of them silently becomes
+// undefined and the screen stops honouring them. /auth/me also used to carry the
+// caller's bcrypt hash, which nothing looked for.
+const bTok = (await login('30303031234565', '30303031234565')).body?.access_token;
+const bMe = await call('GET', '/auth/me', { token: bTok });
+check('a member reads their own placement', bMe.status, 200);
+check('  the member is snake_case', typeof bMe.body?.member?.bypass_face, 'boolean');
+check('  and so is their branch', typeof bMe.body?.member?.branch?.block_checkin, 'boolean');
+check('  with the geofence the map draws', typeof bMe.body?.member?.branch?.radius_meters, 'number');
+check('  and no credential material anywhere in it',
+  JSON.stringify(bMe.body ?? {}).includes('$2a$'), false);
 const today = psql(`select (now() at time zone 'Africa/Cairo')::date`);
 psql(`insert into public.attendance (member_id, date, branch_id, check_in_at, status) values ('${bMember}','${today}','${branchB}', now(), 'present')`);
 
-console.log('\n--- spot-check: POST /presence/checks (service role, no RLS) ---');
+console.log('\n--- spot-check: POST /presence/checks ---');
 const ownBranch = await call('POST', '/presence/checks', {
   token: aTok, body: { branch_id: branchA, deadline_minutes: 10 },
 });
@@ -87,7 +101,7 @@ const suAll = await call('POST', '/presence/checks', {
 });
 check('a superadmin may ask for everyone', suAll.status, 201);
 
-console.log('\n--- QR: POST /qr (service role, no RLS) ---');
+console.log('\n--- QR: POST /qr ---');
 const qrOwn = await call('POST', '/qr', { token: aTok, body: { branch_id: branchA, date: today } });
 check('assigned admin mints for their own branch', qrOwn.status < 400, true);
 const qrOther = await call('POST', '/qr', { token: aTok, body: { branch_id: branchB, date: today } });
@@ -95,7 +109,7 @@ check('assigned admin CANNOT mint for another branch', qrOther.status, 403);
 const qrWide = await call('POST', '/qr', { token: wTok, body: { branch_id: branchB, date: today } });
 check('an unassigned admin can', qrWide.status < 400, true);
 
-console.log('\n--- manual attendance: POST /attendance/set (service role, no RLS) ---');
+console.log('\n--- manual attendance: POST /attendance/set ---');
 const setOther = await call('POST', '/attendance/set', {
   token: aTok, body: { member_id: bMember, date: today, status: 'absent' },
 });
@@ -111,29 +125,32 @@ const setWide = await call('POST', '/attendance/set', {
 });
 check('an unassigned admin can', setWide.status, 200);
 
-console.log('\n--- roster upload: POST /members (service role, no RLS) ---');
+console.log('\n--- roster upload: POST /members ---');
 psql(`insert into public.groups (name, year, institution_id, branch_id) values ('Group A',2026,'${inst}','${branchA}')`);
 const groupA = psql(`select id from public.groups where name='Group A'`);
 const mine = await call('POST', '/members', {
   token: aTok,
-  body: { national_id: '30505051234567', full_name: 'Mine', group_id: groupA, branch_id: branchA },
+  body: { members: [{ national_id: '30505051234567', full_name: 'Mine', group_id: groupA, branch_id: branchA }] },
 });
 check('assigned admin uploads into their own branch', mine.body?.created, 1);
 const theirs = await call('POST', '/members', {
   token: aTok,
-  body: { national_id: '30606061234568', full_name: 'Theirs', group_id: groupB, branch_id: branchB },
+  body: { members: [{ national_id: '30606061234568', full_name: 'Theirs', group_id: groupB, branch_id: branchB }] },
 });
 check('assigned admin CANNOT upload into another branch', theirs.body?.created, 0);
 check('  and the row is reported, not silently dropped', theirs.body?.results?.[0]?.ok, false);
 check('  nobody was created', psql(`select count(*) from public.profiles where national_id='30606061234568'`), '0');
 const wideUpload = await call('POST', '/members', {
   token: wTok,
-  body: { national_id: '30606061234568', full_name: 'Theirs', group_id: groupB, branch_id: branchB },
+  body: { members: [{ national_id: '30606061234568', full_name: 'Theirs', group_id: groupB, branch_id: branchB }] },
 });
 check('an unassigned admin can', wideUpload.body?.created, 1);
 
 console.log('\n--- face enrolment: clearing someone else\'s ---');
-psql(`insert into public.face_templates (member_id, embedding) values ('${bMember}', array_fill(0.1::real, array[512])::vector)`);
+// `real[]`, not `::vector`. The embedding column stopped being a pgvector
+// when the extension was dropped — the cast fails with `type "vector" does
+// not exist`, which is the schema proving the extension is really gone.
+psql(`insert into public.face_templates (member_id, embedding) values ('${bMember}', array_fill(0.1::real, array[512]))`);
 check('B member is enrolled', psql(`select count(*) from public.face_templates where member_id='${bMember}'`), '1');
 check('assigned admin CANNOT reset another branch\'s face', (await call('POST', '/face/reset', { token: aTok, body: { member_id: bMember } })).status, 404);
 check('...nor through the face tool', (await call('POST', '/face/tool-reset', { token: aTok, body: { member_id: bMember } })).status, 404);
@@ -141,14 +158,16 @@ check('  the enrolment survives', psql(`select count(*) from public.face_templat
 check('an unassigned admin can', (await call('POST', '/face/reset', { token: wTok, body: { member_id: bMember } })).status, 200);
 check('  and it is cleared', psql(`select count(*) from public.face_templates where member_id='${bMember}'`), '0');
 
-console.log('\n--- profile self-service (the three retired functions) ---');
+console.log('\n--- profile self-service ---');
 psql(`insert into public.profiles (role, full_name, national_id) values ('member','Self Member','30404041234566')`);
 const selfTok = (await login('30404041234566', '30404041234566')).body.access_token;
 const selfId = psql(`select id from public.profiles where national_id='30404041234566'`);
 psql(`insert into public.members (profile_id, group_id, branch_id) values ('${selfId}','${groupB}','${branchA}')`);
 
-check('mark-password-changed', (await call('POST', '/profile/mark-password-changed', { token: selfTok })).status, 200);
-check('  the flag is cleared', psql(`select must_change_password from public.profiles where id='${selfId}'`), 'f');
+// mark-password-changed went with the forced first change: it existed only
+// to clear that flag.
+check('the retired mark-password-changed is gone',
+  (await call('POST', '/profile/mark-password-changed', { token: selfTok })).status, 404);
 check('mark-enrolled', (await call('POST', '/profile/mark-enrolled', { token: selfTok })).status, 200);
 check('  the member is enrolled', psql(`select enrollment_status from public.members where profile_id='${selfId}'`), 'enrolled');
 
@@ -192,11 +211,24 @@ check('a member cannot promote themselves', escalate.status, 200);
 check('  still a member', psql(`select role from public.profiles where id='${selfId}'`), 'member');
 
 console.log('\n--- the master password hash must never leave the server ---');
-// AUDIT 2.1. GET /settings ran `select *` under the caller, and the governing
-// policy is `settings_select ... to authenticated using (true)` — so every
-// column came back, including the bcrypt hash of the SHARED master password
-// that opens every member and admin account.
-psql(`update public.app_settings set master_password_hash = crypt('AuditMaster!2026', gen_salt('bf')) where id = 1`);
+// app_settings holds the bcrypt hash of the SHARED master password, which opens
+// every member and admin account — so `GET /settings` answering with the whole
+// row would hand it to every signed-in caller. The repository names the columns
+// it reads, so the hash never enters the process; this asserts that from the
+// outside, where a careless `return row` would show up.
+//
+// The guarantee used to rest on a
+// column-level GRANT: Postgres refused the query outright and the API answered
+// 403. That grant is gone with the role switch it depended on, and the
+// repository now names its columns — so the check below is the guarantee, not a
+// second opinion on one.
+// Set through the API, not with crypt()/gen_salt(): those are pgcrypto, and
+// the schema installs no extensions. The API hashes with bcrypt in Node,
+// which is also the only hash the sign-in path below would accept.
+check('the superadmin sets a master password',
+  (await call('PUT', '/settings/master-password', {
+    token: suToken, body: { password: 'AuditMaster!2026' },
+  })).status, 200);
 const settingsAsMember = await call('GET', '/settings', { token: selfTok });
 check('a member can read /settings', settingsAsMember.status, 200);
 check('  but NOT the master password hash',
@@ -216,7 +248,10 @@ check('  though they can still ask WHETHER one is set',
 // And the master password must still WORK, or the move broke sign-in.
 check('the master password still opens an admin',
   (await login('29505151234561', 'AuditMaster!2026')).status, 200);
-psql(`update public.app_settings set master_password_hash = null where id = 1`);
+check('and clears it again',
+  (await call('PUT', '/settings/master-password', {
+    token: suToken, body: { password: '' },
+  })).status, 200);
 
 console.log('\n--- roster days are scoped to the admin who owns the branch ---');
 // AUDIT 2.2. POST/DELETE /roster/days took member_id straight from the body and
@@ -261,10 +296,13 @@ const ownRoster = await call('POST', '/roster/days', {
   token: wTok, body: { member_id: bMember, date: '2026-09-11', shift_id: shiftId },
 });
 check('an unassigned admin still can', ownRoster.status, 200);
+// 200, not 204. Every DELETE in this API answers `{ ok: true }`, and a 204
+// means "no content" — a body with one is a contradiction. The other three
+// delete checks in these suites already expect 200; this one was the outlier.
 check('  and can remove it again',
   (await call('DELETE', '/roster/days', {
     token: wTok, body: { member_id: bMember, date: '2026-09-11', shift_id: shiftId },
-  })).status, 204);
+  })).status, 200);
 
 console.log('\n--- a member record belongs to the branch that runs it ---');
 // AUDIT 3.1. profiles_update_member_by_admin and profiles_delete_member_by_admin
@@ -309,35 +347,37 @@ const deptOwn = await call('PUT', '/departments', {
 check('  but can in their own', deptOwn.status < 400, true);
 
 console.log('\n--- the audit log is not client-writable ---');
-// AUDIT 3.2. audit_insert_self allowed any authenticated caller to insert rows
-// attributed to themselves OR to nobody (actor_id IS NULL). This table records
-// mock_location_detected, face_mismatch, master_login and refresh-token reuse —
-// the evidence trail for exactly the behaviour someone would want to bury.
+// AUDIT 3.2. An insert policy once allowed any signed-in caller to write audit
+// rows attributed to themselves OR to nobody (actor_id IS NULL). This table
+// records mock_location_detected, face_mismatch, master_login and refresh-token
+// reuse — the evidence trail for exactly the behaviour someone would want to
+// bury.
+//
+// What stops a client is that THERE IS NO ROUTE which writes an audit row on a
+// caller's say-so. That is what is checked here — through the API, where the
+// rule actually lives — rather than by asking Postgres about a privilege.
 const auditBefore = psql(`select count(*) from public.audit_log`);
-const forged = psql(
-  `insert into public.audit_log (actor_id, event, detail)
-   select null, 'check_in', '{"forged":true}'::jsonb
-    where pg_catalog.has_table_privilege('authenticated', 'public.audit_log', 'INSERT')`,
-);
-check('authenticated has no INSERT grant on audit_log',
-  psql(`select has_table_privilege('authenticated', 'public.audit_log', 'INSERT')::text`), 'false');
-check('  and no insert policy remains',
-  psql(`select count(*) from pg_policies where tablename='audit_log' and cmd='INSERT'`), '0');
+
+for (const [method, path] of [['POST', '/audit'], ['POST', '/audit-log'], ['PUT', '/audit']]) {
+  const res = await call(method, path, { token: selfTok, body: { event: 'check_in', detail: {} } });
+  check(`  ${method} ${path} is not a route`, res.status === 404 || res.status === 405, true);
+}
+
+check('  no role but the owner may INSERT into audit_log',
+  psql(`select count(*) from information_schema.role_table_grants
+         where table_name='audit_log' and privilege_type='INSERT'
+           and grantee not in (current_user, 'PUBLIC')`),
+  '0');
 check('  nothing was forged', psql(`select count(*) from public.audit_log`), auditBefore);
-// The API still writes them — it runs as the owner, which bypasses both.
 check('  the API can still record events',
   psql(`select count(*) > 0 from public.audit_log where event = 'password_changed'`) !== '',
   true);
 
-console.log('\n--- the API refuses on its own, without leaning on RLS ---');
-// Five route files used to carry NO role check and rely entirely on the
-// policies — catalog.ts said so in its own header. That worked, but it meant
-// the API could not survive RLS being turned off: any signed-in student could
-// have created a branch or deleted a shift.
-//
-// A 403 here is the API refusing. An empty list or a 404 would be RLS refusing,
-// which is what these checks exist to tell apart — so they assert the status,
-// not the absence of data.
+console.log('\n--- the API refuses, and the refusal is its own ---');
+// These assert the STATUS, not the absence of data, and that distinction is the
+// whole point: a 403 is the API refusing, while an empty list or a 404 would be
+// the database quietly returning nothing. Both look like "it worked" from a
+// screen, and only one of them is a guard.
 const asMember = { token: selfTok };
 
 check('a member cannot create a branch',

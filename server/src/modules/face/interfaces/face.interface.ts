@@ -1,7 +1,7 @@
 import type { Caller } from '../../../common/types.js';
-import type { JwtClaims } from '../../../db/context.js';
-import type { IGenericRepository } from '../../../common/database/interfaces/generic-repository.interface.js';
-import { faceTemplates } from '../../../db/schema/index.js';
+import type { JwtClaims } from '../../../infrastructure/database/context.js';
+import type { IGenericRepository } from '../../../infrastructure/database/interfaces/generic-repository.interface.js';
+import { faceTemplates } from '../../../infrastructure/database/schema/index.js';
 
 export interface IFaceService {
   enrollPhoto(caller: Caller, base64: string): Promise<{ ok: boolean; skipped?: boolean; path?: string }>;
@@ -13,27 +13,25 @@ export interface IFaceService {
     full_name?: string | null;
     enrolled?: boolean;
   }>;
-  getTemplate(claims: JwtClaims, memberId: string): Promise<{ embedding: unknown }>;
+  // Both take the caller: a member may read and write only THEIR OWN template,
+  // and staff only within their assignments. The caller is also the actor the
+  // enrolment is audited against.
+  getTemplate(caller: Caller, memberId: string): Promise<{ embedding: number[] | null }>;
   putTemplate(
-    claims: JwtClaims,
+    caller: Caller,
     memberId: string,
     b: { embedding: string; photo_path?: string | null; quality_score?: number | null },
   ): Promise<{ ok: boolean }>;
-  getTemplatePhotos(claims: JwtClaims, memberIds: string[]): Promise<Array<{
+  getTemplatePhotos(memberIds: string[]): Promise<Array<{
     member_id: string;
     photo_path: string | null;
     created_at: string | null;
   }>>;
-  getTemplatePhotoPaths(claims: JwtClaims): Promise<Array<string | null>>;
+  getTemplatePhotoPaths(): Promise<Array<string | null>>;
   toolReset(caller: Caller, memberId: string): Promise<{ ok: boolean }>;
 }
 
-export interface IFaceRepository extends IGenericRepository<
-  typeof faceTemplates.$inferSelect,
-  string,
-  typeof faceTemplates.$inferInsert,
-  Partial<typeof faceTemplates.$inferInsert>
-> {
+export interface IFaceRepository extends IGenericRepository<typeof faceTemplates> {
   getSettingsStoreFaceImages(): Promise<boolean>;
   getMemberDirectoryByProfileId(profileId: string): Promise<{
     member_id: string | null;
@@ -53,7 +51,7 @@ export interface IFaceRepository extends IGenericRepository<
   updateTemplatePhotoPath(memberId: string, path: string): Promise<void>;
   getMemberScope(profileId: string): Promise<{ branchId: string; canResetFace: boolean | null } | null>;
   getMemberProfileScope(memberId: string): Promise<{ profileId: string; branchId: string } | null>;
-  getTemplateEmbedding(memberId: string): Promise<unknown>;
+  getTemplateEmbedding(memberId: string): Promise<number[] | null>;
   upsertTemplate(memberId: string, embeddingStr: string, photoPath: string | null, qualityScore: number | null): Promise<void>;
   getTemplatesForMembers(memberIds: string[]): Promise<Array<{
     member_id: string;

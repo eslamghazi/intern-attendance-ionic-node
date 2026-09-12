@@ -1,5 +1,5 @@
 // Everything that moved out of SQL into services/authService.ts:
-// sign-in precedence, the master password, the forced first change, the
+// sign-in precedence, the master password, the
 // admin-side resets, and staff creation and deletion.
 
 import {
@@ -33,21 +33,27 @@ console.log(`       default password derived from the national id: ${adminPw}`);
 
 const a1 = await login(ADMIN_NID, adminPw);
 check('new admin signs in', a1.status, 200);
-check('  must_change_password', a1.body?.must_change_password, true);
 let adminToken = a1.body?.access_token;
 
-console.log('\n--- forced first change ---');
-check('initial change', (await call('POST', '/auth/password/initial', {
-  token: adminToken, body: { new: 'FirstPass!1' },
+// THE FORCED FIRST CHANGE IS GONE, and so is the route it gated.
+// POST /auth/password/initial set a password without proving the current
+// one, and must_change_password was the only thing in front of it — a flag
+// removed on its own would have left a password reset any signed-in session
+// could call. A new admin uses the password they were handed, through the
+// ordinary route, like everybody else.
+console.log('\n--- the first change is an ordinary one ---');
+check('the retired route is gone', (await call('POST', '/auth/password/initial', {
+  token: adminToken, body: { new: 'Sneaky!123' },
+})).status, 404);
+check('the password they were given still opens the account',
+  (await login(ADMIN_NID, adminPw)).status, 200);
+check('changing it needs that password', (await call('POST', '/auth/password', {
+  token: adminToken, body: { current: adminPw, new: 'FirstPass!1' },
 })).status, 200);
 check('old password stops working', (await login(ADMIN_NID, adminPw)).status, 401);
 const a2 = await login(ADMIN_NID, 'FirstPass!1');
 check('new password works', a2.status, 200);
-check('  must_change_password cleared', a2.body?.must_change_password, false);
 adminToken = a2.body?.access_token;
-check('initial change refused once set', (await call('POST', '/auth/password/initial', {
-  token: adminToken, body: { new: 'Sneaky!123' },
-})).status, 403);
 
 console.log('\n--- change with current ---');
 check('wrong current refused', (await call('POST', '/auth/password', {
@@ -58,8 +64,29 @@ check('correct current accepted', (await call('POST', '/auth/password', {
 })).status, 200);
 check('signs in with the new one', (await login(ADMIN_NID, 'SecondPass!2')).status, 200);
 
+console.log('\n--- what /auth/me hands the browser ---');
+// NOBODY CHECKED THE CONTENTS. Every suite asserted /auth/me answered 200 and
+// went on, so it returned the caller's own bcrypt hash on every sign-in — and
+// spelled every field the way the database does, while the client reads
+// snake_case, so the branch rules were all undefined.
+const meSu = await call('GET', '/auth/me', { token: suToken });
+check('/auth/me answers', meSu.status, 200);
+check('  in the API\'s own snake_case', typeof meSu.body?.profile?.full_name, 'string');
+check('  carrying no password hash',
+  Object.keys(meSu.body?.profile ?? {}).some((k) => /hash|password_hash/.test(k)), false);
+check('  nor any other credential material',
+  JSON.stringify(meSu.body ?? {}).includes('$2a$'), false);
+check('  and staff belong to no branch', meSu.body?.member, null);
+
 console.log('\n--- master password ---');
 check('not configured yet', (await call('GET', '/settings/master-password', { token: suToken })).body?.configured, false);
+// One string that opens every admin account, so it has a floor of its own —
+// MASTER_PASSWORD_MIN, not the 6 an ordinary account gets. There was none at
+// all: a single character was accepted.
+check('a short one is refused', (await call('PUT', '/settings/master-password', {
+  token: suToken, body: { password: 'short1!' },
+})).status, 400);
+check('  and nothing was stored', (await call('GET', '/settings/master-password', { token: suToken })).body?.configured, false);
 check('superadmin sets it', (await call('PUT', '/settings/master-password', {
   token: suToken, body: { password: 'MasterKey!2026' },
 })).status, 200);
@@ -92,7 +119,6 @@ console.log(`       reset to the date of birth: ${mReset.body?.password}`);
 check('  the national id no longer works', (await login(MEMBER_NID, MEMBER_NID)).status, 401);
 const m2 = await login(MEMBER_NID, mReset.body?.password);
 check('  the new password does', m2.status, 200);
-check('  and forces a change', m2.body?.must_change_password, true);
 
 check('member reset refuses a staff id', (await call('POST', '/auth/members/reset-password', {
   token: adminToken, body: { profile_id: adminId },

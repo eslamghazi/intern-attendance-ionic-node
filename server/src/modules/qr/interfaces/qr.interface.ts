@@ -1,6 +1,6 @@
 import type { Caller } from '../../../common/types.js';
-import type { IGenericRepository } from '../../../common/database/interfaces/generic-repository.interface.js';
-import { qrTokens } from '../../../db/schema/index.js';
+import type { IGenericRepository } from '../../../infrastructure/database/interfaces/generic-repository.interface.js';
+import { qrTokens } from '../../../infrastructure/database/schema/index.js';
 
 export interface IQrService {
   mintQr(
@@ -10,12 +10,7 @@ export interface IQrService {
   redeemQr(caller: Caller, tokenCode: string): Promise<{ ok: boolean; until?: string | null; minutes: number }>;
 }
 
-export interface IQrRepository extends IGenericRepository<
-  typeof qrTokens.$inferSelect,
-  string,
-  typeof qrTokens.$inferInsert,
-  Partial<typeof qrTokens.$inferInsert>
-> {
+export interface IQrRepository extends IGenericRepository<typeof qrTokens> {
   getSettings(): Promise<{
     qr_requires_member: boolean | null;
     qr_validity_seconds: number | null;

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { SupportedLanguage } from './i18n.types.js';
+import type { HeaderBag, LanguageSource, SupportedLanguage } from './i18n.types.js';
 import type { II18nService } from './i18n.interface.js';
 import { arLocale } from './locales/ar.js';
 import { enLocale } from './locales/en.js';
@@ -69,7 +69,7 @@ export class I18nService implements II18nService {
   /**
    * Determine preferred language from HTTP headers, query, or explicit code.
    */
-  resolveLanguage(headersOrRaw?: unknown): SupportedLanguage {
+  resolveLanguage(headersOrRaw?: LanguageSource): SupportedLanguage {
     if (!headersOrRaw) return 'ar';
 
     if (typeof headersOrRaw === 'string') {
@@ -79,7 +79,7 @@ export class I18nService implements II18nService {
     }
 
     if (typeof headersOrRaw === 'object' && headersOrRaw !== null) {
-      const headers = headersOrRaw as Record<string, unknown>;
+      const headers: HeaderBag = headersOrRaw;
       const customLang = headers['x-language'] ?? headers['x-lang'];
       if (typeof customLang === 'string') {
         const cl = customLang.trim().toLowerCase();

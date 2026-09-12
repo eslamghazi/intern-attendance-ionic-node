@@ -1,8 +1,13 @@
-// Geofencing helpers. Distance here is a client-side UX hint only — the
-// authoritative geofence check is re-computed server-side (PostGIS ST_DWithin)
-// inside the record-attendance Edge Function.
+// Geofencing helpers. Distance here is a client-side UX hint ONLY — a number
+import { EARTH_RADIUS_M as R_EARTH_M } from './config';
+// the user can see moving as they walk. The authoritative answer is recomputed
+// by the server from the branch row on every check-in
+// (server/src/domain/attendance/geofence.ts), and a client-side claim about
+// position is never trusted.
 
-const EARTH_RADIUS_M = 6_371_000;
+// Defined in config.ts — see there for why the client's figure is allowed to
+// differ from the server's ellipsoid.
+const EARTH_RADIUS_M = R_EARTH_M;
 
 function toRad(deg: number): number {
   return (deg * Math.PI) / 180;

@@ -40,8 +40,6 @@
     "html5-qrcode": "^2.3.8",
     "i18next": "^26.3.3",
     "ionicons": "^7.4.0",
-    "jspdf": "^4.2.1",
-    "jspdf-autotable": "^5.0.8",
     "jszip": "^3.10.1",
     "leaflet": "^1.9.4",
     "onnxruntime-web": "^1.27.0",

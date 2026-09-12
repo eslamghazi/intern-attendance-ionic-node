@@ -25,9 +25,10 @@ import Copyright from '../../components/Copyright';
 import StatusBadge, { STATUS_COLOR } from '../../components/StatusBadge';
 import DonutStat from '../../components/ui/DonutStat';
 import Avatar from '../../components/ui/Avatar';
+import { TIMING } from '../../lib/config';
 
 /** How long a revealed national ID stays visible before it re-masks itself. */
-const REVEAL_MS = 15_000;
+const REVEAL_MS = TIMING.QR_REVEAL_MS;
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
   return (

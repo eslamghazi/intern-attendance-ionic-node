@@ -1,8 +1,9 @@
-import { Controller, Post, Patch, Get, Body } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { Caller as CallerDecorator, Claims as ClaimsDecorator } from '../../common/decorators/caller.decorator.js';
+import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
+import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Role } from '../../common/enums/index.js';
 import type { Caller } from '../../common/types.js';
-import type { JwtClaims } from '../../db/context.js';
 import { ProfileService } from './profile.service.js';
 import { ApiResponse } from '../../common/dto/api-response.dto.js';
 import { UpdateProfileDto, MemberCodeResponseDto } from './dto/profile.dto.js';
@@ -13,6 +14,8 @@ import { UpdateProfileDto, MemberCodeResponseDto } from './dto/profile.dto.js';
 export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
 
+  @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
+  @HttpCode(HttpStatus.OK)
   @Post('mark-enrolled')
   @ApiOperation({ summary: 'Mark caller as biometric face enrolled' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -21,14 +24,7 @@ export class ProfileController {
     return new ApiResponse({ ok: true });
   }
 
-  @Post('mark-password-changed')
-  @ApiOperation({ summary: 'Mark caller password as updated from initial' })
-  @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
-  async markPasswordChanged(@CallerDecorator() caller: Caller | null): Promise<ApiResponse<{ ok: true }>> {
-    await this.profileService.markPasswordChanged(caller!);
-    return new ApiResponse({ ok: true });
-  }
-
+  @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
   @Patch('me')
   @ApiOperation({ summary: 'Update caller own profile info' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -46,14 +42,14 @@ export class ProfileController {
     return new ApiResponse({ ok: true });
   }
 
+  @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
   @Get('member-code')
   @ApiOperation({ summary: 'Get caller member numeric code' })
   @SwaggerResponse({ status: 200, type: ApiResponse<MemberCodeResponseDto> })
   async getMemberCode(
     @CallerDecorator() caller: Caller | null,
-    @ClaimsDecorator() claims: JwtClaims,
   ): Promise<ApiResponse<MemberCodeResponseDto>> {
-    const data = await this.profileService.getMemberCode(claims, caller!.id);
+    const data = await this.profileService.getMemberCode(caller!.id);
     return new ApiResponse(data);
   }
 }

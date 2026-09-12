@@ -1,16 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { GenericRepository } from '../../common/database/generic.repository.js';
-import { institutions, branches, groups, shifts } from '../../db/schema/index.js';
+import { GenericRepository } from '../../infrastructure/database/generic.repository.js';
+import { institutions, branches, groups, shifts } from '../../infrastructure/database/schema/index.js';
 import { eq, asc, desc } from 'drizzle-orm';
 import type { ICatalogRepository } from './interfaces/catalog.interface.js';
 
 @Injectable()
-export class CatalogRepository extends GenericRepository<
-  typeof institutions.$inferSelect,
-  string,
-  typeof institutions.$inferInsert,
-  Partial<typeof institutions.$inferInsert>
-> implements ICatalogRepository {
+export class CatalogRepository extends GenericRepository<typeof institutions> implements ICatalogRepository {
   constructor() {
     super(institutions, institutions.id);
   }

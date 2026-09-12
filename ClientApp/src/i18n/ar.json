@@ -209,7 +209,8 @@
     "poweredBy": "مُشغّل بواسطة",
     "rightsReserved": "جميع الحقوق محفوظة",
     "notConfiguredTitle": "التطبيق غير مهيأ",
-    "notConfiguredBody": "لم يتم ضبط الاتصال بالخادم. انسخ .env.example إلى .env وأدخل VITE_API_URL."
+    "notConfiguredBody": "لم يتم ضبط الاتصال بالخادم. انسخ .env.example إلى .env وأدخل VITE_API_URL.",
+    "popupBlocked": "لم يسمح المتصفح بفتح نافذة الطباعة. اسمح بالنوافذ المنبثقة لهذا الموقع ثم أعد المحاولة."
   },
   "tables": {
     "members": "الأعضاء",
@@ -330,7 +331,9 @@
     "reports": "التقارير",
     "qr": "رمز QR للموقع",
     "rosterMaker": "منشئ الروستر",
-    "settings": "الإعدادات"
+    "settings": "الإعدادات",
+    "audit": "سجل التدقيق",
+    "memberLookup": "بحث عن عضو"
   },
   "member": {
     "welcome": "أهلاً {{name}}",
@@ -756,5 +759,60 @@
     "total": "الإجمالي",
     "removeShift": "إزالة الشيفت",
     "removeShiftWarn": "العضو ده مسجّل حضور في اليوم ده. إزالة الشيفت هتمسح الحضور المسجّل كمان. تكمّل؟"
+  },
+  "audit": {
+    "title": "سجل التدقيق",
+    "subtitle": "كل رفض وكل إجراء ذي صلاحية، كما سجّله الخادم",
+    "from": "من تاريخ",
+    "to": "إلى تاريخ",
+    "event": "نوع الحدث",
+    "allEvents": "كل الأحداث",
+    "securityOnly": "الأحداث الأمنية فقط",
+    "securityOnlyHint": "الرفض والتجاوز والإجراءات ذات الصلاحية — دون حركة الحضور العادية",
+    "total": "{{count}} سجل",
+    "empty": "لا توجد سجلات في هذا النطاق",
+    "noActor": "بدون فاعل محدد",
+    "events": {
+      "login": "تسجيل دخول",
+      "password_changed": "تغيير كلمة المرور",
+      "face_enrolled": "تسجيل بصمة الوجه",
+      "mock_location_detected": "موقع وهمي",
+      "out_of_range": "خارج النطاق",
+      "low_accuracy": "دقة موقع ضعيفة",
+      "face_mismatch": "عدم تطابق الوجه",
+      "liveness_failed": "فشل إثبات الحياة",
+      "integrity_failed": "فشل التحقق من سلامة الجهاز",
+      "check_in": "تسجيل حضور",
+      "check_out": "تسجيل انصراف",
+      "master_login": "دخول بكلمة المرور الرئيسية",
+      "staff_deleted": "حذف حساب إداري",
+      "outside_window": "خارج نافذة الوردية",
+      "checkout_blocked": "انصراف مرفوض",
+      "server_error": "خطأ في الخادم"
+    }
+  },
+  "lookup": {
+    "identifier": "كود العضو أو الرقم القومي",
+    "placeholder": "اكتب الكود كاملاً أو الرقم القومي",
+    "notFound": "لا يوجد عضو بهذا المعرّف.",
+    "outsideYourBranches": "هذا العضو تابع لفرع خارج تكليفاتك. تم تسجيل عملية البحث.",
+    "enrolled": "مسجّل الوجه",
+    "notEnrolled": "لم يسجّل وجهه"
+  },
+  "outcome": {
+    "off": "يوم راحة — لا يوجد جدول",
+    "upcoming": "لم يحن موعده بعد",
+    "absent": "غياب",
+    "present_open": "حضور — لم ينصرف بعد",
+    "present_out": "حضور وانصراف",
+    "present_early": "حضور وانصراف مبكر",
+    "present_left": "حضور وترك العمل",
+    "late_open": "تأخير — لم ينصرف بعد",
+    "late_out": "تأخير وانصراف",
+    "late_early": "تأخير وانصراف مبكر",
+    "late_left": "تأخير وترك العمل"
+  },
+  "report": {
+    "legend": "دليل الرموز"
   }
 }

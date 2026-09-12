@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { UnitOfWorkService } from '../../common/database/unit-of-work.service.js';
+import { UnitOfWorkService } from '../../infrastructure/database/unit-of-work.service.js';
 import { PresenceRepository } from './presence.repository.js';
 import type { Caller } from '../../common/types.js';
 import { requireFilter } from '../../common/auth/access.service.js';
 import { cairoNow } from '../../domain/clock.js';
 import { previousDate } from '../../domain/attendance/windows.js';
-import { ApiError, forbidden, notFound } from '../../http/errors.js';
+import { ApiError, forbidden, notFound } from '../../common/errors.js';
 import { PresenceStatus, PresenceDecision } from '../../common/enums/index.js';
 
 import type { IPresenceService } from './interfaces/presence.interface.js';
@@ -33,7 +33,7 @@ export class PresenceService implements IPresenceService {
       deadline_minutes: number;
     },
   ) {
-    return this.uow.asService(async () => {
+    return this.uow.transaction(async () => {
       // Access service methods require tx. But we are in uow.
       // So we use the underlying db of the repo.
       await requireFilter((this.repo as any).db, caller, {
@@ -78,7 +78,7 @@ export class PresenceService implements IPresenceService {
   }
 
   async getChecks(callerId: string) {
-    return this.uow.asService(async () => {
+    return this.uow.transaction(async () => {
       const recentChecks = await this.repo.getRecentChecks(callerId);
       
       const allTargetIds = new Set<string>();
@@ -132,14 +132,14 @@ export class PresenceService implements IPresenceService {
   }
 
   async deleteCheck(callerId: string, id: string) {
-    return this.uow.asService(async () => {
+    return this.uow.transaction(async () => {
       await this.ownedCheck(id, callerId);
       await this.repo.deleteCheck(id);
     });
   }
 
   async confirmByAdmin(callerId: string, id: string, memberId: string) {
-    return this.uow.asService(async () => {
+    return this.uow.transaction(async () => {
       const check = await this.ownedCheck(id, callerId);
       if (check.status !== PresenceStatus.OPEN) throw new ApiError(409, 'not_open', 'this check is closed');
       
@@ -153,7 +153,7 @@ export class PresenceService implements IPresenceService {
   }
 
   async resolveCheck(callerId: string, id: string, decision: string) {
-    return this.uow.asService(async () => {
+    return this.uow.transaction(async () => {
       const check = await this.ownedCheck(id, callerId);
       
       if (check.status === PresenceStatus.RESOLVED) {
@@ -176,7 +176,7 @@ export class PresenceService implements IPresenceService {
   }
 
   async getPending(callerId: string) {
-    return this.uow.asService(async () => {
+    return this.uow.transaction(async () => {
       const memberId = await this.repo.getMemberIdByProfileId(callerId);
       if (!memberId) return { pending: null };
 
@@ -186,7 +186,7 @@ export class PresenceService implements IPresenceService {
   }
 
   async confirmByMember(callerId: string, checkId: string) {
-    return this.uow.asService(async () => {
+    return this.uow.transaction(async () => {
       const memberId = await this.repo.getMemberIdByProfileId(callerId);
       if (!memberId) throw forbidden('not_a_member');
 

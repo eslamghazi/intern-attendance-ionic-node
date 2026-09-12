@@ -20,15 +20,15 @@ import { MONTHS } from '../../lib/config';
 import { formatDate, formatTime } from '../../lib/date';
 import { appToday } from '../../lib/clock';
 import MemberHeader from '../../components/MemberHeader';
-import StatusBadge, { STATUS_COLOR } from '../../components/StatusBadge';
+import OutcomeBadge, { OutcomeLegend } from '../../components/OutcomeBadge';
 import EmptyState from '../../components/ui/EmptyState';
 import ListSkeleton from '../../components/ui/ListSkeleton';
-import { useReportExport } from '../../components/admin/useReportExport';
+import { useServerExport } from '../../components/useServerExport';
 
 export default function HistoryPage() {
   const { t } = useTranslation();
-  const { member, profile } = useAuth();
-  const exportReport = useReportExport();
+  const { member } = useAuth();
+  const serverExport = useServerExport();
 
   // Default to the current month.
   const [ym, setYm] = useState(() => {
@@ -46,55 +46,17 @@ export default function HistoryPage() {
 
   const rows = data ?? [];
   const pad = (n: number) => String(n).padStart(2, '0');
-  // A pending shift in the future is simply upcoming; a pending shift today
-  // is one they still have to turn up for. Same status, different message.
-  const statusLabel = (r: (typeof rows)[number]) =>
-    r.status === 'pending' && r.date > appToday()
-      ? t('attendance.upcoming')
-      : t(`attendance.${r.status}`);
-
+  // The SERVER builds this file — the same rows, legend and colours the admin
+  // exports use, from one place. The page used to assemble it here, which meant
+  // the report existed twice and the two drifted: a mark added to the shared
+  // vocabulary reached the admin exports and not this one.
   const doExport = () => {
     if (!rows.length) return;
-    exportReport({
-      title: `${t('nav.history')} — ${pad(ym.month)}/${ym.year}`,
-      subtitle: profile?.full_name,
-      filename: `my-attendance_${ym.year}_${pad(ym.month)}`,
-      headers: [
-        t('attendance.date'),
-        t('attendance.shift'),
-        t('attendance.checkInAt'),
-        t('attendance.checkOutAt'),
-        t('attendance.status'),
-      ],
-      rows: [
-        ...rows.map((r) => [
-          formatDate(r.date),
-          r.shift_name ?? '',
-          formatTime(r.check_in_at),
-          formatTime(r.check_out_at),
-          statusLabel(r),
-        ]),
-        // The month in one line: how many of each status.
-        [
-          t('rosters.total'),
-          String(rows.length),
-          '',
-          '',
-          Object.entries(
-            rows.reduce<Record<string, number>>((acc, r) => {
-              acc[r.status] = (acc[r.status] ?? 0) + 1;
-              return acc;
-            }, {}),
-          )
-            .map(([s, n]) => `${t(`attendance.${s}`)}: ${n}`)
-            .join(' · '),
-        ],
-      ],
-      cellColors: [
-        ...rows.map((r) => [undefined, undefined, undefined, undefined, STATUS_COLOR[r.status]?.fill]),
-        [],
-      ],
-    });
+    serverExport(
+      '/attendance/history/export',
+      { member_id: member?.id, year: ym.year, month: ym.month },
+      `my-attendance_${ym.year}_${pad(ym.month)}`,
+    );
   };
 
   return (
@@ -172,8 +134,11 @@ export default function HistoryPage() {
                       </span>
                     )}
                   </span>
-                  <StatusBadge status={r.status} label={statusLabel(r)} />
+                  <OutcomeBadge outcome={r.outcome} />
                 </div>
+                {/* An off day has no shift and no times — showing two empty
+                    slots reads as missing data rather than as a day off. */}
+                {r.outcome !== 'off' && (
                 <div className="hist-day__body">
                   <div className="hist-ev">
                     <span className="ui-caption">{t('attendance.checkInAt')}</span>
@@ -188,8 +153,10 @@ export default function HistoryPage() {
                     </span>
                   </div>
                 </div>
+                )}
               </div>
             ))}
+            <OutcomeLegend />
           </div>
         )}
       </IonContent>

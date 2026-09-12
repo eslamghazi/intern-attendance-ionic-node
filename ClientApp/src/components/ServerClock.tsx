@@ -2,9 +2,10 @@ import { IonIcon } from '@ionic/react';
 import { timeOutline } from 'ionicons/icons';
 import { useTranslation } from 'react-i18next';
 import { useNow } from '../lib/clock';
+import { APP_TIMEZONE } from '../lib/config';
 
 // Live app clock — reads the single, server-synced app clock (see lib/clock).
-const CAIRO = 'Africa/Cairo';
+const CAIRO = APP_TIMEZONE;
 
 export default function ServerClock() {
   const { i18n } = useTranslation();

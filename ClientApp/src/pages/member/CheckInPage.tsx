@@ -54,6 +54,7 @@ import { appNowMinutes, appRealNow } from '../../lib/clock';
 import { qk } from '../../lib/api/keys';
 import { useServerToday } from '../../lib/useServerToday';
 import { FACE, LOCATION } from '../../lib/config';
+import type { JsonObject } from '../../lib/json.types';
 
 type Phase = 'ready' | 'locating' | 'capturing' | 'submitting' | 'done' | 'failed';
 
@@ -193,7 +194,7 @@ export default function CheckInPage() {
   const livenessMode = settings?.liveness_mode ?? 'turn';
   const maxAccuracy = settings?.max_accuracy_meters ?? LOCATION.defaultMaxAccuracyMeters;
 
-  const fail = (reason: string, detail: Record<string, unknown> = {}) => {
+  const fail = (reason: string, detail: JsonObject = {}) => {
     setPhase('failed');
     setMessage(reasonMessage(t, reason, detail));
   };
@@ -236,7 +237,7 @@ export default function CheckInPage() {
     if (!bypassLocation) {
       setPhase('locating');
       // A location failure lets the member fall back to a manager's QR code.
-      const locFail = (reason: string, detail: Record<string, unknown> = {}) => {
+      const locFail = (reason: string, detail: JsonObject = {}) => {
         setLocationFailed(true);
         fail(reason, detail);
       };
@@ -270,6 +271,7 @@ export default function CheckInPage() {
     let score = 1;
     let livenessPassed = true;
     let probeWebPath: string | null = null;
+    let probeEmbedding: number[] | null = null;
     if (!bypassFace) {
       setPhase('capturing');
       // ONE liveness check, done inside the camera (a random action challenge)
@@ -317,7 +319,12 @@ export default function CheckInPage() {
         // Compare against both the face and its mirror, keep the better score —
         // so a left/right orientation difference between enrollment and check-in
         // never causes a false mismatch.
-        score = (await bestSimilarity(cap1.webPath, enrolled)).score;
+        // Keep the EMBEDDING, not just the score: the server recomputes the
+        // match from it against the enrolled template. A score on its own is a
+        // claim, and the server used to take it at face value.
+        const match = await bestSimilarity(cap1.webPath, enrolled);
+        score = match.score;
+        probeEmbedding = match.embedding;
       } catch {
         return fail('error');
       }
@@ -349,6 +356,7 @@ export default function CheckInPage() {
         is_mock: isMock,
         liveness_passed: livenessPassed,
         face_score: score,
+        probe_embedding: probeEmbedding,
         probe_base64: probeBase64,
         qr_token: qrToken ?? null,
         // Integrity marker: present only on the installed native app. When the
@@ -640,9 +648,9 @@ function Stepper({ phase, t }: { phase: Phase; t: (k: string) => string }) {
 }
 
 function reasonMessage(
-  t: (k: string, o?: Record<string, unknown>) => string,
+  t: (k: string, o?: JsonObject) => string,
   reason: string,
-  detail: Record<string, unknown>,
+  detail: JsonObject,
 ): string {
   switch (reason) {
     case 'branch_blocked':

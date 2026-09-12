@@ -18,8 +18,11 @@ export async function masterPasswordIsSet(): Promise<boolean> {
 }
 
 export async function getSettings(): Promise<AppSettings | null> {
-  // Null is a legitimate answer, not an error: a request that lands before the
-  // token is attached is filtered by RLS, and callers fall back to defaults.
+  // Null is a legitimate answer, not an error. The endpoint is public and
+  // answers null rather than 401 when no caller is attached, so a request that
+  // lands before the token does gets null and callers fall back to defaults —
+  // which is what lets the sign-in screen render branding before anyone signs
+  // in.
   return (await apiFetch<AppSettings | null>('/settings')) ?? null;
 }
 
@@ -57,9 +60,12 @@ const EDITABLE_FIELDS = [
   'checkin_method',
 ] as const;
 
+/** The settings a client is allowed to send back. */
+export type EditableSetting = (typeof EDITABLE_FIELDS)[number];
+
 export async function updateSettings(s: AppSettings): Promise<void> {
-  const body: Record<string, unknown> = {};
-  for (const k of EDITABLE_FIELDS) body[k] = s[k];
+  const body: Partial<Pick<AppSettings, EditableSetting>> = {};
+  for (const k of EDITABLE_FIELDS) Object.assign(body, { [k]: s[k] });
   await apiFetch('/settings', { method: 'PATCH', body });
 }
 

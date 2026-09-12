@@ -6,8 +6,10 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getServerNow, type ServerNow } from './api/time';
+import { APP_TIMEZONE, TIMING } from './config';
 
-const CAIRO = 'Africa/Cairo';
+// One definition, in config.ts. This was a third copy of the same string.
+const CAIRO = APP_TIMEZONE;
 
 /** ms to add to the device clock to get the EFFECTIVE server time (which may be
  *  a frozen test clock). Used for display + shift-window logic. */
@@ -72,7 +74,7 @@ export function appNowMinutes(): number {
 }
 
 export const CLOCK_KEY = ['app-clock'];
-const SYNC_MS = 30 * 1000; // re-sync every half minute
+const SYNC_MS = TIMING.CLOCK_SYNC_MS;
 
 /**
  * The shared clock queryFn. It samples the authoritative server time and sets
@@ -108,7 +110,8 @@ export async function sampleClock(): Promise<ServerNow> {
 /**
  * Mount once near the app root: OWNS the clock fetch. Gate it on `ready`
  * (auth resolved) so the FIRST sample is taken with the signed-in identity —
- * an member's frozen clock, if set — rather than as anon during the auth
+ * a member's frozen clock, if set — rather than as a signed-out caller during
+ * the auth
  * bootstrap (which returned real time and made the clock disagree between the
  * first page and later ones). Re-syncs every SYNC_MS.
  */
@@ -126,7 +129,7 @@ export function useClockSync(ready: boolean): void {
 
 /** Subscribe to clock syncs WITHOUT driving a fetch — the owner (useClockSync,
  *  auth-gated) is the only fetcher, so a passive consumer can never trigger an
- *  early anon sample. Re-renders whenever the shared sample updates. */
+ *  early signed-out sample. Re-renders whenever the shared sample updates. */
 export function useClockSubscribe(): void {
   useQuery({ queryKey: CLOCK_KEY, queryFn: sampleClock, enabled: false });
 }

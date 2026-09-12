@@ -1,4 +1,4 @@
-// Session storage adapter backed by Capacitor Preferences so Supabase auth
+// Session storage adapter backed by Capacitor Preferences so the auth
 // sessions survive app restarts on native. On the web, Preferences falls back
 // to localStorage automatically, so this works in the browser too.
 import { Preferences } from '@capacitor/preferences';

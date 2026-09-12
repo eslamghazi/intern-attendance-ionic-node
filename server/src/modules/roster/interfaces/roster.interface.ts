@@ -1,6 +1,6 @@
 import type { Caller } from '../../../domain/identity/role.js';
-import type { IGenericRepository } from '../../../common/database/interfaces/generic-repository.interface.js';
-import { rosterDays } from '../../../db/schema/index.js';
+import type { IGenericRepository } from '../../../infrastructure/database/interfaces/generic-repository.interface.js';
+import { rosterDays } from '../../../infrastructure/database/schema/index.js';
 import type {
   RosterViewRowDto,
   RosterMakerMemberDto,
@@ -38,12 +38,7 @@ export interface IRosterService {
   bulkRoster(caller: Caller, o: BulkRosterDto): Promise<BulkRosterResultDto>;
 }
 
-export interface IRosterRepository extends IGenericRepository<
-  typeof rosterDays.$inferSelect,
-  string,
-  typeof rosterDays.$inferInsert,
-  Partial<typeof rosterDays.$inferInsert>
-> {
+export interface IRosterRepository extends IGenericRepository<typeof rosterDays> {
   getRosterView(
     filters: MemberFilters,
     year: number,

@@ -1,8 +1,8 @@
 // On-device face embedding using ONNX Runtime Web + MobileFaceNet.
 // Drop a 112x112 ArcFace/MobileFaceNet model at: public/models/mobilefacenet.onnx
-// (output dimension must be 512 to match the pgvector column).
+// (output dimension must be 512 to match the stored template).
 import * as ort from 'onnxruntime-web';
-import { FACE } from '../config';
+import { FACE, STORAGE_KEYS } from '../config';
 
 const MODEL_URL = FACE.modelUrl;
 const INPUT_SIZE = FACE.inputSize;
@@ -13,7 +13,7 @@ ort.env.wasm.wasmPaths = FACE.wasmPaths;
 
 let sessionPromise: Promise<ort.InferenceSession> | null = null;
 
-const MODEL_CACHE = 'face-model-v1';
+const MODEL_CACHE = STORAGE_KEYS.FACE_MODEL_CACHE;
 
 /**
  * Return the model bytes, downloading it ONCE and persisting it in the browser's

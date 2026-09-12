@@ -51,6 +51,40 @@ const COMPOSE =
     ? '-f docker-compose.yml -f docker-compose.prod.yml'
     : '');
 
+/**
+ * LOCAL MODE — the same suites, without containers.
+ *
+ * Docker is not available everywhere these need to run, and the suites are the
+ * only place a good deal of this code is exercised at all. In local mode the
+ * database is reached with a `psql` on PATH and the API is a process the runner
+ * started, so everything below has two implementations and one contract. The
+ * suites themselves cannot tell the difference and are unchanged.
+ *
+ *   E2E_LOCAL=1       use a local Postgres and a local API
+ *   DATABASE_URL      how to reach it
+ *   E2E_PSQL          path to psql, when it is not on PATH
+ */
+const LOCAL = process.env.E2E_LOCAL === '1';
+const PSQL = process.env.E2E_PSQL || 'psql';
+const DB_URL = process.env.DATABASE_URL || '';
+
+if (LOCAL && !DB_URL) {
+  throw new Error('E2E_LOCAL=1 needs DATABASE_URL');
+}
+
+/**
+ * Restart the API in local mode.
+ *
+ * Registered by run.mjs, which owns the process — a suite runs as its own
+ * process and cannot hold a handle on it. Left unset, reset() says so rather
+ * than silently skipping the restart and letting the next suite inherit the
+ * previous one's rate-limit budget.
+ */
+let localRestart = null;
+export function onLocalRestart(fn) {
+  localRestart = fn;
+}
+
 export const SUPERADMIN = {
   nationalId: process.env.E2E_SUPERADMIN_ID || '29001011234567',
   password: process.env.E2E_SUPERADMIN_PW || 'SuperTest!2026',
@@ -107,7 +141,35 @@ export async function call(method, path, { token, body, raw } = {}) {
   } catch {
     /* empty body */
   }
-  return { status: res.status, body: json };
+  return { status: res.status, body: unwrap(json) };
+}
+
+/**
+ * Take the payload out of the success envelope, exactly as the client does.
+ *
+ * The API answers `{ ok: true, data: … }` and ClientApp/src/lib/api/http.ts
+ * unwraps it before any screen sees it — so a suite reading the raw envelope is
+ * testing a shape nothing in the product ever handles. Every assertion here was
+ * written against the payload (`body.access_token`, not `body.data.access_token`)
+ * and they read `undefined` until this was added.
+ *
+ * FAILURES ARE LEFT ALONE. The error envelope is `{ ok: false, error: … }`, the
+ * client keeps it whole, and two suites assert on `body.error.code`.
+ */
+function unwrap(payload) {
+  if (!payload || typeof payload !== 'object' || payload.ok !== true) return payload;
+
+  // A page: the client offers the rows under every name a screen might ask for.
+  if (typeof payload.total === 'number' && Array.isArray(payload.data)) {
+    return {
+      data: payload.data,
+      items: payload.data,
+      rows: payload.data,
+      total: payload.total,
+      meta: payload.meta,
+    };
+  }
+  return payload.data !== undefined ? payload.data : payload;
 }
 
 export const login = (nationalId, password) =>
@@ -124,10 +186,14 @@ export const loginSuper = () => login(SUPERADMIN.nationalId, SUPERADMIN.password
  */
 export function psql(query) {
   const sql = query.replace(/\s+/g, ' ').trim().replace(/"/g, '\\"');
-  return atRoot(
-    `docker compose ${COMPOSE} exec -T db psql -U attendance -d attendance -t -A -c "${sql}"`,
-    { encoding: 'utf8' },
-  ).trim();
+  const cmd = LOCAL
+    // `-d`, not a positional: psql stops parsing options at the first
+    // positional argument, so `psql <url> -t -A -c <sql>` reads the URL as the
+    // database, `-t` as the USERNAME, and warns that the rest was ignored —
+    // then exits 0 having run nothing, which reads as an empty result.
+    ? `"${PSQL}" -d "${DB_URL}" -t -A -c "${sql}"`
+    : `docker compose ${COMPOSE} exec -T db psql -U attendance -d attendance -t -A -c "${sql}"`;
+  return atRoot(cmd, { encoding: 'utf8' }).trim();
 }
 
 /**
@@ -139,11 +205,19 @@ export function psql(query) {
  * that, so without this the next suite starts against a 429 and every check
  * fails for a reason that has nothing to do with what it is testing.
  */
-export function reset() {
+export async function reset() {
   psql(`delete from public.profiles where role <> 'superadmin'`);
   psql(`delete from public.refresh_tokens`);
   psql(`delete from public.audit_log`);
   psql(`update public.app_settings set master_password_hash = null where id = 1`);
+
+  if (LOCAL) {
+    if (!localRestart) throw new Error('local mode: no restarter registered — see onLocalRestart');
+    await localRestart();
+    await waitForHealth();
+    return;
+  }
+
   atRoot(`docker compose ${COMPOSE} restart api`, { stdio: 'pipe' });
 
   for (let i = 0; i < 30; i++) {
@@ -159,4 +233,18 @@ export function reset() {
     }
   }
   throw new Error('the API did not come back after a restart');
+}
+
+/** Poll /health until the API answers, or give up after ~30s. */
+export async function waitForHealth(tries = 60) {
+  for (let i = 0; i < tries; i++) {
+    try {
+      const res = await fetch(`${ORIGIN}/health`);
+      if (res.ok) return;
+    } catch {
+      /* still starting */
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  throw new Error(`the API did not answer /health at ${ORIGIN}`);
 }

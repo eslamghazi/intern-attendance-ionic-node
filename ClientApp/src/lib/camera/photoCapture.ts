@@ -9,7 +9,7 @@ import { Capacitor } from '@capacitor/core';
 import { Camera } from '@capacitor/camera';
 import { getFaceLandmarker, detectFace, type FaceBox } from './faceDetect';
 import { createTurnChallenge, type TurnLabels } from './turnChallenge';
-import { LIVENESS } from '../config';
+import { LIVENESS, CAPTURE } from '../config';
 
 export interface PhotoResult {
   webPath: string;
@@ -38,8 +38,8 @@ const CLOSE_SVG =
 const FLIP_SVG =
   '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8a8 8 0 0 0-14-2M4 6v4h4"/><path d="M4 16a8 8 0 0 0 14 2M20 18v-4h-4"/></svg>';
 
-const OUT_SIZE = 512; // saved image is a square OUT_SIZE crop
-const GREEN = '#2dd36f';
+const OUT_SIZE = CAPTURE.OUT_SIZE;
+const GREEN = CAPTURE.GUIDE_COLOR;
 
 export async function capturePhoto(
   opts: {

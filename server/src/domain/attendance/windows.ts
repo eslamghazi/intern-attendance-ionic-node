@@ -9,18 +9,8 @@
 // scale anchored at check-in open: anything earlier in the day than the anchor
 // is pushed a day forward (+1440).
 
-export interface ShiftRow {
-  id: string;
-  name: string;
-  checkin_open: string | null;
-  checkin_late: string | null;
-  checkin_close: string | null;
-  checkout_open: string | null;
-  checkout_close: string | null;
-  start_time: string | null;
-  end_time: string | null;
-}
-
+import type { PlacedWindow, ShiftRow, WindowDefaults } from './types.js';
+export type { PlacedWindow, ShiftRow, WindowDefaults } from './types.js';
 /** 'HH:mm[:ss]' -> minutes since midnight. */
 export function toMin(t?: string | null): number {
   if (!t) return 0;
@@ -37,22 +27,6 @@ export function toClock(m: number): string {
 /** True when the shift crosses midnight. */
 export function isOvernight(sh: ShiftRow): boolean {
   return toMin(sh.end_time) <= toMin(sh.start_time);
-}
-
-export interface WindowDefaults {
-  /** app_settings.shift_start — used when a shift has no explicit check-in-late. */
-  shift_start: string | null;
-  /** app_settings.shift_end — used when a shift has no explicit check-out-open. */
-  shift_end: string | null;
-}
-
-export interface PlacedWindow {
-  ciOpenP: number;
-  ciLateP: number;
-  ciCloseP: number;
-  coOpenP: number;
-  coCloseP: number;
-  nowP: number;
 }
 
 /**
@@ -90,5 +64,12 @@ export function placeWindow(
 export function previousDate(date: string): string {
   const d = new Date(`${date}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/** The next calendar day. Same rule as previousDate, and for the same reason. */
+export function nextDate(date: string): string {
+  const d = new Date(`${date}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString().slice(0, 10);
 }

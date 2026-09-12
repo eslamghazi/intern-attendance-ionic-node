@@ -10,7 +10,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AppModule } from './app.module.js';
-import { env } from './env.js';
+import { env } from './config/env.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -129,6 +129,12 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, document);
+
+  // SIGTERM ends the process; this makes it end in order. Without it Nest
+  // registers no signal handler at all, so onApplicationShutdown never fires —
+  // the scheduler's timers were never cleared and the connection pool was never
+  // drained, on every `docker compose down` and every deploy.
+  app.enableShutdownHooks();
 
   const port = env.PORT || 8787;
   const host = env.HOST || '0.0.0.0';

@@ -11,6 +11,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Role } from '../../../common/enums/index.js';
+import { PASSWORD_MIN } from '../../../config/constants.js';
 
 export class LoginDto {
   @ApiProperty({ description: 'National ID number (login identifier)', example: '29001011234567' })
@@ -44,16 +45,9 @@ export class ChangePasswordDto {
   @IsNotEmpty()
   current!: string;
 
-  @ApiProperty({ description: 'New password (min 6 characters)', example: 'NewSecret!456' })
+  @ApiProperty({ description: `New password (min ${PASSWORD_MIN} characters)`, example: 'NewSecret!456' })
   @IsString()
-  @MinLength(6)
-  new!: string;
-}
-
-export class InitialPasswordDto {
-  @ApiProperty({ description: 'New password (min 6 characters)', example: 'NewSecret!456' })
-  @IsString()
-  @MinLength(6)
+  @MinLength(PASSWORD_MIN)
   new!: string;
 }
 
@@ -155,9 +149,6 @@ export class LoginResultDto {
 
   @ApiProperty({ description: 'User role', example: 'superadmin' })
   role!: string;
-
-  @ApiProperty({ description: 'Whether the user must change initial password' })
-  must_change_password!: boolean;
 
   @ApiProperty({ type: LoginProfileDto })
   profile!: LoginProfileDto;

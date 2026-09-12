@@ -1,8 +1,8 @@
 // Admin-side account and QR operations.
 //
-// `invokeFn` is gone: every Edge Function it wrapped is now a route, and
-// apiFetch already unwraps the API's error envelope into an ApiError carrying
-// the Postgres code, which is what dbError.ts reads.
+// Every one of these is a plain route. apiFetch unwraps the API's error
+// envelope into an ApiError carrying the Postgres code, which is what
+// dbError.ts reads.
 import { apiFetch } from './http';
 import { createStaff, resetMemberPassword, resetStaffPassword, type NewStaff } from './auth';
 

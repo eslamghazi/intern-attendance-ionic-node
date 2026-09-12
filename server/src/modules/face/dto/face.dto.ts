@@ -71,8 +71,11 @@ export class LookupFaceResponseDto {
 }
 
 export class TemplateResponseDto {
-  @ApiPropertyOptional({ description: 'Embedding vector array or string', nullable: true })
-  embedding!: number[] | string | null;
+  // Numbers, never a string. The column is `real[]` and the driver hands it
+  // back as number[]; the `| string` this used to allow described the pgvector
+  // column it replaced, which came back as the text '[0.1,0.2,…]'.
+  @ApiPropertyOptional({ description: 'Embedding vector, or null when not enrolled', nullable: true })
+  embedding!: number[] | null;
 }
 
 

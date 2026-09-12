@@ -1,4 +1,5 @@
 // Depth (3D) liveness: tells a real head apart from a flat photo or a phone
+import { CAPTURE } from '../config';
 // screen while the user turns their face.
 //
 // The idea: a printed photo or a replayed video is a PLANE. Whatever you do to
@@ -15,7 +16,7 @@
 // not depend on how close the user holds the phone or the camera resolution.
 
 /** Least-squares fit needs at least 4 correspondences; we use the whole mesh. */
-const MIN_POINTS = 12;
+const MIN_POINTS = CAPTURE.PARALLAX_MIN_POINTS;
 
 interface Normalized {
   /** Points mapped so the centroid is at 0 and the mean radius is sqrt(2). */

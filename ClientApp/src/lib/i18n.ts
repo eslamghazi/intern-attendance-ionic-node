@@ -2,11 +2,12 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import ar from '../i18n/ar.json';
 import en from '../i18n/en.json';
+import { STORAGE_KEYS } from './config';
 
 export const supportedLngs = ['ar', 'en'] as const;
 export type Lang = (typeof supportedLngs)[number];
 
-const LANG_KEY = 'lang';
+const LANG_KEY = STORAGE_KEYS.LANG;
 
 /** Apply text direction + lang attribute to <html> for RTL/LTR. */
 export function applyDirection(lng: string): void {
@@ -25,7 +26,7 @@ void i18n.use(initReactI18next).init({
   },
   lng: initial,
   fallbackLng: 'ar',
-  supportedLngs: supportedLngs as unknown as string[],
+  supportedLngs: [...supportedLngs],
   interpolation: { escapeValue: false },
 });
 

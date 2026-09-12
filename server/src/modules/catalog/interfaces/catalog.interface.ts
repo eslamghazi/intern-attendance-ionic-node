@@ -1,6 +1,7 @@
-import type { JwtClaims } from '../../../db/context.js';
-import type { IGenericRepository } from '../../../common/database/interfaces/generic-repository.interface.js';
-import { institutions } from '../../../db/schema/index.js';
+import type { JwtClaims } from '../../../infrastructure/database/context.js';
+import type { Caller } from '../../../common/types.js';
+import type { IGenericRepository } from '../../../infrastructure/database/interfaces/generic-repository.interface.js';
+import { institutions } from '../../../infrastructure/database/schema/index.js';
 import type {
   BranchOptionResponseDto,
   BranchResponseDto,
@@ -20,36 +21,31 @@ import type {
 } from '../dto/catalog.dto.js';
 
 export interface ICatalogService {
-  getInstitutions(claims: JwtClaims): Promise<InstitutionResponseDto[]>;
-  createInstitution(claims: JwtClaims, data: CreateInstitutionDto): Promise<InstitutionResponseDto>;
-  updateInstitution(claims: JwtClaims, id: string, data: UpdateInstitutionDto): Promise<InstitutionResponseDto>;
-  deleteInstitution(claims: JwtClaims, id: string): Promise<void>;
+  getInstitutions(): Promise<InstitutionResponseDto[]>;
+  createInstitution(data: CreateInstitutionDto): Promise<InstitutionResponseDto>;
+  updateInstitution(id: string, data: UpdateInstitutionDto): Promise<InstitutionResponseDto>;
+  deleteInstitution(id: string): Promise<void>;
 
-  getBranches(claims: JwtClaims): Promise<BranchResponseDto[]>;
-  getBranchesOptions(claims: JwtClaims): Promise<BranchOptionResponseDto[]>;
-  createBranch(claims: JwtClaims, b: CreateBranchDto): Promise<BranchResponseDto>;
-  updateBranch(claims: JwtClaims, id: string, b: UpdateBranchDto): Promise<BranchResponseDto>;
-  deleteBranch(claims: JwtClaims, id: string): Promise<void>;
+  getBranches(): Promise<BranchResponseDto[]>;
+  getBranchesOptions(caller: Caller): Promise<BranchOptionResponseDto[]>;
+  createBranch(b: CreateBranchDto): Promise<BranchResponseDto>;
+  updateBranch(id: string, b: UpdateBranchDto): Promise<BranchResponseDto>;
+  deleteBranch(id: string): Promise<void>;
 
-  getGroups(claims: JwtClaims): Promise<GroupResponseDto[]>;
-  getGroupsOptions(claims: JwtClaims): Promise<GroupOptionResponseDto[]>;
-  createGroup(claims: JwtClaims, g: CreateGroupDto): Promise<GroupResponseDto>;
-  updateGroup(claims: JwtClaims, id: string, g: UpdateGroupDto): Promise<GroupResponseDto>;
-  deleteGroup(claims: JwtClaims, id: string): Promise<void>;
+  getGroups(): Promise<GroupResponseDto[]>;
+  getGroupsOptions(caller: Caller): Promise<GroupOptionResponseDto[]>;
+  createGroup(g: CreateGroupDto): Promise<GroupResponseDto>;
+  updateGroup(id: string, g: UpdateGroupDto): Promise<GroupResponseDto>;
+  deleteGroup(id: string): Promise<void>;
 
-  getShifts(claims: JwtClaims): Promise<ShiftResponseDto[]>;
-  getShiftsKeys(claims: JwtClaims): Promise<ShiftKeyOptionResponseDto[]>;
-  createShift(claims: JwtClaims, s: CreateShiftDto): Promise<ShiftResponseDto>;
-  updateShift(claims: JwtClaims, id: string, s: UpdateShiftDto): Promise<ShiftResponseDto>;
-  deleteShift(claims: JwtClaims, id: string): Promise<void>;
+  getShifts(): Promise<ShiftResponseDto[]>;
+  getShiftsKeys(): Promise<ShiftKeyOptionResponseDto[]>;
+  createShift(s: CreateShiftDto): Promise<ShiftResponseDto>;
+  updateShift(id: string, s: UpdateShiftDto): Promise<ShiftResponseDto>;
+  deleteShift(id: string): Promise<void>;
 }
 
-export interface ICatalogRepository extends IGenericRepository<
-  typeof institutions.$inferSelect,
-  string,
-  typeof institutions.$inferInsert,
-  Partial<typeof institutions.$inferInsert>
-> {
+export interface ICatalogRepository extends IGenericRepository<typeof institutions> {
   getInstitutions(): Promise<any[]>;
   insertInstitution(name: string, code: number): Promise<any>;
   updateInstitution(id: string, name: string, code: number): Promise<any>;

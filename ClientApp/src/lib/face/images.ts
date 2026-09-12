@@ -1,5 +1,5 @@
 import { apiFetch } from '../api/http';
-import { BUCKETS, EXPORT_URL_TTL_SECONDS, SIGNED_URL_TTL_SECONDS, type Bucket } from '../config';
+import { FILE_KINDS, EXPORT_URL_TTL_SECONDS, SIGNED_URL_TTL_SECONDS, type FileKind } from '../config';
 import { downloadBlob } from '../download';
 
 /** Blob -> bare base64, chunked so a large image can't blow the argument limit. */
@@ -18,7 +18,7 @@ export async function urlToBlob(url: string): Promise<Blob> {
   return await res.blob();
 }
 
-/** Read a Blob as a base64 data URL (for sending an image to an edge function). */
+/** Read a Blob as a base64 data URL, for sending an image to the API. */
 export function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -28,9 +28,9 @@ export function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-/** Upload one image to a private bucket, returning the path it landed on. */
-async function upload(bucket: Bucket, path: string, blob: Blob): Promise<string> {
-  await apiFetch(`/storage/${bucket}`, {
+/** Upload one image to a private kind, returning the path it landed on. */
+async function upload(kind: FileKind, path: string, blob: Blob): Promise<string> {
+  await apiFetch(`/storage/${kind}`, {
     method: 'POST',
     body: {
       path,
@@ -41,30 +41,30 @@ async function upload(bucket: Bucket, path: string, blob: Blob): Promise<string>
   return path;
 }
 
-/** Upload the enrolled reference photo to the private `faces` bucket. */
+/** Upload the enrolled reference photo to the private `faces` kind. */
 export function uploadReference(uid: string, blob: Blob): Promise<string> {
-  return upload(BUCKETS.faces, `${uid}/reference.jpg`, blob);
+  return upload(FILE_KINDS.faces, `${uid}/reference.jpg`, blob);
 }
 
-/** Upload a per-event probe photo to the private `probes` bucket. */
+/** Upload a per-event probe photo to the private `probes` kind. */
 export function uploadProbe(
   uid: string,
   blob: Blob,
   dateLabel: string,
   type: 'check_in' | 'check_out',
 ): Promise<string> {
-  return upload(BUCKETS.probes, `${uid}/${dateLabel}-${type}.jpg`, blob);
+  return upload(FILE_KINDS.probes, `${uid}/${dateLabel}-${type}.jpg`, blob);
 }
 
 /** Create a short-lived signed URL for an admin to view a private image. */
 export async function signedUrl(
-  bucket: Bucket,
+  kind: FileKind,
   path: string,
   expiresIn = SIGNED_URL_TTL_SECONDS,
 ): Promise<string | null> {
   try {
     const { url } = await apiFetch<{ url: string }>(
-      `/storage/${bucket}/url?path=${encodeURIComponent(path)}&expires_in=${expiresIn}`,
+      `/storage/${kind}/url?path=${encodeURIComponent(path)}&expires_in=${expiresIn}`,
     );
     return url ?? null;
   } catch {
@@ -77,13 +77,13 @@ export async function signedUrl(
  *  that could not be signed (deleted file, or one this caller may not see) is
  *  simply absent. */
 export async function signedUrls(
-  bucket: Bucket,
+  kind: FileKind,
   paths: string[],
   expiresIn = SIGNED_URL_TTL_SECONDS,
 ): Promise<Map<string, string>> {
   const unique = [...new Set(paths.filter(Boolean))];
   if (!unique.length) return new Map();
-  const map = await apiFetch<Record<string, string>>(`/storage/${bucket}/urls`, {
+  const map = await apiFetch<Record<string, string>>(`/storage/${kind}/urls`, {
     method: 'POST',
     body: { paths: unique, expires_in: expiresIn },
   });
@@ -103,14 +103,14 @@ export async function signedUrls(
  * thousand-path failure if anything goes wrong. Returns how many FILES the
  * server confirmed removing.
  */
-export async function removeImages(bucket: Bucket, paths: string[]): Promise<number> {
+export async function removeImages(kind: FileKind, paths: string[]): Promise<number> {
   const unique = [...new Set(paths.filter(Boolean))];
   let removed = 0;
   // Still chunked: a thousand-path request is a thousand-path failure if
   // anything goes wrong. The API drops the files and their references together,
   // so a run that dies halfway leaves nothing referencing a missing file.
   for (let i = 0; i < unique.length; i += 100) {
-    const res = await apiFetch<{ removed: number }>(`/storage/${bucket}`, {
+    const res = await apiFetch<{ removed: number }>(`/storage/${kind}`, {
       method: 'DELETE',
       body: { paths: unique.slice(i, i + 100) },
     });
@@ -129,10 +129,10 @@ const safeName = (name: string) =>
 /** Fetch stored images as blobs. Signed fresh with a long TTL first: the view's
  *  2-minute URLs can expire halfway through a large export. */
 async function fetchStored(
-  bucket: Bucket,
+  kind: FileKind,
   paths: string[],
 ): Promise<{ path: string; blob: Blob }[]> {
-  const urls = await signedUrls(bucket, paths, EXPORT_URL_TTL_SECONDS);
+  const urls = await signedUrls(kind, paths, EXPORT_URL_TTL_SECONDS);
   const out: { path: string; blob: Blob }[] = [];
   // A few at a time — a hundred parallel fetches is how you get throttled.
   const POOL = 6;
@@ -156,8 +156,8 @@ async function fetchStored(
 }
 
 /** Save ONE stored image to the device. */
-export async function downloadImage(bucket: Bucket, path: string, filename?: string): Promise<void> {
-  const [got] = await fetchStored(bucket, [path]);
+export async function downloadImage(kind: FileKind, path: string, filename?: string): Promise<void> {
+  const [got] = await fetchStored(kind, [path]);
   if (!got) throw new Error('image_unavailable');
   downloadBlob(got.blob, filename || baseName(path));
 }
@@ -165,12 +165,12 @@ export async function downloadImage(bucket: Bucket, path: string, filename?: str
 /** Save MANY stored images as one zip, foldered per member so a bulk export
  *  stays navigable. Returns how many files made it in. */
 export async function downloadImagesZip(
-  bucket: Bucket,
+  kind: FileKind,
   items: { path: string; folder?: string }[],
   zipName: string,
 ): Promise<number> {
   const blobs = await fetchStored(
-    bucket,
+    kind,
     items.map((i) => i.path),
   );
   if (!blobs.length) return 0;

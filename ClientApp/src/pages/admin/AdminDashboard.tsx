@@ -37,7 +37,7 @@ import ServerClock from '../../components/ServerClock';
 import Copyright from '../../components/Copyright';
 import ThemeToggle from '../../components/ThemeToggle';
 import LanguageToggle from '../../components/LanguageToggle';
-import { useReportExport } from '../../components/admin/useReportExport';
+import { useServerExport } from '../../components/useServerExport';
 import { STATUS_COLOR } from '../../components/StatusBadge';
 import StatTile from '../../components/ui/StatTile';
 import DonutStat from '../../components/ui/DonutStat';
@@ -60,52 +60,6 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
       <span className="ltr-nums ui-muted">{value}</span>
     </div>
   );
-}
-
-/** Rasterize an on-screen SVG chart to a PNG data URL for the PDF export. */
-async function svgToPng(svg: SVGSVGElement): Promise<string | null> {
-  try {
-    const rect = svg.getBoundingClientRect();
-    const w = Math.max(1, Math.round(rect.width || 320));
-    const h = Math.max(1, Math.round(rect.height || 200));
-    const clone = svg.cloneNode(true) as SVGSVGElement;
-    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    clone.setAttribute('width', String(w));
-    clone.setAttribute('height', String(h));
-    const xml = new XMLSerializer().serializeToString(clone);
-    const src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
-    const img = await new Promise<HTMLImageElement>((res, rej) => {
-      const i = new Image();
-      i.onload = () => res(i);
-      i.onerror = rej;
-      i.src = src;
-    });
-    const scale = 2; // crisper in print
-    const canvas = document.createElement('canvas');
-    canvas.width = w * scale;
-    canvas.height = h * scale;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.scale(scale, scale);
-    ctx.drawImage(img, 0, 0, w, h);
-    return canvas.toDataURL('image/png');
-  } catch {
-    return null;
-  }
-}
-
-/** Capture every currently-shown dashboard chart (the selected ones) as images. */
-async function captureCharts(): Promise<{ label: string; dataUrl: string }[]> {
-  const out: { label: string; dataUrl: string }[] = [];
-  for (const el of Array.from(document.querySelectorAll('[data-chart-label]'))) {
-    const svg = el.querySelector('svg');
-    if (!svg) continue;
-    const png = await svgToPng(svg as SVGSVGElement);
-    if (png) out.push({ label: el.getAttribute('data-chart-label') || '', dataUrl: png });
-  }
-  return out;
 }
 
 /** Placeholder shown while the month's numbers are being fetched — the page
@@ -133,7 +87,7 @@ function DashboardSkeleton() {
 export default function AdminDashboard() {
   const { t, i18n } = useTranslation();
   const date = useServerToday();
-  const exportReport = useReportExport();
+  const serverExport = useServerExport();
   const { canOp } = usePermissions('dashboard');
 
   // Filters.
@@ -246,64 +200,27 @@ export default function AdminDashboard() {
     new Intl.DateTimeFormat(locale, { weekday: 'narrow' }).format(new Date(Date.UTC(2023, 0, 1 + i))),
   );
 
-  const exportDashboard = async () => {
-    const images = await captureCharts(); // the selected charts, as PNGs (PDF only)
-    const section = (label: string): [string, string | number][] => [['', ''], [label, '']];
-    const attended = stats?.attended ?? 0;
-    const branchName = branches.find((h) => h.id === branchId)?.name ?? t('admin.allBranches');
-    const groupName = groups.find((b) => b.id === groupId)?.name ?? t('admin.allGroups');
-    const shiftName = shifts.find((s) => s.id === shiftId)?.name ?? t('admin.allShifts');
-    exportReport({
-      title: `${t('nav.dashboard')} — ${periodLabel}`,
-      filename: `dashboard_${year}_${String(month).padStart(2, '0')}${day ? `_${day}` : ''}`,
-      headers: [t('admin.metric'), t('admin.value')],
-      rows: [
-        // Active filters (so the export is self-describing).
-        [t('admin.period'), periodLabel],
-        [t('nav.branches'), branchName],
-        [t('nav.groups'), groupName],
-        [t('nav.shifts'), shiftName],
-        // Summary.
-        ...section(t('admin.overview')),
-        [t('attendance.present'), present],
-        [t('attendance.late'), late],
-        [t('attendance.absent'), absent],
-        [t('admin.stillOpen'), pending],
-        [t('admin.attendanceRate'), `${pct}%`],
-        [attendanceLabel, attended],
-        // Catalog totals.
-        ...section(''),
-        [t('admin.totalMembers'), total],
-        [t('nav.branches'), branches.length],
-        [t('nav.groups'), groups.length],
-        [t('nav.shifts'), shifts.length],
-        // Breakdowns.
-        ...(perBranch.length ? section(t('admin.byBranch')) : []),
-        ...perBranch.map((h) => [h.label, h.value] as [string, number]),
-        ...(perGroup.length ? section(t('admin.byGroup')) : []),
-        ...perGroup.map((b) => [b.label, b.value] as [string, number]),
-        ...(perShift.length ? section(t('admin.byShift')) : []),
-        ...perShift.map((s) => [s.label, s.value] as [string, number]),
-        // Full daily breakdown (attended/total and rate per day).
-        ...((stats?.perDay?.length ?? 0)
-          ? section(t('admin.dailyTrend'))
-          : ([] as [string, string | number][])),
-        ...(stats?.perDay ?? [])
-          .filter((d) => d.attended + d.absent + d.pending > 0)
-          .map(
-            (d) =>
-              [
-                `${d.day}`,
-                // "83% · 5/6 (+2)" — rate over what finished, and what is still
-                // running. A day with nothing finished shows no percentage.
-                d.settled > 0
-                  ? `${d.rate}% · ${d.settled - d.absent}/${d.settled}${d.pending ? ` (+${d.pending})` : ''}`
-                  : `— · ${d.pending}`,
-              ] as [string, string],
-          ),
-      ],
-      images,
-    });
+  // The SERVER builds this file now, from the same scoped stats the screen is
+  // reading. The page used to assemble it here — rows, totals and a spreadsheet
+  // writer — which is why the client shipped an xlsx library for one button.
+  //
+  // The charts do not travel. A chart is a canvas, and a picture of one exists
+  // only in the browser that drew it; every number behind every chart is in the
+  // table the server produces.
+  const exportDashboard = () => {
+    serverExport(
+      '/attendance/dashboard/export',
+      {
+        year,
+        month,
+        day,
+        branchId: branchId || undefined,
+        groupId: groupId || undefined,
+        shiftId: shiftId || undefined,
+        departmentId: departmentId || undefined,
+      },
+      `dashboard_${year}_${String(month).padStart(2, '0')}${day ? `_${day}` : ''}`,
+    );
   };
 
   return (

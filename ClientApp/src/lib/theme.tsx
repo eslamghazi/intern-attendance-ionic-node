@@ -5,9 +5,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { STORAGE_KEYS } from './config';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
-const KEY = 'theme';
+const KEY = STORAGE_KEYS.THEME;
 
 interface ThemeValue {
   mode: ThemeMode;

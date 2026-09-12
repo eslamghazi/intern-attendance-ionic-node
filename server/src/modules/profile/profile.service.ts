@@ -1,23 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { UnitOfWorkService } from '../../common/database/unit-of-work.service.js';
+import { UnitOfWorkService } from '../../infrastructure/database/unit-of-work.service.js';
 import { ProfileRepository, ProfileEdit } from './profile.repository.js';
 import type { Caller } from '../../domain/identity/role.js';
-import { conflict } from '../../http/errors.js';
-import type { JwtClaims } from '../../db/context.js';
-import { BaseService } from '../../common/database/base.service.js';
-import { profiles } from '../../db/schema/index.js';
+import { conflict } from '../../common/errors.js';
+import type { JwtClaims } from '../../infrastructure/database/context.js';
+import { BaseService } from '../../infrastructure/database/base.service.js';
+import { profiles } from '../../infrastructure/database/schema/index.js';
 
 import type { IProfileService } from './interfaces/profile.interface.js';
 import { ProfileResponseDto } from './dto/profile.dto.js';
 
 @Injectable()
-export class ProfileService extends BaseService<
-  typeof profiles.$inferSelect,
-  string,
-  typeof profiles.$inferInsert,
-  Partial<typeof profiles.$inferInsert>,
-  ProfileResponseDto
-> implements IProfileService {
+export class ProfileService extends BaseService<typeof profiles, ProfileResponseDto> implements IProfileService {
   constructor(
     uow: UnitOfWorkService,
     repo: ProfileRepository,
@@ -42,19 +36,13 @@ export class ProfileService extends BaseService<
   }
 
   async markEnrolled(caller: Caller): Promise<void> {
-    return this.uow.asService(async () => {
+    return this.uow.transaction(async () => {
       await this.profileRepo.markEnrolled(caller.id);
     });
   }
 
-  async markPasswordChanged(caller: Caller): Promise<void> {
-    return this.uow.asService(async () => {
-      await this.profileRepo.markPasswordChanged(caller.id);
-    });
-  }
-
   async updateOwnProfile(caller: Caller, edit: ProfileEdit): Promise<void> {
-    return this.uow.asService(async () => {
+    return this.uow.transaction(async () => {
       if (edit.nationalId) {
         const taken = await this.profileRepo.isNationalIdTaken(edit.nationalId, caller.id);
         if (taken) throw conflict('national_id_taken', 'that national id is already in use');
@@ -64,8 +52,8 @@ export class ProfileService extends BaseService<
     });
   }
 
-  async getMemberCode(claims: JwtClaims, callerId: string): Promise<{ code: string | null }> {
-    return this.uow.asCaller(claims, async () => {
+  async getMemberCode(callerId: string): Promise<{ code: string | null }> {
+    return this.uow.transaction(async () => {
       const code = await this.profileRepo.getMemberCode(callerId);
       return { code };
     });

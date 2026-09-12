@@ -1,5 +1,7 @@
-// Domain types mirroring the Supabase schema (see supabase/migrations).
+// Domain types mirroring the API schema (see server/src/db/schema).
 // Kept as plain interfaces; query sites use `.returns<T>()` for typing.
+
+import type { JsonObject } from './json.types';
 
 export type Role = 'superadmin' | 'admin' | 'manager' | 'member';
 
@@ -30,7 +32,6 @@ export interface Profile {
   phone: string | null;
   email: string | null;
   avatar_url: string | null;
-  must_change_password: boolean;
   is_active: boolean;
   permissions: import('./permissions').Permissions | null;
   created_by: string | null;
@@ -70,13 +71,14 @@ export interface Branch {
   longitude: number;
   radius_meters: number;
   // Optional polygon geofence: when set (>= 3 vertices), it replaces the radius
-  // circle. Vertices are {lat,lng}; the PostGIS polygon is derived server-side.
+  // circle. Vertices are {lat,lng}; containment is computed in the API
+  // (server/src/domain/attendance/geofence.ts), not by the database.
   area_coords: { lat: number; lng: number }[] | null;
   institution_id: string | null; // -> institutions.id (the institution this branch belongs to)
   is_active: boolean;
   bypass_face: boolean;
   bypass_location: boolean;
-  // Per-branch check-in controls (enforced in the edge functions):
+  // Per-branch check-in controls (enforced server-side):
   qr_enabled: boolean; // location-bypass QR works for this branch
   require_qr: boolean; // block the geofence path — check-in only via QR scan
   block_checkin: boolean; // hard-stop: no check-in/out at all for this branch
@@ -135,7 +137,7 @@ export interface Member {
 export interface FaceTemplate {
   id: string;
   member_id: string;
-  embedding: number[]; // pgvector returned as number[]
+  embedding: number[]; // a real[] column, read back as number[]
   photo_path: string | null;
   quality_score: number | null;
   created_at: string;
@@ -243,6 +245,6 @@ export interface AuditLog {
   id: string;
   actor_id: string | null;
   event: AuditEvent;
-  detail: Record<string, unknown> | null;
+  detail: JsonObject | null;
   created_at: string;
 }

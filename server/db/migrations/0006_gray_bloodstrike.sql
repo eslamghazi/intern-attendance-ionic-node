@@ -1,1 +1,0 @@
-CREATE INDEX "roster_days_date_idx" ON "roster_days" USING btree ("date");

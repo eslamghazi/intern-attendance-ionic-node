@@ -1,9 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { MAX_PAGE_SIZE } from '../../../domain/member/filter.js';
+import { OUTCOME_LEGEND_ORDER, type AttendanceOutcomeKey } from '../../../config/constants.js';
 import {
   IsString,
   IsNotEmpty,
   IsUUID,
   IsOptional,
+  IsIn,
   IsInt,
   Min,
   Max,
@@ -71,6 +74,14 @@ export class GetHistoryQueryDto {
   month?: number;
 }
 
+/** GET /attendance/history/export — the same query, plus which file to make. */
+export class GetHistoryExportQueryDto extends GetHistoryQueryDto {
+  @ApiPropertyOptional({ description: 'Export format', enum: ['xlsx', 'pdf'], default: 'xlsx' })
+  @IsOptional()
+  @IsIn(['xlsx', 'pdf'])
+  format?: 'xlsx' | 'pdf';
+}
+
 export class GetDayQueryDto {
   @ApiProperty({ description: 'Member UUID' })
   @IsUUID()
@@ -119,7 +130,7 @@ export class GetMonthlyQueryDto extends MemberFilterQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(500)
+  @Max(MAX_PAGE_SIZE)
   @IsOptional()
   override page_size: number = 50;
 }
@@ -178,6 +189,29 @@ export class GetStatsQueryDto {
   @IsUUID()
   @IsOptional()
   branchId?: string | null;
+}
+
+/** GET /attendance/dashboard/export — the stats query, plus which file to make. */
+export class GetDashboardExportQueryDto extends GetStatsQueryDto {
+  @ApiPropertyOptional({ description: 'Group UUID' })
+  @IsUUID()
+  @IsOptional()
+  groupId?: string | null;
+
+  @ApiPropertyOptional({ description: 'Shift UUID' })
+  @IsUUID()
+  @IsOptional()
+  shiftId?: string | null;
+
+  @ApiPropertyOptional({ description: 'Department UUID' })
+  @IsUUID()
+  @IsOptional()
+  departmentId?: string | null;
+
+  @ApiPropertyOptional({ description: 'Export format', enum: ['xlsx', 'pdf'], default: 'xlsx' })
+  @IsOptional()
+  @IsIn(['xlsx', 'pdf'])
+  format?: 'xlsx' | 'pdf';
 }
 
 export class GetProbesDto {
@@ -303,14 +337,135 @@ export class AttendanceHistoryEntryDto {
 
   @ApiPropertyOptional({ example: 'checked_out' })
   checkout_status!: string | null;
+
+  /**
+   * Arrival and departure as ONE value — see domain/attendance/outcome.ts.
+   *
+   * Computed by the server and read by the screen and by the export, so both
+   * describe a day the same way. It was returned but not declared here, so the
+   * DTO the route advertised was missing the field the client actually renders.
+   */
+  @ApiProperty({ enum: OUTCOME_LEGEND_ORDER, example: 'present_out' })
+  outcome!: AttendanceOutcomeKey;
 }
 
-export class DayAttendanceResultDto {
-  @ApiProperty()
-  shifts!: unknown[];
+/**
+ * A shift, with the five boundaries the day screen draws its timeline from.
+ *
+ * Each may be null: a shift that leaves them unset inherits the defaults in
+ * config/constants.ts, and the client applies the same rule the recorder does.
+ */
+export class DayShiftDto {
+  @ApiProperty({ example: 's1d0e513-5b8b-4c74-8b6b-1a5ec4c74111' })
+  id!: string;
 
-  @ApiProperty()
-  attendance!: unknown[];
+  @ApiProperty({ example: 'Morning Shift' })
+  name!: string;
+
+  @ApiPropertyOptional({ example: 'morning', description: 'Null on a shift created without one' })
+  key!: string | null;
+
+  @ApiProperty({ example: '08:00' })
+  start_time!: string;
+
+  @ApiProperty({ example: '16:00' })
+  end_time!: string;
+
+  @ApiPropertyOptional({ example: '07:30' })
+  checkin_open!: string | null;
+
+  @ApiPropertyOptional({ example: '08:15' })
+  checkin_late!: string | null;
+
+  @ApiPropertyOptional({ example: '09:00' })
+  checkin_close!: string | null;
+
+  @ApiPropertyOptional({ example: '16:00' })
+  checkout_open!: string | null;
+
+  @ApiPropertyOptional({ example: '19:00' })
+  checkout_close!: string | null;
+}
+
+export class DayAttendanceItemDto {
+  @ApiProperty({ example: 'a1d0e513-5b8b-4c74-8b6b-1a5ec4c74001' })
+  id!: string;
+
+  @ApiProperty({ example: '2026-09-10' })
+  date!: string;
+
+  @ApiPropertyOptional({ example: 's1d0e513-5b8b-4c74-8b6b-1a5ec4c74111' })
+  shift_id!: string | null;
+
+  @ApiPropertyOptional({ example: 'Morning Shift' })
+  shift_name!: string | null;
+
+  @ApiProperty({ example: 'present' })
+  status!: string;
+
+  @ApiPropertyOptional({ example: '2026-09-10T08:00:00.000Z' })
+  check_in_at!: string | null;
+
+  @ApiPropertyOptional({ example: '2026-09-10T16:00:00.000Z' })
+  check_out_at!: string | null;
+
+  @ApiPropertyOptional({ type: DayShiftDto, description: 'Null when the shift was deleted after the fact' })
+  shift!: DayShiftDto | null;
+}
+
+/**
+ * One member, one day: what they were rostered for and what actually happened.
+ *
+ * The two lists are separate on purpose and neither implies the other — a day
+ * with a roster and no attendance is an absence, and attendance with no roster
+ * is someone who turned up when they were not expected. The screen shows both.
+ */
+export class DayAttendanceResultDto {
+  @ApiProperty({ type: [DayShiftDto], description: 'What the member was rostered for' })
+  shifts!: DayShiftDto[];
+
+  @ApiProperty({ type: [DayAttendanceItemDto], description: 'What was actually recorded' })
+  attendance!: DayAttendanceItemDto[];
+}
+
+export class ReportMemberProfileDto {
+  @ApiProperty({ example: 'Ahmed Mohamed' })
+  full_name!: string;
+
+  @ApiProperty({ example: '29801011234567' })
+  national_id!: string;
+}
+
+export class ReportMemberDto {
+  @ApiPropertyOptional({ example: 'g1d0e513-5b8b-4c74-8b6b-1a5ec4c74999' })
+  group_id!: string | null;
+
+  @ApiProperty({ type: ReportMemberProfileDto })
+  profile!: ReportMemberProfileDto;
+
+  @ApiPropertyOptional({ example: { name: 'Batch 2026' } })
+  group!: { name: string } | null;
+
+  @ApiPropertyOptional({ example: { name: 'Kasr Al Ainy' } })
+  branch!: { name: string } | null;
+}
+
+/** One attendance row in a date-range report, with the member spelled out. */
+export class ReportRowDto {
+  @ApiProperty({ example: '2026-09-10' })
+  date!: string;
+
+  @ApiProperty({ example: 'present' })
+  status!: string;
+
+  @ApiPropertyOptional({ example: '2026-09-10T08:00:00.000Z' })
+  check_in_at!: string | null;
+
+  @ApiPropertyOptional({ example: '2026-09-10T16:00:00.000Z' })
+  check_out_at!: string | null;
+
+  @ApiProperty({ type: ReportMemberDto })
+  member!: ReportMemberDto;
 }
 
 export class DailyRosterShiftLiteDto {

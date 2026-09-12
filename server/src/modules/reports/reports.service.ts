@@ -1,12 +1,28 @@
 import { Injectable } from '@nestjs/common';
-import { UnitOfWorkService } from '../../common/database/unit-of-work.service.js';
+import { attendanceOutcome } from '../../domain/attendance/outcome.js';
+import { daysInMonth } from '../../domain/report/matrix.js';
+import { UnitOfWorkService } from '../../infrastructure/database/unit-of-work.service.js';
 import { ReportsRepository } from './reports.repository.js';
-import type { JwtClaims } from '../../db/context.js';
+import type { JwtClaims } from '../../infrastructure/database/context.js';
+import type { Caller } from '../../common/types.js';
+import {
+  requireSelfOrMember,
+  scopeFilter,
+  scopeOf,
+} from '../../common/auth/access.service.js';
+import { coversUnit } from '../../domain/access/scope.js';
+import type { DbContext } from '../../infrastructure/database/context.js';
 import { monthBounds } from '../../domain/member/filter.js';
 import { monthStats } from '../../domain/report/rate.js';
 import { AttendanceStatus, CheckoutStatus } from '../../common/enums/index.js';
 
 import type { IReportsService } from './interfaces/reports.interface.js';
+import type {
+  AttendanceHistoryEntryDto,
+  DayAttendanceResultDto,
+  ReportRowDto,
+} from './dto/reports.dto.js';
+import type { AttendanceHistoryRow } from './reports.types.js';
 
 @Injectable()
 export class ReportsService implements IReportsService {
@@ -15,15 +31,46 @@ export class ReportsService implements IReportsService {
     private readonly repo: ReportsRepository,
   ) {}
 
-  async getPresent(claims: JwtClaims, dates: string[]) {
-    return this.uow.asCaller(claims, async () => {
-      return this.repo.getPresent(dates);
+  /**
+   * Narrow rows to what this caller may see.
+   *
+   * For the two views that take no branch parameter at all — "who is present
+   * right now", and today's board. They cannot be REFUSED for naming nothing,
+   * because naming nothing is their whole shape; so the answer is narrowed
+   * instead. A superadmin sees the faculty, an assigned admin sees their own
+   * branches and groups, and a row that belongs to neither is simply not there.
+   */
+  private async narrowToScope<T>(
+    tx: DbContext,
+    caller: Caller,
+    rows: T[],
+    unitOf: (row: T) => { branchId: string | null; groupId: string | null },
+  ): Promise<T[]> {
+    const scope = await scopeOf(tx, caller);
+    if (scope.kind === 'all') return rows;
+    if (scope.kind === 'none') return [];
+    return rows.filter((r) => coversUnit(scope, unitOf(r)));
+  }
+
+  async getPresent(caller: Caller, dates: string[]) {
+    return this.uow.transaction(async (tx) => {
+      const rows = await this.repo.getPresent(dates);
+      return this.narrowToScope(tx, caller, rows, (r) => ({
+        branchId: r.branch_id ?? null,
+        groupId: r.group_id ?? null,
+      }));
     });
   }
 
-  async getReview(claims: JwtClaims, date: string, branchId?: string | null) {
-    return this.uow.asCaller(claims, async () => {
-      const rows = await this.repo.getReview(date, branchId);
+  async getReview(caller: Caller, date: string, branchId?: string | null) {
+    return this.uow.transaction(async (tx) => {
+      // NARROWED, not refused. An admin assigned to two branches sees both, and
+      // a screen that opens with no branch chosen shows their reach rather than
+      // a 403. The scope is pushed into the SQL so counts and aggregates agree
+      // with the rows beside them.
+      const reach = await scopeFilter(tx, caller);
+
+      const rows = await this.repo.getReview(date, branchId, reach);
       return rows.map((r) => ({
         ...r.attendance,
         member: {
@@ -36,8 +83,13 @@ export class ReportsService implements IReportsService {
     });
   }
 
-  async getDetail(claims: JwtClaims, memberId: string, date: string, shiftId?: string | null) {
-    return this.uow.asCaller(claims, async () => {
+  async getDetail(caller: Caller, memberId: string, date: string, shiftId?: string | null) {
+    return this.uow.transaction(async (tx) => {
+      // A member may ask about THEMSELVES. Staff go through their assignments.
+      // Without this the member_id in the request was simply believed, so any
+      // member could read any other member's record by changing it.
+      await requireSelfOrMember(tx, caller, memberId);
+
       const r = await this.repo.getDetail(memberId, date, shiftId);
       if (!r) return null;
       return {
@@ -52,8 +104,18 @@ export class ReportsService implements IReportsService {
     });
   }
 
-  async getHistory(claims: JwtClaims, memberId: string, year?: number, month?: number) {
-    return this.uow.asCaller(claims, async () => {
+  async getHistory(
+    caller: Caller,
+    memberId: string,
+    year?: number,
+    month?: number,
+  ): Promise<AttendanceHistoryEntryDto[]> {
+    return this.uow.transaction(async (tx) => {
+      // A member may ask about THEMSELVES. Staff go through their assignments.
+      // Without this the member_id in the request was simply believed, so any
+      // member could read any other member's record by changing it.
+      await requireSelfOrMember(tx, caller, memberId);
+
       if (!year || !month) {
         const rows = await this.repo.getAttendanceHistorySimple(memberId);
         return rows.map((r) => ({
@@ -65,6 +127,14 @@ export class ReportsService implements IReportsService {
           check_in_at: r.check_in_at,
           check_out_at: r.check_out_at,
           checkout_status: r.checkout_status,
+          outcome: attendanceOutcome({
+            hasRoster: true,
+            concluded: true,
+            checkInAt: r.check_in_at,
+            checkInStatus: r.status,
+            checkOutAt: r.check_out_at,
+            checkoutStatus: r.checkout_status,
+          }),
         }));
       }
 
@@ -73,8 +143,8 @@ export class ReportsService implements IReportsService {
       const rosterRows = await this.repo.getRosterBetween(memberId, first, last);
       const attRows = await this.repo.getAttendanceBetween(memberId, first, last);
 
-      const items: any[] = [];
-      const rosterMap = new Map<string, any>();
+      const items: AttendanceHistoryRow[] = [];
+      const rosterMap = new Map<string, (typeof rosterRows)[number]>();
       
       for (const r of rosterRows) {
         const key = `${r.date}_${r.shift_id ?? 'null'}`;
@@ -117,17 +187,61 @@ export class ReportsService implements IReportsService {
         }
       }
       
-      items.sort((a, b) => {
+      // EVERY DAY OF THE MONTH, not only the ones with a row.
+      //
+      // A member reading their own history needs to see the days they were off
+      // as well as the days they were expected — otherwise a gap in the list is
+      // ambiguous: was I not rostered, or did the record go missing? An `off`
+      // day says which, and it costs nothing to say.
+      const withRows = new Set(items.map((i) => i.date));
+      const days = daysInMonth(year, month);
+      for (let d = 1; d <= days; d++) {
+        const date = `${first.slice(0, 8)}${String(d).padStart(2, '0')}`;
+        if (withRows.has(date)) continue;
+        items.push({
+          id: `off:${date}`,
+          date,
+          shift_id: null,
+          shift_name: null,
+          status: 'off',
+          check_in_at: null,
+          check_out_at: null,
+          checkout_status: null,
+        });
+      }
+
+      // One combined outcome per slot, so the screen and the exports render the
+      // same vocabulary instead of each pairing the two axes their own way.
+      // Mapped rather than assigned onto the rows: a row is not an entry until
+      // it has one, and the types now say so.
+      const entries: AttendanceHistoryEntryDto[] = items.map((item) => ({
+        ...item,
+        outcome: attendanceOutcome({
+          hasRoster: item.status !== 'off',
+          concluded: item.status !== 'pending',
+          checkInAt: item.check_in_at,
+          checkInStatus: item.status as AttendanceStatus,
+          checkOutAt: item.check_out_at,
+          checkoutStatus: item.checkout_status,
+        }),
+      }));
+
+      entries.sort((a, b) => {
         if (a.date !== b.date) return b.date.localeCompare(a.date);
         return (a.shift_name ?? '').localeCompare(b.shift_name ?? '');
       });
-      
-      return items;
+
+      return entries;
     });
   }
 
-  async getDay(claims: JwtClaims, memberId: string, date: string) {
-    return this.uow.asCaller(claims, async () => {
+  async getDay(caller: Caller, memberId: string, date: string): Promise<DayAttendanceResultDto> {
+    return this.uow.transaction(async (tx) => {
+      // A member may ask about THEMSELVES. Staff go through their assignments.
+      // Without this the member_id in the request was simply believed, so any
+      // member could read any other member's record by changing it.
+      await requireSelfOrMember(tx, caller, memberId);
+
       const rosterShifts = await this.repo.getRosterDayWithShift(memberId, date);
       const atts = await this.repo.getAttendanceDayWithShift(memberId, date);
       
@@ -169,10 +283,16 @@ export class ReportsService implements IReportsService {
     });
   }
 
-  async getDailyRoster(claims: JwtClaims, date: string, branchId?: string | null) {
-    return this.uow.asCaller(claims, async () => {
-      const expected = await this.repo.getDailyExpected(date, branchId);
-      const att = await this.repo.getDailyAttendance(date, branchId);
+  async getDailyRoster(caller: Caller, date: string, branchId?: string | null) {
+    return this.uow.transaction(async (tx) => {
+      // NARROWED, not refused. An admin assigned to two branches sees both, and
+      // a screen that opens with no branch chosen shows their reach rather than
+      // a 403. The scope is pushed into the SQL so counts and aggregates agree
+      // with the rows beside them.
+      const reach = await scopeFilter(tx, caller);
+
+      const expected = await this.repo.getDailyExpected(date, branchId, reach);
+      const att = await this.repo.getDailyAttendance(date, branchId, reach);
       
       const peopleMap = new Map<string, any>();
       
@@ -253,13 +373,39 @@ export class ReportsService implements IReportsService {
     });
   }
 
-  async getMonthly(claims: JwtClaims, filters: any, year: number, month: number, page: number, pageSize: number) {
-    const { first, last } = monthBounds(year, month);
-    const offset = (page - 1) * pageSize;
+  /**
+   * The monthly attendance matrix, for an export: EVERY member the filter
+   * matches, with no page.
+   *
+   * Delegates to the same builder as the paged read — `pageSize: null` is the
+   * only difference — so the file cannot drift from the screen it came from.
+   */
+  async getMonthlyForExport(caller: Caller, filters: any, year: number, month: number) {
+    return this.buildMonthly(caller, filters, year, month, null, 0);
+  }
 
-    return this.uow.asCaller(claims, async () => {
-      const pageRows = await this.repo.getMemberDirectoryPage(filters, year, month, pageSize, offset);
-      const total = await this.repo.getMemberDirectoryCount(filters, year, month);
+  async getMonthly(caller: Caller, filters: any, year: number, month: number, page: number, pageSize: number) {
+    return this.buildMonthly(caller, filters, year, month, pageSize, (page - 1) * pageSize);
+  }
+
+  private async buildMonthly(
+    caller: Caller,
+    filters: any,
+    year: number,
+    month: number,
+    pageSize: number | null,
+    offset: number,
+  ) {
+    const { first, last } = monthBounds(year, month);
+
+    return this.uow.transaction(async (tx) => {
+      // NARROWED, not refused. An admin assigned to two branches sees both, and
+      // a screen that opens with no branch chosen shows their reach rather than
+      // a 403 — while a branch they do not run simply is not in the answer.
+      const scoped = { ...filters, scope: await scopeFilter(tx, caller) };
+
+      const pageRows = await this.repo.getMemberDirectoryPage(scoped, year, month, pageSize, offset);
+      const total = await this.repo.getMemberDirectoryCount(scoped, year, month);
       
       const memberIds = pageRows.map(r => r.member_id as string).filter(Boolean);
       
@@ -337,9 +483,21 @@ export class ReportsService implements IReportsService {
     });
   }
 
-  async getReport(claims: JwtClaims, from: string, to: string, branchId?: string | null, groupId?: string | null) {
-    return this.uow.asCaller(claims, async () => {
-      const rows = await this.repo.getReportAttendanceBetween(from, to, branchId, groupId);
+  async getReport(
+    caller: Caller,
+    from: string,
+    to: string,
+    branchId?: string | null,
+    groupId?: string | null,
+  ): Promise<ReportRowDto[]> {
+    return this.uow.transaction(async (tx) => {
+      // NARROWED, not refused. An admin assigned to two branches sees both, and
+      // a screen that opens with no branch chosen shows their reach rather than
+      // a 403. The scope is pushed into the SQL so counts and aggregates agree
+      // with the rows beside them.
+      const reach = await scopeFilter(tx, caller);
+
+      const rows = await this.repo.getReportAttendanceBetween(from, to, branchId, groupId, reach);
       return rows.map((r) => ({
         date: r.date,
         status: r.status,
@@ -358,9 +516,13 @@ export class ReportsService implements IReportsService {
     });
   }
 
-  async getToday(claims: JwtClaims, date: string) {
-    return this.uow.asCaller(claims, async () => {
-      const rows = await this.repo.getTodayAttendance(date);
+  async getToday(caller: Caller, date: string) {
+    return this.uow.transaction(async (tx) => {
+      const all = await this.repo.getTodayAttendance(date);
+      const rows = await this.narrowToScope(tx, caller, all, (r) => ({
+        branchId: r.branch_id ?? null,
+        groupId: r.group_id ?? null,
+      }));
       return rows.map((r) => ({
         status: r.status,
         check_in_at: r.check_in_at,
@@ -373,7 +535,7 @@ export class ReportsService implements IReportsService {
   }
 
   async getStats(
-    claims: JwtClaims,
+    caller: Caller,
     year: number,
     month: number,
     f: { branchId?: string | null; groupId?: string | null; shiftId?: string | null; day?: number | null; departmentId?: string | null }
@@ -381,9 +543,15 @@ export class ReportsService implements IReportsService {
     const { first, last } = monthBounds(year, month);
     const daysInMonth = new Date(year, month, 0).getDate();
 
-    return this.uow.asCaller(claims, async () => {
-      const atts = await this.repo.getStatsAttendance(first, last, f);
-      const rosters = await this.repo.getStatsRoster(first, last, f);
+    return this.uow.transaction(async (tx) => {
+      // NARROWED, not refused. An admin assigned to two branches sees both, and
+      // a screen that opens with no branch chosen shows their reach rather than
+      // a 403. The scope is pushed into the SQL so counts and aggregates agree
+      // with the rows beside them.
+      const reach = await scopeFilter(tx, caller);
+
+      const atts = await this.repo.getStatsAttendance(first, last, f, reach);
+      const rosters = await this.repo.getStatsRoster(first, last, f, reach);
       
       let attended = 0;
       let late = 0;
@@ -497,14 +665,14 @@ export class ReportsService implements IReportsService {
     });
   }
 
-  async getProbes(claims: JwtClaims, memberIds: string[], from: string, to: string) {
-    return this.uow.asCaller(claims, async () => {
+  async getProbes(memberIds: string[], from: string, to: string) {
+    return this.uow.transaction(async () => {
       return this.repo.getProbesBetween(memberIds, from, to);
     });
   }
 
-  async getProbePaths(claims: JwtClaims) {
-    return this.uow.asCaller(claims, async () => {
+  async getProbePaths() {
+    return this.uow.transaction(async () => {
       return this.repo.getAllProbePaths();
     });
   }

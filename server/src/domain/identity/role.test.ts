@@ -3,7 +3,6 @@ import {
   isRole,
   isStaff,
   masterPasswordMayOpen,
-  mayChangePasswordWithoutCurrent,
   mayDeleteStaff,
   mayResetPasswordOf,
   privilegeScope,
@@ -80,13 +79,6 @@ describe('mayDeleteStaff', () => {
 
   it('refuses an admin doing any of it', () => {
     expect(mayDeleteStaff({ id: 'x', role: Role.ADMIN }, 'b', Role.ADMIN)).toBe(false);
-  });
-});
-
-describe('mayChangePasswordWithoutCurrent', () => {
-  it('is allowed only while the account is flagged must-change', () => {
-    expect(mayChangePasswordWithoutCurrent(true)).toBe(true);
-    expect(mayChangePasswordWithoutCurrent(false)).toBe(false);
   });
 });
 

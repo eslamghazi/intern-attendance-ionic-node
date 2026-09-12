@@ -11,7 +11,8 @@ import { useTranslation } from 'react-i18next';
 import { listBranchOptions, listShifts } from '../../lib/api/catalog';
 import { listRosterForBranchMonth } from '../../lib/api/members';
 import { qk } from '../../lib/api/keys';
-import { MONTHS, REPORT_PAGE_SIZE } from '../../lib/config';
+import { MONTHS } from '../../lib/config';
+import { fetchAllPages } from '../../lib/pagination';
 import { appToday } from '../../lib/clock';
 import AdminHeader from '../../components/AdminHeader';
 import RosterMakerGrid, { type MakerSeedCell } from '../../components/admin/RosterMakerGrid';
@@ -32,7 +33,9 @@ export default function RosterMakerPage() {
   const { data } = useQuery({
     queryKey: ['roster-maker-admin', branchId, year, month],
     queryFn: () =>
-      listRosterForBranchMonth({ branchId, year, month, page: 1, pageSize: REPORT_PAGE_SIZE, search: '', field: 'name' }),
+      fetchAllPages((page, pageSize) =>
+        listRosterForBranchMonth({ branchId, year, month, page, pageSize, search: '', field: 'name' }),
+      ),
     enabled: !!branchId,
   });
 

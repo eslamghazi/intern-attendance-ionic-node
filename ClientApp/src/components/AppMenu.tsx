@@ -20,6 +20,7 @@ import {
   gitBranchOutline,
   home,
   imagesOutline,
+  searchOutline,
   logOut,
   people,
   personCircle,
@@ -29,6 +30,7 @@ import {
   settings,
   shieldCheckmark,
   timeOutline,
+  documentTextOutline,
 } from 'ionicons/icons';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -57,8 +59,10 @@ const baseItems: Item[] = [
   { path: ROUTES.admin.members, labelKey: 'nav.members', icon: people, page: 'members' },
   { path: ROUTES.admin.rosters, labelKey: 'nav.rosters', icon: calendarNumber, page: 'rosters' },
   { path: ROUTES.admin.review, labelKey: 'nav.review', icon: shieldCheckmark, page: 'review' },
+  { path: ROUTES.admin.audit, labelKey: 'nav.audit', icon: documentTextOutline, page: 'audit' },
   { path: ROUTES.admin.presence, labelKey: 'nav.presence', icon: pulseOutline, page: 'presence' },
   { path: ROUTES.admin.faceTest, labelKey: 'nav.faceTest', icon: scanOutline, page: 'faceTest' },
+  { path: ROUTES.admin.memberLookup, labelKey: 'nav.memberLookup', icon: searchOutline, page: 'memberLookup' as const },
   { path: ROUTES.admin.faceImages, labelKey: 'nav.faceImages', icon: imagesOutline, page: 'faceImages' },
 ];
 

@@ -8,35 +8,30 @@
 // never touches what it does not track.
 //
 // `drizzle-kit push` is NOT, and `npm run db:push` refuses to run it. push
-// diffs against the LIVE database, where it would see the 40 functions, 3
-// triggers and 2 scheduled jobs it has no concept of and drop them. Those live
-// in db/functions and are re-applied after every migration.
+// diffs against the LIVE database and emits whatever makes it match the models.
+// There is nothing left for it to destroy — the triggers moved into
+// application code; see src/domain/member/code.ts.
 //
-// After any hand-written change to something the models DO cover, run
-// `npm run db:pull` to bring the models and the snapshot back in step —
-// otherwise the next generate will try to undo it.
+// The models are the source of truth. Edit them, then `npm run db:generate`.
 import { defineConfig } from 'drizzle-kit';
 import 'dotenv/config';
 
 export default defineConfig({
   dialect: 'postgresql',
-  schema: './src/db/schema/index.ts',
+  schema: './src/infrastructure/database/schema/index.ts',
   // Generated migrations, applied in order by scripts/migrate.mjs.
   out: './db/migrations',
   dbCredentials: {
     url: process.env.DATABASE_URL ?? '',
     ssl: process.env.DATABASE_SSL === '1' ? { rejectUnauthorized: false } : false,
   },
-  // The app reads auth.users (staff password hashes) and storage.objects
-  // (bucket policies are evaluated against it), so both come along.
-  schemaFilter: ['public', 'auth', 'storage'],
-  // PostGIS installs its own catalog tables and views (spatial_ref_sys,
-  // geography_columns, geometry_columns). They belong to the extension, not to
-  // this application, and pulling them in adds 200 lines of noise plus columns
-  // drizzle-kit cannot type either.
-  extensionsFilters: ['postgis'],
+  // Everything this project owns lives in `public`. It used to pull in two
+  // more schemas that belonged to a hosted platform's own services; both are
+  // gone from the database (see db/functions/015_no_rls.sql), and naming a
+  // schema that does not exist makes every introspection fail.
+  schemaFilter: ['public'],
   // The migration runner's own bookkeeping is not part of the model.
-  tablesFilter: ['!_migrations', '!spatial_ref_sys', '!geography_columns', '!geometry_columns'],
+  tablesFilter: ['!_migrations'],
   // snake_case in the database, camelCase in TypeScript.
   casing: 'snake_case',
   verbose: true,

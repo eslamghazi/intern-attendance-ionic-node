@@ -7,6 +7,7 @@
 import i18n from './i18n';
 import ar from '../i18n/ar.json';
 import en from '../i18n/en.json';
+import type { JsonObject, JsonValue } from './json.types';
 
 export const TERMINOLOGIES = ['generic', 'students', 'intern_students', 'employees'] as const;
 export type Terminology = (typeof TERMINOLOGIES)[number];
@@ -77,7 +78,10 @@ const REPL: Record<Exclude<Terminology, 'generic'>, { en: [string, string][]; ar
   },
 };
 
-function transform(node: unknown, repls: [string, string][]): unknown {
+// A translation bundle is JSON — nested objects of strings — so that is what
+// this walks. Typed as JsonValue rather than `unknown`, the recursion needs no
+// cast to read a key back out.
+function transform(node: JsonValue, repls: [string, string][]): JsonValue {
   if (typeof node === 'string') {
     let s = node;
     for (const [a, b] of repls) s = s.split(a).join(b);
@@ -85,10 +89,8 @@ function transform(node: unknown, repls: [string, string][]): unknown {
   }
   if (Array.isArray(node)) return node.map((n) => transform(n, repls));
   if (node && typeof node === 'object') {
-    const out: Record<string, unknown> = {};
-    for (const k of Object.keys(node as object)) {
-      out[k] = transform((node as Record<string, unknown>)[k], repls);
-    }
+    const out: JsonObject = {};
+    for (const [k, v] of Object.entries(node)) out[k] = transform(v, repls);
     return out;
   }
   return node;

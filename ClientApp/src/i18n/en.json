@@ -209,7 +209,8 @@
     "poweredBy": "Powered by",
     "rightsReserved": "All rights reserved",
     "notConfiguredTitle": "App not configured",
-    "notConfiguredBody": "The API connection is not set. Copy .env.example to .env and fill in VITE_API_URL."
+    "notConfiguredBody": "The API connection is not set. Copy .env.example to .env and fill in VITE_API_URL.",
+    "popupBlocked": "The browser blocked the print window. Allow pop-ups for this site and try again."
   },
   "tables": {
     "members": "members",
@@ -330,7 +331,9 @@
     "reports": "Reports",
     "qr": "Location QR",
     "rosterMaker": "Roster maker",
-    "settings": "Settings"
+    "settings": "Settings",
+    "audit": "Audit trail",
+    "memberLookup": "Find a member"
   },
   "member": {
     "welcome": "Hello {{name}}",
@@ -756,5 +759,60 @@
     "total": "Total",
     "removeShift": "Remove shift",
     "removeShiftWarn": "This member has recorded attendance for this day. Removing the shift will also delete that attendance. Continue?"
+  },
+  "audit": {
+    "title": "Audit trail",
+    "subtitle": "Every refusal and privileged act, as the server recorded it",
+    "from": "From",
+    "to": "To",
+    "event": "Event type",
+    "allEvents": "All events",
+    "securityOnly": "Security events only",
+    "securityOnlyHint": "Refusals, overrides and privileged acts — without ordinary attendance traffic",
+    "total": "{{count}} entries",
+    "empty": "No entries in this range",
+    "noActor": "No identified actor",
+    "events": {
+      "login": "Sign-in",
+      "password_changed": "Password changed",
+      "face_enrolled": "Face enrolled",
+      "mock_location_detected": "Mock location",
+      "out_of_range": "Out of range",
+      "low_accuracy": "Low GPS accuracy",
+      "face_mismatch": "Face mismatch",
+      "liveness_failed": "Liveness failed",
+      "integrity_failed": "Device integrity failed",
+      "check_in": "Check-in",
+      "check_out": "Check-out",
+      "master_login": "Master-password sign-in",
+      "staff_deleted": "Staff account deleted",
+      "outside_window": "Outside shift window",
+      "checkout_blocked": "Check-out blocked",
+      "server_error": "Server error"
+    }
+  },
+  "lookup": {
+    "identifier": "Member code or national ID",
+    "placeholder": "Type the full code or national ID",
+    "notFound": "No member with that identifier.",
+    "outsideYourBranches": "This member belongs to a branch outside your assignments. The lookup was recorded.",
+    "enrolled": "Face enrolled",
+    "notEnrolled": "No face enrolled"
+  },
+  "outcome": {
+    "off": "Off — not rostered",
+    "upcoming": "Not due yet",
+    "absent": "Absent",
+    "present_open": "In — not checked out",
+    "present_out": "In and out",
+    "present_early": "In, left early",
+    "present_left": "In, left work",
+    "late_open": "Late — not checked out",
+    "late_out": "Late, then out",
+    "late_early": "Late, left early",
+    "late_left": "Late, left work"
+  },
+  "report": {
+    "legend": "Key"
   }
 }

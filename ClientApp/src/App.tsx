@@ -58,7 +58,6 @@ import { useClockSync } from './lib/clock';
 import { useApplyTerminology } from './lib/branding';
 
 import LoginPage from './pages/auth/LoginPage';
-import ChangePasswordPage from './pages/auth/ChangePasswordPage';
 import FaceEnrollmentPage from './pages/auth/FaceEnrollmentPage';
 import MemberHome from './pages/member/MemberHome';
 import CheckInPage from './pages/member/CheckInPage';
@@ -76,8 +75,10 @@ import RosterPage from './pages/admin/RosterPage';
 import AdminsPage from './pages/admin/AdminsPage';
 import AttendanceReviewPage from './pages/admin/AttendanceReviewPage';
 import LivePresencePage from './pages/admin/LivePresencePage';
+import AuditPage from './pages/admin/AuditPage';
 import FaceTestPage from './pages/admin/FaceTestPage';
 import FaceImagesPage from './pages/admin/FaceImagesPage';
+import MemberLookupPage from './pages/admin/MemberLookupPage';
 import PresenceConfirmModal from './components/PresenceConfirmModal';
 import PermissionBanner from './components/PermissionBanner';
 import SettingsPage from './pages/admin/SettingsPage';
@@ -236,9 +237,11 @@ function AdminShell({ role }: { role: Role }) {
           show('members') && <Route key="members" exact path={ROUTES.admin.members} component={MembersPage} />,
           show('rosters') && <Route key="rosters" exact path={ROUTES.admin.rosters} component={RosterPage} />,
           show('review') && <Route key="review" exact path={ROUTES.admin.review} component={AttendanceReviewPage} />,
+          show('audit') && <Route key="audit" exact path={ROUTES.admin.audit} component={AuditPage} />,
           show('presence') && <Route key="presence" exact path={ROUTES.admin.presence} component={LivePresencePage} />,
           show('faceTest') && <Route key="face-test" exact path={ROUTES.admin.faceTest} component={FaceTestPage} />,
           show('faceImages') && <Route key="face-images" exact path={ROUTES.admin.faceImages} component={FaceImagesPage} />,
+          show('memberLookup') && <Route key="member-lookup" exact path={ROUTES.admin.memberLookup} component={MemberLookupPage} />,
           <Route key="qr" exact path={ROUTES.admin.qr} component={QRPage} />,
           <Route key="rmaker" exact path={ROUTES.admin.rosterMaker} component={RosterMakerPage} />,
           <Route key="profile" exact path={ROUTES.admin.profile} component={AdminProfilePage} />,
@@ -254,9 +257,9 @@ function AdminShell({ role }: { role: Role }) {
 }
 
 function AppRoutes() {
-  const { loading, session, role, mustChangePassword } = useAuth();
+  const { loading, session, role } = useAuth();
   // Gate the clock fetch on auth being resolved so the FIRST sample uses the
-  // signed-in identity (an member's frozen clock, if set) — not anon.
+  // signed-in identity (a member's frozen clock, if set), not a signed-out one.
   useClockSync(!loading); // keep the single app clock synced to the server
   useApplyTerminology(); // swap member/student/employee wording per org setting
 
@@ -267,17 +270,6 @@ function AppRoutes() {
       <IonRouterOutlet>
         <Route exact path={ROUTES.login} component={LoginPage} />
         <Route render={() => <Redirect to={ROUTES.login} />} />
-      </IonRouterOutlet>
-    );
-  }
-
-  // Only GoTrue users (admin/superadmin/manager) can change their password.
-  // Members authenticate with a custom JWT and have no GoTrue password.
-  if (mustChangePassword && role !== 'member') {
-    return (
-      <IonRouterOutlet>
-        <Route exact path={ROUTES.changePassword} component={ChangePasswordPage} />
-        <Route render={() => <Redirect to={ROUTES.changePassword} />} />
       </IonRouterOutlet>
     );
   }

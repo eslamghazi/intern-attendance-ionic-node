@@ -1,10 +1,9 @@
 // Members + the monthly roster.
 //
 // Every filtered "apply to all" used to work by downloading each matching id
-// and sending it back in chunks — the URL was the only place PostgREST could
-// take a filter. The API takes the filter itself, so these are one request and
-// one transaction, and the set can no longer change between the read and the
-// write.
+// and sending it back in chunks, because a filter could only travel in the URL.
+// The API takes the filter itself, so these are one request and one
+// transaction, and the set can no longer change between the read and the write.
 import { apiFetch } from './http';
 import { changePassword } from './auth';
 import { MAX_PAGE_SIZE } from '../config';
@@ -67,7 +66,9 @@ function filterBody(o: {
   departmentId?: string;
   year?: number;
   month?: number;
-}): Record<string, unknown> {
+  // Strings, all of them: this is a URLSearchParams turned inside out, and a
+  // URLSearchParams holds nothing else.
+}): Record<string, string> {
   return Object.fromEntries(filterParams(o).entries());
 }
 

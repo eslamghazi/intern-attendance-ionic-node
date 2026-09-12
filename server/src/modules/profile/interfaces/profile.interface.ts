@@ -1,32 +1,19 @@
 import type { Caller } from '../../../domain/identity/role.js';
-import type { JwtClaims } from '../../../db/context.js';
-import type { IBaseService } from '../../../common/database/interfaces/base-service.interface.js';
-import type { IGenericRepository } from '../../../common/database/interfaces/generic-repository.interface.js';
-import { profiles } from '../../../db/schema/index.js';
+import type { JwtClaims } from '../../../infrastructure/database/context.js';
+import type { IBaseService } from '../../../infrastructure/database/interfaces/base-service.interface.js';
+import type { IGenericRepository } from '../../../infrastructure/database/interfaces/generic-repository.interface.js';
+import { profiles } from '../../../infrastructure/database/schema/index.js';
 import type { ProfileEdit } from '../profile.repository.js';
 import type { ProfileResponseDto } from '../dto/profile.dto.js';
 
-export interface IProfileService extends IBaseService<
-  typeof profiles.$inferSelect,
-  string,
-  typeof profiles.$inferInsert,
-  Partial<typeof profiles.$inferInsert>,
-  ProfileResponseDto
-> {
+export interface IProfileService extends IBaseService<typeof profiles, ProfileResponseDto> {
   markEnrolled(caller: Caller): Promise<void>;
-  markPasswordChanged(caller: Caller): Promise<void>;
   updateOwnProfile(caller: Caller, edit: ProfileEdit): Promise<void>;
-  getMemberCode(claims: JwtClaims, callerId: string): Promise<{ code: string | null }>;
+  getMemberCode(callerId: string): Promise<{ code: string | null }>;
 }
 
-export interface IProfileRepository extends IGenericRepository<
-  typeof profiles.$inferSelect,
-  string,
-  typeof profiles.$inferInsert,
-  Partial<typeof profiles.$inferInsert>
-> {
+export interface IProfileRepository extends IGenericRepository<typeof profiles> {
   markEnrolled(profileId: string): Promise<void>;
-  markPasswordChanged(profileId: string): Promise<void>;
   isNationalIdTaken(nationalId: string, excludeProfileId: string): Promise<boolean>;
   updateOwnProfile(profileId: string, edit: ProfileEdit): Promise<void>;
   getMemberCode(profileId: string): Promise<string | null>;

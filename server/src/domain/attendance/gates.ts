@@ -1,11 +1,11 @@
 // The gates a check-in or check-out must pass, as pure decisions.
 //
-// Ordering is deliberate and matches what the Edge Function did: the cheapest
-// and most absolute refusals come first, and a bypass short-circuits the gate
-// it covers rather than being checked inside it. Keeping that order visible in
-// one file is most of the value — while it was inline in a 470-line handler,
-// "does a location bypass also skip the accuracy check?" needed a careful read.
-// (It does. That is why they are one block.)
+// Ordering is deliberate: the cheapest and most absolute refusals come first,
+// and a bypass short-circuits the gate it covers rather than being tested inside
+// it. Keeping that order visible in ONE file is most of the value here —
+// "does a location bypass also skip the accuracy check?" should be answerable by
+// reading, not by tracing a request through a long handler. (It does. That is
+// why they are one block.)
 import {
   refuse,
   type AttendanceSettings,
@@ -20,6 +20,9 @@ import {
   EnrollmentStatus,
   AttendanceRefusalReason,
 } from '../../common/enums/index.js';
+import type { BypassInput } from './types.js';
+import type { JsonObject, JsonValue } from '../../common/json.types.js';
+export type { BypassInput } from './types.js';
 
 /** Any TRUE across global, member, branch and group turns a bypass on. */
 function anyOn(
@@ -29,15 +32,6 @@ function anyOn(
   group: boolean | undefined,
 ): boolean {
   return Boolean(global || member || branch || group);
-}
-
-export interface BypassInput {
-  settings: AttendanceSettings;
-  member: MemberContext;
-  /** The instant to judge the timed bypass window against. */
-  now: Date;
-  /** True when a QR token presented with THIS request was already validated. */
-  qrAccepted?: boolean;
 }
 
 /**
@@ -101,7 +95,7 @@ export function resolveBypass({ settings, member, now, qrAccepted }: BypassInput
 }
 
 /** What the attendance row records about which gates were skipped. */
-export function bypassSnapshot(b: BypassState): Record<string, unknown> | null {
+export function bypassSnapshot(b: BypassState): JsonObject | null {
   if (!b.face && !b.location && !b.shiftWindow) return null;
   return { face: b.face, location: b.location, source: b.source, shift_window: b.shiftWindow };
 }
@@ -109,7 +103,7 @@ export function bypassSnapshot(b: BypassState): Record<string, unknown> | null {
 /**
  * Placeholder for Play Integrity / App Attest.
  *
- * Carried over from the Edge Function unchanged: when integrity is required a
+ * Carried over unchanged from the original recorder: when integrity is required a
  * token must be PRESENT, but it is not verified against Google or Apple. That
  * is an open hole, and naming it here rather than burying it in a handler is
  * the point — a present-but-forged token passes.
@@ -118,20 +112,19 @@ export function integrityOk(token: string | null, required: boolean): boolean {
   return required ? Boolean(token) : true;
 }
 
-/** The result of the server-side PostGIS geofence check. */
-export interface GeofenceResult {
-  within: boolean;
-  distanceM: number;
-  radiusM: number;
-}
+// The geofence answer itself is computed in ./geofence.ts. Re-exported here
+// because this is where every caller already imports the gate types from.
+export type { GeofenceResult } from './geofence.js';
+import type { GeofenceResult } from './geofence.js';
 
 /**
  * Gates that do not depend on the roster: integrity, then location, then face.
  * Returns the refusal, or null when everything passed.
  *
- * `geofence` is passed in rather than computed, because it is the one gate that
- * genuinely needs the database (PostGIS). It may be null only when the location
- * bypass is on — in which case it is never read.
+ * `geofence` is passed in rather than computed here, because it needs the
+ * branch row. It may be null when the location bypass is on — in which case it
+ * is never read — or when the branch could not be found, which is a
+ * misconfiguration and answered with a 500 rather than a refusal.
  */
 export function checkGates(
   payload: CheckPayload,
@@ -139,11 +132,11 @@ export function checkGates(
   bypass: BypassState,
   member: MemberContext,
   geofence: GeofenceResult | null,
-): { refusal: Refusal | null; distance: number; audit: { event: string; detail: unknown } | null } {
+): { refusal: Refusal | null; distance: number; audit: { event: string; detail: JsonValue } | null } {
   const fail = (
     refusal: Refusal,
     event?: string,
-    detail?: unknown,
+    detail: JsonValue = null,
   ): ReturnType<typeof checkGates> => ({
     refusal,
     distance: 0,

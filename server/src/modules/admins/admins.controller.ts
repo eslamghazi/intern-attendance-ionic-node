@@ -10,7 +10,6 @@ import {
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Claims as ClaimsDecorator } from '../../common/decorators/caller.decorator.js';
-import type { JwtClaims } from '../../db/context.js';
 import { AdminsService } from './admins.service.js';
 import { ApiResponse } from '../../common/dto/api-response.dto.js';
 import {
@@ -31,8 +30,8 @@ export class AdminsController {
   @Get()
   @ApiOperation({ summary: 'Get all admins (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<AdminDto[]> })
-  async getAdmins(@ClaimsDecorator() claims: JwtClaims): Promise<ApiResponse<AdminDto[]>> {
-    const data = await this.adminsService.getAdmins(claims);
+  async getAdmins(): Promise<ApiResponse<AdminDto[]>> {
+    const data = await this.adminsService.getAdmins();
     return new ApiResponse(data);
   }
 
@@ -40,8 +39,8 @@ export class AdminsController {
   @Get('assignments')
   @ApiOperation({ summary: 'Get all admin branch/group assignments (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<AdminAssignmentResponseDto[]> })
-  async getAssignments(@ClaimsDecorator() claims: JwtClaims): Promise<ApiResponse<AdminAssignmentResponseDto[]>> {
-    const data = await this.adminsService.getAssignments(claims);
+  async getAssignments(): Promise<ApiResponse<AdminAssignmentResponseDto[]>> {
+    const data = await this.adminsService.getAssignments();
     return new ApiResponse(data);
   }
 
@@ -50,11 +49,10 @@ export class AdminsController {
   @ApiOperation({ summary: 'Update admin profile and permissions (Superadmin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
   async updateAdmin(
-    @ClaimsDecorator() claims: JwtClaims,
     @Param('id') id: string,
     @Body() body: UpdateAdminDto,
   ): Promise<ApiResponse<{ ok: true }>> {
-    const data = await this.adminsService.updateAdmin(claims, id, body);
+    const data = await this.adminsService.updateAdmin(id, body);
     return new ApiResponse(data);
   }
 
@@ -63,11 +61,9 @@ export class AdminsController {
   @ApiOperation({ summary: 'Assign admin to branch or group (Superadmin only)' })
   @SwaggerResponse({ status: 201, type: ApiResponse<AdminAssignmentResponseDto> })
   async createAssignment(
-    @ClaimsDecorator() claims: JwtClaims,
     @Body() body: CreateAdminAssignmentDto,
   ): Promise<ApiResponse<AdminAssignmentResponseDto>> {
     const data = await this.adminsService.createAssignment(
-      claims,
       body.admin_id,
       body.group_id ?? null,
       body.branch_id ?? null,
@@ -80,10 +76,9 @@ export class AdminsController {
   @ApiOperation({ summary: 'Delete admin assignment (Superadmin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
   async deleteAssignment(
-    @ClaimsDecorator() claims: JwtClaims,
     @Param('id') id: string,
   ): Promise<ApiResponse<{ ok: true }>> {
-    await this.adminsService.deleteAssignment(claims, id);
+    await this.adminsService.deleteAssignment(id);
     return new ApiResponse({ ok: true });
   }
 }

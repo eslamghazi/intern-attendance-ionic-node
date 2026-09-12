@@ -1,5 +1,43 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsIn,
+  IsNotEmpty,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  ValidateNested,
+} from 'class-validator';
+import { ADMIN_OPS, ADMIN_PAGES } from '../../../config/constants.js';
+import type { AdminOp, AdminPage, AdminPermissions } from '../../../domain/identity/types.js';
+
+/**
+ * A grant, validated.
+ *
+ * This used to be `permissions?: unknown` with no validator on it, so a
+ * superadmin could store any JSON at all on an admin's profile — including page
+ * names that match nothing, which read at a glance like a granted page that
+ * mysteriously never appears.
+ */
+export class AdminPermissionsDto implements AdminPermissions {
+  @ApiProperty({ isArray: true, enum: ADMIN_PAGES })
+  @IsArray()
+  @IsIn([...ADMIN_PAGES], { each: true })
+  pages!: AdminPage[];
+
+  @ApiPropertyOptional({ isArray: true, enum: ADMIN_OPS, description: 'Allowed on every granted page' })
+  @IsOptional()
+  @IsArray()
+  @IsIn([...ADMIN_OPS], { each: true })
+  ops?: AdminOp[];
+
+  @ApiPropertyOptional({ description: 'Allowed on one page specifically; beats `ops`' })
+  @IsOptional()
+  @IsObject()
+  pageOps?: Partial<Record<AdminPage, AdminOp[]>>;
+}
 
 export class AdminDto {
   @ApiProperty({ example: 'a1d0e513-5b8b-4c74-8b6b-1a5ec4c74000' })
@@ -17,8 +55,8 @@ export class AdminDto {
   @ApiProperty({ example: 'admin' })
   role!: string;
 
-  @ApiPropertyOptional({ example: { can_manage_attendance: true } })
-  permissions?: unknown;
+  @ApiPropertyOptional({ type: AdminPermissionsDto })
+  permissions?: AdminPermissions | null;
 
   constructor(data: Partial<AdminDto>) {
     if (data.id) this.id = data.id;
@@ -46,9 +84,11 @@ export class UpdateAdminDto {
   @IsString()
   phone?: string | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ type: AdminPermissionsDto, nullable: true })
   @IsOptional()
-  permissions?: unknown;
+  @ValidateNested()
+  @Type(() => AdminPermissionsDto)
+  permissions?: AdminPermissions | null;
 }
 
 export class CreateAdminAssignmentDto {

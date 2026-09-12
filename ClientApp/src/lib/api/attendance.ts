@@ -7,6 +7,8 @@
 import { apiFetch } from './http';
 import { monthBounds, type PageOpts } from './members';
 import type { Attendance, AttendanceStatus, CheckoutStatus } from '../types';
+import type { Outcome } from '../outcome';
+import type { JsonObject, JsonValue } from '../json.types';
 
 export { monthBounds };
 
@@ -74,7 +76,17 @@ export interface RecordPayload {
   accuracy: number;
   is_mock: boolean;
   liveness_passed: boolean;
+  /**
+   * The similarity this client computed. ADVISORY — the server recomputes it
+   * from `probe_embedding` and uses its own answer.
+   */
   face_score: number;
+  /**
+   * The 512-dim embedding of the captured face: the vector that produced
+   * `face_score`. Sending it is what lets the server verify the match against
+   * the enrolled template instead of believing a number the client chose.
+   */
+  probe_embedding?: number[] | null;
   probe_path?: string | null;
   probe_base64?: string | null;
   integrity_token?: string | null;
@@ -91,8 +103,8 @@ export interface RecordResult {
 
 export class AttendanceError extends Error {
   reason: string;
-  detail: Record<string, unknown>;
-  constructor(reason: string, detail: Record<string, unknown> = {}) {
+  detail: JsonObject;
+  constructor(reason: string, detail: JsonObject = {}) {
     super(reason);
     this.reason = reason;
     this.detail = detail;
@@ -115,8 +127,11 @@ export async function recordAttendance(payload: RecordPayload): Promise<RecordRe
     return data;
   } catch (err) {
     if (err instanceof AttendanceError) throw err;
-    const e = err as { status?: number; code?: string; message?: string; body?: unknown };
-    throw new AttendanceError(e.code ?? 'error', { reason: e.code, message: e.message });
+    const e = err as { status?: number; code?: string; message?: string; body?: JsonValue };
+    throw new AttendanceError(e.code ?? 'error', {
+      reason: e.code ?? null,
+      message: e.message ?? null,
+    });
   }
 }
 
@@ -133,6 +148,14 @@ export interface HistoryEntry {
   check_in_at: string | null;
   check_out_at: string | null;
   checkout_status: CheckoutStatus | null;
+  /**
+   * How the arrival and the departure combine, decided server-side.
+   *
+   * `status` and `checkout_status` are the two raw axes; this is the pair named.
+   * Render from THIS — a screen that combines the axes itself will combine them
+   * differently from the next screen, and differently again from an export.
+   */
+  outcome: Outcome;
 }
 
 /**
@@ -399,7 +422,7 @@ export interface ProbeImage {
   date: string;
   shift_name: string | null;
   type: 'check_in' | 'check_out';
-  /** Path inside the private `probes` bucket — sign it before showing. */
+  /** Path inside the private `probes` kind — sign it before showing. */
   path: string;
   at: string | null;
   face_score: number | null;

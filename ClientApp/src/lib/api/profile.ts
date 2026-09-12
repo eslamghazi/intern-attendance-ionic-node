@@ -1,13 +1,9 @@
 // Profile lifecycle (called by the member after onboarding steps).
 import { apiFetch } from './http';
-import { BUCKETS } from '../config';
+import { FILE_KINDS } from '../config';
 
 export async function markEnrolled(): Promise<void> {
   await apiFetch('/profile/mark-enrolled', { method: 'POST' });
-}
-
-export async function markPasswordChanged(): Promise<void> {
-  await apiFetch('/profile/mark-password-changed', { method: 'POST' });
 }
 
 /** A member edits their OWN profile (name/phone/email/national id/avatar).
@@ -60,12 +56,12 @@ async function toBase64(blob: Blob): Promise<string> {
   return btoa(binary);
 }
 
-/** Upload a profile photo to the public `avatars` bucket and return its URL.
+/** Upload a profile photo to the public `avatars` kind and return its URL.
  *  Path is "<profileId>.jpg" so the storage policy ties it to the owner (or an
  *  admin). The image is shrunk to a small square first to keep storage low. */
 export async function uploadAvatar(profileId: string, file: Blob): Promise<string> {
   const path = `${profileId}.jpg`;
-  await apiFetch(`/storage/${BUCKETS.avatars}`, {
+  await apiFetch(`/storage/${FILE_KINDS.avatars}`, {
     method: 'POST',
     body: {
       path,
@@ -74,7 +70,7 @@ export async function uploadAvatar(profileId: string, file: Blob): Promise<strin
     },
   });
   const { url } = await apiFetch<{ url: string }>(
-    `/storage/${BUCKETS.avatars}/url?path=${encodeURIComponent(path)}`,
+    `/storage/${FILE_KINDS.avatars}/url?path=${encodeURIComponent(path)}`,
   );
   return `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`; // cache-bust after re-upload
 }

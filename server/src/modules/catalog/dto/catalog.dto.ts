@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsArray,
   IsBoolean,
   IsInt,
   IsNotEmpty,
@@ -8,6 +9,7 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
+import type { JsonValue } from '../../../common/json.types.js';
 
 /* --- Institutions --- */
 
@@ -74,9 +76,13 @@ export class CreateBranchDto {
   @IsInt()
   radius_meters!: number;
 
-  @ApiPropertyOptional({ description: 'Optional polygon area coordinates' })
+  // JsonValue[], not LatLng[]: this is what a client SENT, and it has not been
+  // checked yet. CatalogService.validatedRing is what turns it into a ring, and
+  // it is the only thing allowed to say it is one.
+  @ApiPropertyOptional({ description: 'Optional polygon area coordinates', type: 'array', items: { type: 'object' } })
   @IsOptional()
-  area_coords?: unknown[] | null;
+  @IsArray()
+  area_coords?: JsonValue[] | null;
 
   @ApiPropertyOptional({ example: 'c8d0e513-5b8b-4c74-8b6b-1a5ec4c74567' })
   @IsOptional()

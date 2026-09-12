@@ -26,9 +26,9 @@ export default function ChangePasswordModal({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  // The current password is now required. GoTrue's updateUser() did not ask for
-  // it, so anyone holding an unlocked phone could change the password and take
-  // the account over; a voluntary change has to prove who is asking.
+  // The current password is now required. The old auth service's update call did
+  // not ask for it, so anyone holding an unlocked phone could change the password
+  // and take the account over; a voluntary change has to prove who is asking.
   const [current, setCurrent] = useState('');
   const [pw, setPw] = useState('');
   const [confirm, setConfirm] = useState('');

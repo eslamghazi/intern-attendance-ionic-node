@@ -1063,3 +1063,66 @@ ion-tab-bar.tabs-scroll ion-tab-button {
 .tool-actions ion-button {
   margin: 0;
 }
+
+/* ---------------------------------------------------------------------------
+   Attendance outcomes — the mark and its words, and the key that explains them.
+   Both are rendered from src/lib/outcome.ts, so the colours here are only the
+   shape; the palette itself lives with the vocabulary.
+   --------------------------------------------------------------------------- */
+.outcome-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 2px 8px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.7;
+  white-space: nowrap;
+}
+
+/* The mark is the part that survives a photocopier, so it carries the weight. */
+.outcome-badge__mark {
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.outcome-legend {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--app-hairline, #d0d5db);
+  border-radius: 10px;
+  background: var(--app-surface, #fff);
+}
+
+.outcome-legend__title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  opacity: 0.7;
+  margin-bottom: 8px;
+}
+
+.outcome-legend__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.outcome-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.outcome-legend__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 6px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}

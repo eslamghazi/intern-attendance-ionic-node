@@ -1,43 +1,24 @@
 // How far an admin's reach goes.
 //
-// This is the rule `admin_can_access(group_id, branch_id)` encodes in SQL, and
-// it is the ONLY authorization rule in this system beyond "which role are you":
-// an admin is assigned to branches and groups, and sees those.
+// Beyond "which role are you", this is the ONLY authorization rule in the
+// system: an admin is assigned to branches and groups, and sees those. A
+// superadmin sees everything; an admin with no assignments is faculty-wide.
 //
-// WHY IT ALSO HAS TO EXIST HERE
+// WHY IT IS A PURE FUNCTION OVER ROWS
 //
-// The SQL version is a policy expression, so it only applies to statements that
-// run under the caller's RLS context. Three tables — presence_checks,
-// presence_confirmations and qr_tokens — have RLS ENABLED WITH NO POLICIES,
-// which denies everything, so every route touching them runs as the service
-// role instead. Those routes bypass RLS entirely, and there the database has no
-// opinion about scope at all: `requireRole('admin')` was the whole check.
+// The rule decides who may open a spot-check, mint a QR for a branch, read a
+// member's attendance, and edit a roster — requests that arrive through
+// different modules and touch different tables. Anything that lives closer to
+// one of those paths than the others ends up applied on some and not on others,
+// and the gap is invisible: the request succeeds.
 //
-// That left an admin assigned to one branch able to open a spot-check against
-// another branch's members, mint a check-in QR for a branch they do not run,
-// and set attendance for anyone. Not because the rule was wrong, but because it
-// lived somewhere those requests never went.
+// So it takes assignment rows and a role, returns a Scope, and has no idea what
+// a request is. `common/auth/access.service.ts` is the only thing that reads
+// the rows; everything else asks this. It is unit-tested against the truth
+// table rather than against a live database.
 import { isStaff, type Role } from '../identity/role.js';
-
-/** One row of admin_assignments. Either column may be null. */
-export interface Assignment {
-  branchId: string | null;
-  groupId: string | null;
-}
-
-/** The branch and group a record belongs to. Either may be unknown. */
-export interface Unit {
-  branchId: string | null;
-  groupId: string | null;
-}
-
-export type Scope =
-  /** Everything: a superadmin, or an admin nobody has narrowed down. */
-  | { kind: 'all' }
-  /** Only these branches and groups. */
-  | { kind: 'assigned'; branchIds: readonly string[]; groupIds: readonly string[] }
-  /** Nothing. Members reach their own data by other means, never through this. */
-  | { kind: 'none' };
+import type { Assignment, Scope, Unit } from './types.js';
+export type { Assignment, Scope, Unit } from './types.js';
 
 /**
  * An UNASSIGNED admin sees everything.

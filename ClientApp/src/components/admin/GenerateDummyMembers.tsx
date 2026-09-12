@@ -17,9 +17,9 @@ import {
 import { copyOutline, flaskOutline } from 'ionicons/icons';
 import { useTranslation } from 'react-i18next';
 import { randomDummyNationalId } from '../../lib/nationalId';
-import { TOAST_MS } from '../../lib/config';
+import { TOAST_MS, LIMITS } from '../../lib/config';
 
-const MAX = 500;
+const MAX = LIMITS.DUMMY_MEMBERS_MAX;
 
 /** Admin testing tool: generate valid, unique dummy national IDs (one per line).
  *  It does NOT touch the database — it only produces the numbers to copy/use. */

@@ -2,9 +2,8 @@ import { Controller, Get, Patch, Put, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
-import { Caller as CallerDecorator, Claims as ClaimsDecorator } from '../../common/decorators/caller.decorator.js';
+import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
-import type { JwtClaims } from '../../db/context.js';
 import { AuthService } from '../auth/auth.service.js';
 import { SettingsService } from './settings.service.js';
 import { ApiResponse } from '../../common/dto/api-response.dto.js';
@@ -31,10 +30,9 @@ export class SettingsController {
   @SwaggerResponse({ status: 200, type: ApiResponse<SettingsResponseDto | null> })
   async getSettings(
     @CallerDecorator() caller: Caller | null,
-    @ClaimsDecorator() claims: JwtClaims | null,
   ): Promise<ApiResponse<SettingsResponseDto | null>> {
     if (!caller) return new ApiResponse(null);
-    const data = await this.settingsService.getSettings(claims);
+    const data = await this.settingsService.getSettings();
     return new ApiResponse(data);
   }
 
@@ -53,10 +51,9 @@ export class SettingsController {
   @ApiOperation({ summary: 'Update system settings (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
   async updateSettings(
-    @ClaimsDecorator() claims: JwtClaims,
     @Body() body: UpdateSettingsDto,
   ): Promise<ApiResponse<{ ok: true }>> {
-    const data = await this.settingsService.updateSettings(claims, body);
+    const data = await this.settingsService.updateSettings(body);
     return new ApiResponse(data);
   }
 

@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { GenericRepository } from '../../common/database/generic.repository.js';
-import { departments, branches, memberDepartments } from '../../db/schema/index.js';
+import { GenericRepository } from '../../infrastructure/database/generic.repository.js';
+import { departments, branches, memberDepartments } from '../../infrastructure/database/schema/index.js';
 import { eq, and, asc } from 'drizzle-orm';
 
 import type { IDepartmentsRepository } from './interfaces/departments.interface.js';
 
 @Injectable()
-export class DepartmentsRepository extends GenericRepository<typeof departments.$inferSelect, string, typeof departments.$inferInsert, Partial<typeof departments.$inferInsert>> implements IDepartmentsRepository {
+export class DepartmentsRepository extends GenericRepository<typeof departments> implements IDepartmentsRepository {
   constructor() {
     super(departments, departments.id);
   }

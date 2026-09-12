@@ -1,6 +1,6 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import type { Caller as CallerType } from '../types.js';
-import type { JwtClaims } from '../../db/context.js';
+import type { JwtClaims } from '../../infrastructure/database/context.js';
 
 export const Caller = createParamDecorator(
   (data: unknown, ctx: ExecutionContext): CallerType | null => {

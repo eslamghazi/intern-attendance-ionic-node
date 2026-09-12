@@ -154,8 +154,9 @@ export default function FaceEnrollmentPage() {
     if (embedding.length !== EMBEDDING_DIM) {
       return showError(`Face model produced ${embedding.length} dimensions, expected ${EMBEDDING_DIM}.`);
     }
-    // The context member can be null if the profile bundle didn't hydrate (embed
-    // error / RLS / stale cache). Re-fetch the row directly rather than dead-end.
+    // The context member can be null if the profile bundle didn't hydrate (a
+    // failed request, or a stale cache). Re-fetch rather than dead-end here:
+    // this is enrolment, and the member has nowhere else to go.
     let memberId = member?.id ?? null;
     if (!memberId) {
       const r = await getMemberIdByProfile(session.user.id);

@@ -18,8 +18,9 @@ import {
 import { documentTextOutline, downloadOutline, warningOutline } from 'ionicons/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { useServerExport } from '../../components/useServerExport';
 import { listBranchOptions } from '../../lib/api/catalog';
-import { listDepartmentOptions, listMemberDepartments } from '../../lib/api/departments';
+import { listDepartmentOptions } from '../../lib/api/departments';
 import {
   clearAttendance,
   getAttendanceDetail,
@@ -39,9 +40,9 @@ import { appToday } from '../../lib/clock';
 import { usePermissions } from '../../lib/usePermissions';
 import { formatTime } from '../../lib/date';
 import { signedUrl } from '../../lib/face/images';
-import { BUCKETS, MAP, PAGE_SIZE, REPORT_PAGE_SIZE, TOAST_MS } from '../../lib/config';
+import { FILE_KINDS, MAP, PAGE_SIZE, TOAST_MS } from '../../lib/config';
+import { fetchAllPages } from '../../lib/pagination';
 import AdminHeader from '../../components/AdminHeader';
-import { useReportExport } from '../../components/admin/useReportExport';
 import GridFilters from '../../components/admin/GridFilters';
 import GridSummary from '../../components/admin/GridSummary';
 import { STATUS_COLOR } from '../../components/StatusBadge';
@@ -98,7 +99,7 @@ function Tally({
 
 export default function AttendanceReviewPage() {
   const { t } = useTranslation();
-  const exportReport = useReportExport();
+  const serverExport = useServerExport();
   const qc = useQueryClient();
   const { canOp } = usePermissions('review');
   const [presentToast] = useIonToast();
@@ -125,20 +126,17 @@ export default function AttendanceReviewPage() {
     queryKey: [...qk.departmentOptions, branchId],
     queryFn: () => listDepartmentOptions(branchId),
   });
-  const { data: memberDeptMap = {} } = useQuery({
-    queryKey: qk.memberDepartments(year, month),
-    queryFn: () => listMemberDepartments(year, month),
-  });
-  const deptNameOf = (memberId: string) =>
-    departments.find((d) => d.id === memberDeptMap[memberId])?.name ?? '';
-
   // The month tally needs every member, so we fetch the whole month once
   // (keyed without page) and paginate the display client-side — this keeps the
   // totals stable across pages.
   const { data, isLoading, refetch } = useQuery({
     queryKey: qk.monthlyAttendance(branchId, year, month, 0, search, field, departmentId),
     queryFn: () =>
-      listMonthlyAttendance({ branchId, year, month, page: 1, pageSize: REPORT_PAGE_SIZE, search, field, departmentId }),
+      // The matrix totals are over EVERY member the filters match, so this
+      // walks the pages rather than asking for one oversized page.
+      fetchAllPages((page, pageSize) =>
+        listMonthlyAttendance({ branchId, year, month, page, pageSize, search, field, departmentId }),
+      ),
   });
   const allRows = data?.rows ?? [];
 
@@ -211,69 +209,19 @@ export default function AttendanceReviewPage() {
             ? s === 'pending'
             : s === 'absent';
 
-  const printReview = () => {
-    // Export exactly what's on screen: same branch/search dataset, and when a
-    // status filter is active, keep only the matching marks (and drop members
-    // with no matching day), so the export mirrors the filtered view.
-    const cellFor = (list?: DailyStatus[]) =>
-      (list ?? []).filter((s) => filter === 'all' || matches(s));
-    const exportRows =
-      filter === 'all'
-        ? allRows
-        : allRows.filter((r) => dayList.some((d) => cellFor(r.days[d]).length));
-    const branchName = branches.find((h) => h.id === branchId)?.name;
-    const filterLabel = filter !== 'all' ? t(`attendance.${filter}`) : '';
-    const titleExtra = [branchName, search, filterLabel].filter(Boolean).join(' · ');
-    exportReport({
-      title: `${t('nav.review')} — ${pad(month)}/${year}${titleExtra ? ` — ${titleExtra}` : ''}`,
-      filename: `attendance_${year}_${pad(month)}`,
-      landscape: true,
-      headers: [
-        t('rosters.member'),
-        t('nav.departments'),
-        ...dayList.map(String),
-        t('rosters.total'),
-      ],
-      rows: [
-        ...exportRows.map((r) => [
-          r.full_name,
-          deptNameOf(r.member_id),
-          ...dayList.map((d) => {
-            const inMarks = cellFor(r.days[d]).map(statusMark).join(' ');
-            const outMarks = (r.checkouts[d] ?? []).map(coMark).filter(Boolean).join(' ');
-            return outMarks ? `${inMarks} ${outMarks}`.trim() : inMarks;
-          }),
-          `${memberTotals(r).attended}/${memberTotals(r).slots}`,
-        ]),
-        // Closing row: attended per day across the exported members.
-        [
-          t('rosters.total'),
-          '',
-          ...dayList.map((d) =>
-            String(exportRows.reduce((sum, r) => sum + countIn(r.days[d], ATTENDED), 0)),
-          ),
-          String(
-            exportRows.reduce(
-              (sum, r) => sum + dayList.reduce((s2, d) => s2 + countIn(r.days[d], ATTENDED), 0),
-              0,
-            ),
-          ),
-        ],
-      ],
-      cellColors: [
-        ...exportRows.map((r) => [
-          undefined,
-          undefined,
-          ...dayList.map((d) => {
-            const arr = cellFor(r.days[d]);
-            return arr.length ? STATUS_COLOR[repOf(arr)]?.fill : undefined;
-          }),
-          undefined,
-        ]),
-        [], // the totals row keeps the default styling
-      ],
-    });
-  };
+  /**
+   * Export the matrix for every member the CURRENT filters match.
+   *
+   * The day columns, the colour per cell and the worst-of-the-day rule are the
+   * server's now (domain/report/matrix.ts) — the same module the grid reads —
+   * so the file and the screen cannot disagree about a mixed day.
+   */
+  const printReview = () =>
+    serverExport(
+      '/attendance/monthly/export',
+      { year, month, branchId, search, field, departmentId },
+      `attendance_${year}_${pad(month)}`,
+    );
 
   const openDetail = async (memberId: string, dateStr: string, shiftId?: string | null) => {
     setProbeUrl(null);
@@ -282,10 +230,10 @@ export default function AttendanceReviewPage() {
     if (!detail) return;
     setSelected(detail);
     if (detail.check_in_probe_path) {
-      setProbeUrl(await signedUrl(BUCKETS.probes, detail.check_in_probe_path));
+      setProbeUrl(await signedUrl(FILE_KINDS.probes, detail.check_in_probe_path));
     }
     if (detail.check_out_probe_path) {
-      setProbeOutUrl(await signedUrl(BUCKETS.probes, detail.check_out_probe_path));
+      setProbeOutUrl(await signedUrl(FILE_KINDS.probes, detail.check_out_probe_path));
     }
   };
 
