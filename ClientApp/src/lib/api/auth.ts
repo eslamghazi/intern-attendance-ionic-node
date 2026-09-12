@@ -13,6 +13,7 @@
 //
 // Everything that mints a new pair stores it here, so callers keep their
 // existing shape and none of them has to know about tokens.
+import type { Permissions } from '../permissions';
 import { apiFetch, getRefreshToken, setSession } from './http';
 
 export type Role = 'superadmin' | 'admin' | 'member';
@@ -113,6 +114,8 @@ export interface NewStaff {
    */
   role?: 'admin' | 'superadmin';
   assignments?: { group_id?: string | null; branch_id?: string | null }[];
+  /** The grant the account starts with — what its type expands to. Ignored for a superadmin. */
+  permissions?: Permissions | null;
 }
 
 export function createStaff(staff: NewStaff): Promise<{ ok: boolean; id: string; password: string }> {

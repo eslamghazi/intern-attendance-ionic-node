@@ -32,6 +32,8 @@ export interface NewStaff {
   password?: string;
   role: Role;
   assignments: { group_id?: string | null; branch_id?: string | null }[];
+  /** The starting grant; only meaningful for an admin. */
+  permissions?: AdminPermissions | null;
 }
 
 export interface Account {

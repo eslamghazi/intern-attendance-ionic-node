@@ -118,7 +118,6 @@ export interface MemberRow {
   frozen_at: string | null;
   /** Privilege: may generate location QR codes for their own branch. */
   can_generate_qr: boolean;
-  can_make_roster: boolean;
   can_reset_face: boolean;
   /** True when the member has an enrolled face print. */
   enrolled: boolean;
@@ -179,7 +178,6 @@ export interface UpdateMemberInput {
   /** Frozen clock: ISO datetime, or null to clear. Undefined = leave unchanged. */
   frozen_at?: string | null;
   can_generate_qr?: boolean;
-  can_make_roster?: boolean;
   can_reset_face?: boolean;
 }
 

@@ -34,7 +34,6 @@ export interface LookupMember {
   bypass_face: boolean;
   bypass_location: boolean;
   can_generate_qr: boolean;
-  can_make_roster: boolean;
   can_reset_face: boolean;
 }
 

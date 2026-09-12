@@ -125,7 +125,6 @@ export interface Member {
   bypass_location: boolean;
   bypass_checkout_window?: boolean;
   can_generate_qr?: boolean;
-  can_make_roster?: boolean;
   can_reset_face?: boolean;
   created_at: string;
   // joined (optional)

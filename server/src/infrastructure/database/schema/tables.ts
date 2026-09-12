@@ -185,7 +185,10 @@ export const members = pgTable("members", {
 	frozenAt: timestamp("frozen_at", { withTimezone: true, mode: 'string' }),
 	canGenerateQr: boolean("can_generate_qr").default(false).notNull(),
 	locationBypassUntil: timestamp("location_bypass_until", { withTimezone: true, mode: 'string' }),
-	canMakeRoster: boolean("can_make_roster").default(false).notNull(),
+	// The roster maker is open to every member since migration 0001 — nothing
+	// reads this any more. Kept because a migration here never drops a column;
+	// its default is true so a value that is read anyway tells the truth.
+	canMakeRoster: boolean("can_make_roster").default(true).notNull(),
 	bypassCheckoutWindow: boolean("bypass_checkout_window").default(false).notNull(),
 	canResetFace: boolean("can_reset_face").default(false).notNull(),
 	memberCode: text("member_code"),

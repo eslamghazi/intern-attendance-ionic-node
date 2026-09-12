@@ -125,7 +125,6 @@ function MemberShell() {
   const { t } = useTranslation();
   const { member, isEnrolled } = useAuth();
   const canQr = !!member?.can_generate_qr;
-  const canRosterMaker = !!member?.can_make_roster;
   const canResetFace = !!member?.can_reset_face;
   // Request camera + location up front (once per app open) so the member isn't
   // interrupted by prompts mid check-in. A persistent banner (below) warns while
@@ -160,9 +159,8 @@ function MemberShell() {
           canQr && (
             <Route key="qr" exact path={ROUTES.member.qr} component={MemberQrPage} />
           ),
-          canRosterMaker && (
-            <Route key="rmaker" exact path={ROUTES.member.rosterMaker} component={MemberRosterMakerPage} />
-          ),
+          // Every member's: the roster maker used to be switched on per member.
+          <Route key="rmaker" exact path={ROUTES.member.rosterMaker} component={MemberRosterMakerPage} />,
           canResetFace && (
             <Route key="facetool" exact path={ROUTES.member.faceTool} component={MemberFaceToolPage} />
           ),
@@ -202,12 +200,10 @@ function MemberShell() {
             <IonLabel>{t('nav.qr')}</IonLabel>
           </IonTabButton>
         )}
-        {canRosterMaker && (
-          <IonTabButton tab="rmaker" href={ROUTES.member.rosterMaker}>
-            <IonIcon icon={constructOutline} />
-            <IonLabel>{t('nav.rosterMaker')}</IonLabel>
-          </IonTabButton>
-        )}
+        <IonTabButton tab="rmaker" href={ROUTES.member.rosterMaker}>
+          <IonIcon icon={constructOutline} />
+          <IonLabel>{t('nav.rosterMaker')}</IonLabel>
+        </IonTabButton>
         {canResetFace && (
           <IonTabButton tab="facetool" href={ROUTES.member.faceTool}>
             <IonIcon icon={scanCircle} />

@@ -56,6 +56,7 @@ import {
   type GrantablePage,
   type Op,
 } from '../../lib/permissions';
+import { DEFAULT_STAFF_TYPE, STAFF_TYPES, staffTypeDefaults, staffTypeOf, type StaffType } from '../../lib/staffTypes';
 import AdminHeader from '../../components/AdminHeader';
 import Avatar from '../../components/ui/Avatar';
 import EmptyState from '../../components/ui/EmptyState';
@@ -67,7 +68,7 @@ interface AdminForm {
   national_id?: string;
   full_name?: string;
   phone?: string;
-  role?: 'admin' | 'superadmin';
+  type?: StaffType;
   pages?: AdminPage[];
   pageOps?: Partial<Record<AdminPage, Op[]>>;
 }
@@ -145,11 +146,15 @@ export default function AdminsPage() {
   const create = useMutation({
     mutationFn: async () => {
       if (!form.national_id || !form.full_name) throw new Error('missing');
+      // The type is a name for a role and a starting grant; only those two
+      // are sent, and only those two are stored.
+      const { role, permissions } = staffTypeDefaults(form.type ?? DEFAULT_STAFF_TYPE);
       return createStaff({
         national_id: form.national_id,
         full_name: form.full_name,
         phone: form.phone,
-        role: form.role ?? 'admin',
+        role,
+        permissions,
       });
     },
     onSuccess: () => {
@@ -275,11 +280,10 @@ export default function AdminsPage() {
                   <IonLabel className="ion-text-wrap">
                     <h3>
                       {a.full_name}
-                      {isSuper && (
-                        <IonChip color="tertiary" style={{ marginInlineStart: 8 }}>
-                          {t('roles.superadmin')}
-                        </IonChip>
-                      )}
+                      {/* Worked out from the grant, never stored: see lib/staffTypes.ts. */}
+                      <IonChip color={isSuper ? 'tertiary' : 'medium'} outline={!isSuper} style={{ marginInlineStart: 8 }}>
+                        {t(`staffType.${staffTypeOf(a.role, a.permissions)}`)}
+                      </IonChip>
                     </h3>
                     <IonNote className="ltr-nums">{a.national_id}</IonNote>
                     {!isSuper && (
@@ -356,15 +360,21 @@ export default function AdminsPage() {
             <IonList>
               <IonItem>
                 <IonSelect
-                  label={t('admin.role')}
+                  label={t('staffType.label')}
                   labelPlacement="stacked"
-                  value={form.role ?? 'admin'}
-                  onIonChange={(e) => setForm({ ...form, role: e.detail.value })}
+                  value={form.type ?? DEFAULT_STAFF_TYPE}
+                  onIonChange={(e) => setForm({ ...form, type: e.detail.value as StaffType })}
                 >
-                  <IonSelectOption value="admin">{t('roles.admin')}</IonSelectOption>
-                  <IonSelectOption value="superadmin">{t('roles.superadmin')}</IonSelectOption>
+                  {STAFF_TYPES.map((type) => (
+                    <IonSelectOption key={type} value={type}>
+                      {t(`staffType.${type}`)}
+                    </IonSelectOption>
+                  ))}
                 </IonSelect>
               </IonItem>
+              <IonNote className="ion-padding-horizontal ui-caption" style={{ display: 'block' }}>
+                {t(`staffType.${form.type ?? DEFAULT_STAFF_TYPE}Hint`)}
+              </IonNote>
               <IonItem>
                 <IonInput fill="outline"
                   label={t('auth.nationalId')}
@@ -440,6 +450,30 @@ export default function AdminsPage() {
 
             {editAdmin?.role !== 'superadmin' && (
               <>
+                {/* A type fills the grant in; the checkboxes below adjust it.
+                    The value shown is whichever type the current grant
+                    matches — "custom" the moment it matches none. */}
+                <IonList>
+                  <IonItem>
+                    <IonSelect
+                      label={t('staffType.apply')}
+                      labelPlacement="stacked"
+                      value={staffTypeOf('admin', { pages: editForm.pages ?? [], pageOps: editForm.pageOps })}
+                      onIonChange={(e) => {
+                        const type = e.detail.value as StaffType;
+                        if (type === 'custom' || type === 'superadmin') return;
+                        const { permissions } = staffTypeDefaults(type);
+                        setEditForm((f) => ({ ...f, pages: permissions?.pages ?? [], pageOps: permissions?.pageOps ?? {} }));
+                      }}
+                    >
+                      {STAFF_TYPES.filter((type) => type !== 'superadmin').map((type) => (
+                        <IonSelectOption key={type} value={type}>
+                          {t(`staffType.${type}`)}
+                        </IonSelectOption>
+                      ))}
+                    </IonSelect>
+                  </IonItem>
+                </IonList>
                 <IonNote className="ion-padding ui-caption" style={{ display: 'block' }}>
                   {t('perm.pagesHint')}
                 </IonNote>

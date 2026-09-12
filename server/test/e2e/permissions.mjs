@@ -105,6 +105,30 @@ check('so is granting', (await patch({ pages: [] }).then(() => call('PATCH', `/a
 check('and the superadmin backup', (await call('GET', '/superadmin/backup', { token: tok })).status, 403);
 check('and creating staff of any kind', (await call('POST', '/auth/staff', { token: tok, body: { national_id: '29808181234564', full_name: 'x' } })).status, 403);
 
+/* ------------------------------------------- a type, in one request */
+console.log('\n--- an account and its starting grant are one request ---');
+// What the Admins page sends when a "supervisor" is picked: role + grant
+// together, so there is never an account that exists for a moment with nothing.
+const typed = await call('POST', '/auth/staff', {
+  token: suToken,
+  body: {
+    national_id: '29808181234564', full_name: 'Typed Admin', role: 'admin',
+    permissions: { pages: ['dashboard', 'review'], pageOps: { dashboard: ['export'], review: ['edit', 'export'] } },
+  },
+});
+check('created with a grant', typed.status, 201);
+const typedTok = (await login('29808181234564', typed.body?.password)).body?.access_token;
+check('  the dashboard opens at once — no PATCH in between', (await call('GET', `/attendance/stats?year=2026&month=9`, { token: typedTok })).status, 200);
+check('  and nothing that was not granted', (await call('GET', '/members', { token: typedTok })).status, 403);
+check('  the grant is what the list reports', (await call('GET', '/admins', { token: suToken })).body?.find((a) => a.id === typed.body?.id)?.permissions?.pages?.sort().join(','), 'dashboard,review');
+const typedSuper = await call('POST', '/auth/staff', {
+  token: suToken,
+  body: { national_id: '29808181234565', full_name: 'Typed Super', role: 'superadmin', permissions: { pages: ['audit'] } },
+});
+check('a superadmin created with a grant stores none — the role holds everything', typedSuper.status, 201);
+check('  column is null', (await call('GET', '/admins', { token: suToken })).body?.find((a) => a.id === typedSuper.body?.id)?.permissions, null);
+psql(`delete from public.profiles where national_id in ('29808181234564', '29808181234565')`);
+
 /* ------------------------------------------------------- superadmins */
 console.log('\n--- who the admins page shows, and who may make a superadmin ---');
 const list = await call('GET', '/admins', { token: suToken });

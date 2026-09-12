@@ -605,7 +605,6 @@
     "defaultPassword": "Default password",
     "passwordResetTo": "Password reset. New password: {{nid}}",
     "addAdmin": "Add staff",
-    "role": "Role",
     "roleNote": "Admins manage the system (per their permissions). Managers only generate location-bypass QR codes.",
     "assignment": "Assignment",
     "assignmentHint": "Check the branches/groups this admin manages. Assigned ones are pre-checked; unchecking removes them. None checked = full access.",
@@ -679,8 +678,6 @@
     "faceNotEnrolled": "No face print enrolled yet",
     "canGenerateQr": "Can generate location QR",
     "canGenerateQrNote": "Lets this member generate location-bypass QR codes for their colleagues — locked to their own branch only.",
-    "canMakeRoster": "Can build rosters",
-    "canMakeRosterNote": "Lets this member build a roster for their branch and download an uploadable file.",
     "canResetFace": "Can reset faces",
     "canResetFaceNote": "Lets this member look a student up by their code (name + enrollment status) and delete their enrolled face — limited to their own branch."
   },
@@ -826,5 +823,19 @@
       "overwritten": "overwritten",
       "skipped": "skipped"
     }
+  },
+  "staffType": {
+    "label": "Account type",
+    "apply": "Apply a type",
+    "superadmin": "Superadmin",
+    "manager": "Manager",
+    "supervisor": "Supervisor",
+    "reviewer": "Reviewer",
+    "custom": "Custom",
+    "superadminHint": "Everything, including creating staff and granting pages. Not edited here.",
+    "managerHint": "Every page with every operation — a deputy, short of managing staff.",
+    "supervisorHint": "Runs the day: the dashboard, the roster and its review, who is present now, lookups and the face tool, and the QR bypass. Reads members without changing them.",
+    "reviewerHint": "Looks and exports, changes nothing: the dashboard, attendance review, the audit trail, lookups.",
+    "customHint": "No pages to start with. Pick pages and operations yourself after creating it."
   }
 }

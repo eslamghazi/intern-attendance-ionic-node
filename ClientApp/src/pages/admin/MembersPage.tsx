@@ -97,7 +97,6 @@ interface EditForm {
   bypass_checkout_window?: boolean;
   frozen_at?: string | null;
   can_generate_qr?: boolean;
-  can_make_roster?: boolean;
   can_reset_face?: boolean;
 }
 
@@ -346,7 +345,6 @@ export default function MembersPage() {
       bypass_checkout_window: it.bypass_checkout_window,
       frozen_at: it.frozen_at,
       can_generate_qr: it.can_generate_qr,
-      can_make_roster: it.can_make_roster,
       can_reset_face: it.can_reset_face,
     });
     setAvatarBlob(null);
@@ -396,7 +394,6 @@ export default function MembersPage() {
           bypass_checkout_window: editForm.bypass_checkout_window,
           frozen_at: editForm.frozen_at ?? null,
           can_generate_qr: editForm.can_generate_qr,
-          can_make_roster: editForm.can_make_roster,
           can_reset_face: editForm.can_reset_face,
         });
         return true;
@@ -987,16 +984,6 @@ export default function MembersPage() {
               </IonItem>
               <IonNote className="ion-padding-horizontal ui-caption" style={{ display: 'block' }}>
                 {t('admin.canGenerateQrNote')}
-              </IonNote>
-              <IonItem>
-                <IonLabel className="ion-text-wrap">{t('admin.canMakeRoster')}</IonLabel>
-                <IonToggle
-                  checked={!!editForm.can_make_roster}
-                  onIonChange={(e) => setEditForm({ ...editForm, can_make_roster: e.detail.checked })}
-                />
-              </IonItem>
-              <IonNote className="ion-padding-horizontal ui-caption" style={{ display: 'block' }}>
-                {t('admin.canMakeRosterNote')}
               </IonNote>
               <IonItem>
                 <IonLabel className="ion-text-wrap">{t('admin.canResetFace')}</IonLabel>

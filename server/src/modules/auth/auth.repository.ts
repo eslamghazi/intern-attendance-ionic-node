@@ -4,8 +4,9 @@ import { GenericRepository } from '../../infrastructure/database/generic.reposit
 import { eq, exists, isNull, and } from 'drizzle-orm';
 import { QueryBuilder } from 'drizzle-orm/pg-core';
 import { profiles, appSettings, refreshTokens, auditLog, adminAssignments, members, branches, groups, institutions, faceTemplates } from '../../infrastructure/database/schema/index.js';
-import type { Role } from '../../domain/identity/role.js';
+import { Role } from '../../domain/identity/role.js';
 import type { StoredRefreshToken } from '../../domain/auth/refresh.js';
+import type { AdminPermissions } from '../../domain/identity/types.js';
 import type { IAuthRepository } from './interfaces/auth.interface.js';
 import type { Account, StoredToken } from './auth.types.js';
 import type { JsonValue } from '../../common/json.types.js';
@@ -235,6 +236,7 @@ export class AuthRepository extends GenericRepository<typeof profiles> implement
       full_name: string;
       phone?: string | null;
       role: Role;
+      permissions?: AdminPermissions | null;
     },
     passwordHash: string,
   ): Promise<void> {
@@ -246,6 +248,9 @@ export class AuthRepository extends GenericRepository<typeof profiles> implement
       phone: input.phone || null,
       passwordHash,
       createdBy: actorId,
+      // A superadmin's column is never read (PermissionsGuard passes them by
+      // role), so it is not written either.
+      permissions: input.role === Role.ADMIN ? (input.permissions ?? null) : null,
     });
   }
 

@@ -11,6 +11,8 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Role, STAFF_ROLES } from '../../../common/enums/index.js';
+import { AdminPermissionsDto } from '../../admins/dto/admin.dto.js';
+import type { AdminPermissions } from '../../../domain/identity/types.js';
 import { PASSWORD_MIN } from '../../../config/constants.js';
 
 export class LoginDto {
@@ -128,6 +130,18 @@ export class CreateStaffDto {
   @Type(() => StaffAssignmentInputDto)
   @IsOptional()
   assignments?: StaffAssignmentInputDto[] = [];
+
+  /**
+   * The grant the account starts with — what the "type" picked on the
+   * Admins page expands to. Given here so an account and its grant are one
+   * request, never an account that exists for a moment with nothing.
+   * Ignored for a superadmin, who holds every page by role.
+   */
+  @ApiPropertyOptional({ type: AdminPermissionsDto, nullable: true })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AdminPermissionsDto)
+  permissions?: AdminPermissions | null;
 }
 
 export class LoginProfileDto {
