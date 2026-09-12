@@ -11,9 +11,10 @@
 // It is built from the view's own column objects rather than as SQL text, so
 // Drizzle qualifies every column itself and a renamed column breaks the build
 // instead of failing at runtime on the first request that uses that filter.
-import { and, eq, exists, ilike, inArray, isNotNull, or, sql, type SQL } from 'drizzle-orm';
+import { and, between, eq, exists, ilike, inArray, isNotNull, or, sql, type SQL } from 'drizzle-orm';
 import { QueryBuilder } from 'drizzle-orm/pg-core';
-import { memberDepartments, memberDirectory } from '../../infrastructure/database/schema/index.js';
+import { memberDepartments, memberDirectory, rosterDays } from '../../infrastructure/database/schema/index.js';
+import { monthBounds } from '../roster/bulk.js';
 
 // See config/constants.ts. Re-exported here because this is where the filters
 // live, and anything building a page already imports this module.
@@ -52,6 +53,18 @@ export interface MemberFilters {
   is_active?: boolean;
   /** Restrict to the members assigned to this department for (year, month). */
   departmentId?: string | null;
+  /** The cohort (الدفعة). */
+  groupId?: string | null;
+  /**
+   * Only members ROSTERED on this shift in (year, month) — or on `day` of it.
+   * A roster type is a shift: morning, evening, night.
+   */
+  shiftId?: string | null;
+  /**
+   * Only members rostered on this day of (year, month), on `shiftId` if given.
+   * The roster and review grids narrow their columns to it as well.
+   */
+  day?: number | null;
   /**
    * The caller's reach, ANDed on top of everything else.
    *
@@ -98,6 +111,7 @@ export function directoryWhere(o: MemberFilters): SQL | undefined {
   }
 
   if (o.branchId) conds.push(eq(memberDirectory.branchId, o.branchId));
+  if (o.groupId) conds.push(eq(memberDirectory.groupId, o.groupId));
 
   const term = (o.search ?? '').trim();
   if (term) conds.push(ilike(searchColumn(o.field ?? 'name'), `%${term}%`));
@@ -124,6 +138,18 @@ export function directoryWhere(o: MemberFilters): SQL | undefined {
           ),
       ),
     );
+  }
+
+  // A shift and/or a day narrow to the members ROSTERED there: a member with
+  // no roster on that shift or day has nothing to show in a grid filtered to
+  // it, and would appear as an empty row otherwise.
+  if ((o.shiftId || o.day) && o.year && o.month) {
+    const { first, last } = monthBounds(o.year, o.month);
+    const rostered: SQL[] = [eq(rosterDays.memberId, memberDirectory.memberId)];
+    if (o.day) rostered.push(eq(rosterDays.date, dayInMonth(first, o.day)));
+    else rostered.push(between(rosterDays.date, first, last));
+    if (o.shiftId) rostered.push(eq(rosterDays.shiftId, o.shiftId));
+    conds.push(exists(qb.select({ id: rosterDays.id }).from(rosterDays).where(and(...rostered))));
   }
 
   return conds.length ? and(...conds) : undefined;

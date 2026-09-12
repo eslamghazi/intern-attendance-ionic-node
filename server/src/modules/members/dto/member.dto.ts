@@ -310,6 +310,24 @@ export class MemberFilterQueryDto implements MemberFilters {
   @IsUUID()
   departmentId?: string | null;
 
+  @ApiPropertyOptional({ description: 'The cohort', example: 'g1d0e513-5b8b-4c74-8b6b-1a5ec4c74999' })
+  @IsOptional()
+  @IsUUID()
+  groupId?: string | null;
+
+  @ApiPropertyOptional({ description: 'Only members rostered on this shift in the month (or on `day`)' })
+  @IsOptional()
+  @IsUUID()
+  shiftId?: string | null;
+
+  @ApiPropertyOptional({ description: 'Only members rostered on this day of the month; grids narrow to it', minimum: 1, maximum: 31 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(31)
+  day?: number | null;
+
   @ApiPropertyOptional({ example: 2026 })
   @IsOptional()
   @Type(() => Number)

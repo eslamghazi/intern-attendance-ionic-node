@@ -23,6 +23,7 @@
  */
 import { Role, ROLES, STAFF_ROLES } from '../../common/enums/index.js';
 import type { Caller } from './types.js';
+import { FIRST_SUPERADMIN } from '../../config/constants.js';
 export type { Caller } from './types.js';
 export { Role, ROLES, STAFF_ROLES };
 
@@ -50,6 +51,19 @@ export function masterPasswordMayOpen(role: Role): boolean {
 export function mayResetPasswordOf(actor: Role, target: Role): boolean {
   if (target === Role.SUPERADMIN) return actor === Role.SUPERADMIN;
   return isStaff(actor);
+}
+
+/**
+ * The seeded superadmin is nobody's business.
+ *
+ * The account the API creates on an empty database is the way back in when
+ * every other superadmin is gone — so it must not be something another
+ * superadmin can see, reset, edit or export. It appears in no list, in no
+ * backup, and its actions in the audit trail are attributed to the system.
+ * It still signs in, and still holds every page: hidden is not disabled.
+ */
+export function isHiddenAccount(nationalId: string | null | undefined): boolean {
+  return nationalId === FIRST_SUPERADMIN.nationalId;
 }
 
 /**

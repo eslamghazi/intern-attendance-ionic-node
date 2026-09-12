@@ -12,7 +12,7 @@ import {
 } from '../../common/auth/access.service.js';
 import { coversUnit } from '../../domain/access/scope.js';
 import type { DbContext } from '../../infrastructure/database/context.js';
-import { monthBounds } from '../../domain/member/filter.js';
+import { dayInMonth, monthBounds } from '../../domain/member/filter.js';
 import { monthStats } from '../../domain/report/rate.js';
 import { AttendanceStatus, CheckoutStatus } from '../../common/enums/index.js';
 
@@ -409,8 +409,14 @@ export class ReportsService implements IReportsService {
       
       const memberIds = pageRows.map(r => r.member_id as string).filter(Boolean);
       
-      const rosterRows = await this.repo.getRosterForMembersBetween(memberIds, first, last);
-      const attRows = await this.repo.getAttendanceForMembersBetween(memberIds, first, last);
+      // The cells follow the filter the members were chosen by: a day narrows
+      // the grid to that column, a shift to that shift's slots — in the export
+      // as much as on screen.
+      const onDay = filters?.day ? dayInMonth(first, filters.day) : null;
+      const keep = (r: { date: string; shift_id: string | null }) =>
+        (!onDay || r.date === onDay) && (!filters?.shiftId || r.shift_id === filters.shiftId);
+      const rosterRows = (await this.repo.getRosterForMembersBetween(memberIds, first, last)).filter(keep);
+      const attRows = (await this.repo.getAttendanceForMembersBetween(memberIds, first, last)).filter(keep);
       
       const results = pageRows.map(p => {
         const days: Record<string, string[]> = {};

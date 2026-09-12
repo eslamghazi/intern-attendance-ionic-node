@@ -303,6 +303,9 @@ export function listMonthlyAttendance(
   if (o.branchId) p.set('branchId', o.branchId);
   if (o.search.trim()) p.set('search', o.search.trim());
   if (o.departmentId) p.set('departmentId', o.departmentId);
+  if (o.groupId) p.set('groupId', o.groupId);
+  if (o.shiftId) p.set('shiftId', o.shiftId);
+  if (o.day) p.set('day', String(o.day));
   return apiFetch(`/attendance/monthly?${p}`);
 }
 

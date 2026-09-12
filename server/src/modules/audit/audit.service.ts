@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { isHiddenAccount } from '../../domain/identity/role.js';
 import { UnitOfWorkService } from '../../infrastructure/database/unit-of-work.service.js';
 import { AuditRepository, type AuditFilters } from './audit.repository.js';
 import { scopeOf } from '../../common/auth/access.service.js';
@@ -60,16 +61,22 @@ export class AuditService {
       const scope = await scopeOf(tx, caller);
       const { rows, total } = await this.repo.findPage(scope, filters, limit, offset);
       return {
-        rows: rows.map((r) => ({
-          id: r.id,
-          event: r.event,
-          actor_id: r.actor_id,
-          actor_name: r.actor_name ?? null,
-          actor_national_id: r.actor_national_id ?? null,
-          actor_role: r.actor_role ?? null,
-          detail: r.detail ?? null,
-          created_at: r.created_at,
-        })),
+        rows: rows.map((r) => {
+          // The seeded superadmin's actions are the system's, as far as any
+          // reader is concerned — see isHiddenAccount. The row itself is
+          // untouched; only who it is shown as.
+          const hidden = isHiddenAccount(r.actor_national_id);
+          return {
+            id: r.id,
+            event: r.event,
+            actor_id: hidden ? null : r.actor_id,
+            actor_name: hidden ? null : (r.actor_name ?? null),
+            actor_national_id: hidden ? null : (r.actor_national_id ?? null),
+            actor_role: hidden ? null : (r.actor_role ?? null),
+            detail: r.detail ?? null,
+            created_at: r.created_at,
+          };
+        }),
         total,
       };
     });

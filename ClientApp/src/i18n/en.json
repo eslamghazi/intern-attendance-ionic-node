@@ -838,5 +838,10 @@
     "supervisorHint": "Runs the day: the dashboard, the roster and its review, who is present now, lookups and the face tool, and the QR bypass. Reads members without changing them.",
     "reviewerHint": "Looks and exports, changes nothing: the dashboard, attendance review, the audit trail, lookups.",
     "customHint": "No pages to start with. Pick pages and operations yourself after creating it."
+  },
+  "filters": {
+    "rosterType": "Roster type",
+    "day": "Day",
+    "wholeMonth": "Whole month"
   }
 }

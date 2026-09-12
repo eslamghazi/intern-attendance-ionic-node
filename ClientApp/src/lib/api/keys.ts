@@ -25,6 +25,8 @@ export const qk = {
 
   members: ['members'] as const,
   membersCount: ['members', 'count'] as const,
+  // The trailing `narrow` is the optional narrowing (department, cohort,
+  // shift, day) as one string, so a change in any of them is a new key.
   rosterView: (
     branchId: string,
     year: number,
@@ -32,8 +34,8 @@ export const qk = {
     page: number,
     search: string,
     field: string,
-    departmentId = '',
-  ) => [K.rosterView, branchId, year, month, page, search, field, departmentId] as const,
+    narrow = '',
+  ) => [K.rosterView, branchId, year, month, page, search, field, narrow] as const,
   rosterViewAll: [K.rosterView] as const, // prefix: invalidates every roster-view page
   rosterTotals: (
     branchId: string,
@@ -41,8 +43,8 @@ export const qk = {
     month: number,
     search: string,
     field: string,
-    departmentId?: string,
-  ) => [K.rosterView, 'totals', branchId, year, month, search, field, departmentId] as const,
+    narrow = '',
+  ) => [K.rosterView, 'totals', branchId, year, month, search, field, narrow] as const,
 
   admins: ['admins'] as const,
   assignments: ['assignments'] as const,
@@ -58,8 +60,8 @@ export const qk = {
     page: number,
     search: string,
     field: string,
-    departmentId = '',
-  ) => [K.monthlyAttendance, branchId, year, month, page, search, field, departmentId] as const,
+    narrow = '',
+  ) => [K.monthlyAttendance, branchId, year, month, page, search, field, narrow] as const,
   monthlyAttendanceAll: [K.monthlyAttendance] as const, // prefix: invalidates every page
   report: (from: string, to: string, branchId: string, groupId: string) =>
     ['report', from, to, branchId, groupId] as const,

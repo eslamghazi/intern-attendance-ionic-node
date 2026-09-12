@@ -26,7 +26,7 @@ import { cloudUploadOutline, downloadOutline, duplicateOutline, informationCircl
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useServerExport } from '../../components/useServerExport';
-import { listBranchOptions, listShifts } from '../../lib/api/catalog';
+import { listGroupOptions, listBranchOptions, listShifts } from '../../lib/api/catalog';
 import {
   addRosterShift,
   bulkApplyRosterShift,
@@ -83,6 +83,12 @@ export default function RosterPage() {
   const [field, setField] = useState<SearchField>('name');
   const [search, setSearch] = useState('');
   const [departmentId, setDepartmentId] = useState('');
+  // Optional narrowing: the cohort, one roster type (a shift), one day.
+  const [groupId, setGroupId] = useState('');
+  const [shiftId, setShiftId] = useState('');
+  const [day, setDay] = useState(0);
+  const narrow = { departmentId, groupId, shiftId, day };
+  const narrowKey = `${departmentId}|${groupId}|${shiftId}|${day}`;
   const [uploadDeptId, setUploadDeptId] = useState('');
   // The roster-upload flow carries its OWN branch + month/year, independent of
   // the page's top filters.
@@ -102,6 +108,7 @@ export default function RosterPage() {
   // Full member list (for mapping national_id -> id on upload).
   const { refetch } = useQuery({ queryKey: qk.members, queryFn: listMembers });
   const { data: shifts = [] } = useQuery({ queryKey: qk.shifts, queryFn: listShifts });
+  const { data: groups = [] } = useQuery({ queryKey: qk.groupOptions, queryFn: listGroupOptions });
   const { data: branches = [] } = useQuery({ queryKey: qk.branchOptions, queryFn: listBranchOptions });
   const { data: departments = [] } = useQuery({
     queryKey: [...qk.departmentOptions, branchId],
@@ -132,8 +139,8 @@ export default function RosterPage() {
   // shift add/edit/remove refetches in the background and keeps the grid on
   // screen instead of blanking back to a loading state.
   const { data, isLoading: rosterLoading } = useQuery({
-    queryKey: qk.rosterView(branchId, year, month, page, search, field, departmentId),
-    queryFn: () => listRosterForBranchMonth({ branchId, year, month, page, pageSize: PAGE_SIZE, search, field, departmentId }),
+    queryKey: qk.rosterView(branchId, year, month, page, search, field, narrowKey),
+    queryFn: () => listRosterForBranchMonth({ branchId, year, month, page, pageSize: PAGE_SIZE, search, field, ...narrow }),
   });
   const rosterRows = data?.rows ?? [];
   const total = data?.total ?? 0;
@@ -141,8 +148,8 @@ export default function RosterPage() {
   // Day totals across EVERY member the filters match (the grid only shows one
   // page), counted server-side.
   const { data: totals } = useQuery({
-    queryKey: qk.rosterTotals(branchId, year, month, search, field, departmentId),
-    queryFn: () => listRosterDayTotals({ branchId, year, month, search, field, departmentId }),
+    queryKey: qk.rosterTotals(branchId, year, month, search, field, narrowKey),
+    queryFn: () => listRosterDayTotals({ branchId, year, month, search, field, ...narrow }),
   });
   const shiftName = (id: string) => shifts.find((sh) => sh.id === id)?.name ?? '';
   /** "صباحي: 12 · مسائي: 4" — the per-shift split behind a day's total. */
@@ -164,7 +171,8 @@ export default function RosterPage() {
     dayList.reduce((sum, d) => sum + (totals?.perDayShift[d]?.[shiftId] ?? 0), 0);
 
   const daysInMonth = new Date(year, month, 0).getDate();
-  const dayList = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  // One column when a day is chosen; the server narrowed the cells the same way.
+  const dayList = day ? [day] : Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
   // Highlight today's column (server date) when the viewed month/year is current,
   // matching the attendance review grid.
@@ -315,7 +323,8 @@ export default function RosterPage() {
    * whole filtered set, not over the page on screen.
    */
   const printRoster = () =>
-    serverExport('/roster/export', { year, month, branchId, search, field }, `roster_${year}_${pad(month)}`);
+    // The same narrowing as the grid, so the file and the screen agree.
+    serverExport('/roster/export', { year, month, branchId, search, field, ...narrow }, `roster_${year}_${pad(month)}`);
 
   // Build the rich monthly template for the selected month: Arabic day names on
   // top, the branch's members pre-filled with their current shifts, per-member
@@ -571,6 +580,14 @@ export default function RosterPage() {
           departments={departments}
           departmentId={departmentId}
           onDepartment={setDepartmentId}
+          groups={groups}
+          groupId={groupId}
+          onGroup={setGroupId}
+          shifts={shifts}
+          shiftId={shiftId}
+          onShift={setShiftId}
+          day={day}
+          onDay={setDay}
         />
 
         {/* Self-contained monthly-roster upload (collapsed by default). */}

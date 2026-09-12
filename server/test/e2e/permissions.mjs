@@ -119,12 +119,14 @@ check('  and may edit that admin', (await call('PATCH', `/admins/${peer.body?.id
 check('  but NOT themselves - a grant one can edit is a grant one can widen', (await call('PATCH', `/admins/${adminId}`, {
   token: tok, body: { full_name: 'Fresh Admin', national_id: NID, permissions: { pages: ALL_GRANTABLE_PAGES } },
 })).status, 403);
-check('  and NOT a superadmin', (await call('PATCH', `/admins/${suId}`, {
+// The seeded superadmin is hidden — it does not exist to anyone (404). A
+// visible superadmin is refused outright (403); see the superadmins section.
+check('  and the seeded superadmin does not even exist to them', (await call('PATCH', `/admins/${suId}`, {
   token: tok, body: { full_name: 'x', national_id: SUPERADMIN.nationalId },
-})).status, 403);
-check('  nor assign one', (await call('POST', '/admins/assignments', {
+})).status, 404);
+check('  nor can it be assigned', (await call('POST', '/admins/assignments', {
   token: tok, body: { admin_id: suId },
-})).status, 403);
+})).status, 404);
 check('an admin NEVER creates a superadmin, whatever they hold', (await call('POST', '/auth/staff', {
   token: tok, body: { national_id: '29606161234567', full_name: 'x', role: 'superadmin' },
 })).status, 403);
@@ -178,6 +180,9 @@ check('  who signs in', s2.status, 200);
 check('  as a superadmin', s2.body?.role, 'superadmin');
 check('  and holds every page with no grant at all', (await call('GET', '/admins', { token: s2.body?.access_token })).status, 200);
 check('  and is listed to the first', (await call('GET', '/admins', { token: suToken })).body?.some((a) => a.id === second.body?.id), true);
+check('  and a granted admin sees it but may NOT touch it', (await call('PATCH', `/admins/${second.body?.id}`, {
+  token: tok, body: { full_name: 'x', national_id: '29909191234565' },
+})).status, 403);
 check('  but not to themselves', (await call('GET', '/admins', { token: s2.body?.access_token })).body?.some((a) => a.id === second.body?.id), false);
 
 // Leave the database as found: one superadmin. The next suite's reset keeps

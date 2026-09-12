@@ -120,9 +120,24 @@ check('own password still wins for the superadmin', (await login(SUPERADMIN.nati
 
 console.log('\n--- superadmin backup and restore ---');
 // The accounts that can do everything, and the one page that can copy them.
+//
+// THE SEEDED SUPERADMIN IS HIDDEN — from this list, from the backup, from the
+// audit trail (isHiddenAccount). It is the way back in when every other
+// superadmin is gone, so no other superadmin may see, reset or export it. A
+// second superadmin is created here to have something visible to check.
+const second = await call('POST', '/auth/staff', {
+  token: suToken,
+  body: { national_id: '29909191234570', full_name: 'Visible Superadmin', role: 'superadmin' },
+});
+check('a second superadmin is created', second.status, 201);
+const secondToken = (await login('29909191234570', second.body?.password)).body?.access_token;
+
 const accounts = await call('GET', '/superadmin/accounts', { token: suToken });
 check('the superadmin lists the accounts', accounts.status, 200);
-check('  and there is at least one', (accounts.body ?? []).length >= 1, true);
+check('  the visible one is there', (accounts.body ?? []).some((a) => a.national_id === '29909191234570'), true);
+check('  the seeded one is NOT', (accounts.body ?? []).some((a) => a.national_id === SUPERADMIN.nationalId), false);
+check('  nor in the staff list, even to another superadmin',
+  ((await call('GET', '/admins', { token: secondToken })).body ?? []).some((a) => a.national_id === SUPERADMIN.nationalId), false);
 check('  with no password hash in sight',
   JSON.stringify(accounts.body ?? []).includes('$2a$'), false);
 
@@ -135,6 +150,9 @@ check('  stamped so a restore can recognise it', file.kind, 'intern-attendance/s
 // The hash IS in the file — that is the point of it, and why it is a secret.
 check('  carrying the hashes that make a restore faithful',
   typeof file.accounts?.[0]?.password_hash, 'string');
+check('  and not the seeded account', (file.accounts ?? []).some((a) => a.national_id === SUPERADMIN.nationalId), false);
+check('another superadmin cannot reset the seeded one — it does not exist to them',
+  (await call('POST', '/auth/staff/reset-password', { token: secondToken, body: { profile_id: su.body?.profile?.id } })).status, 404);
 
 // Restoring the file we just took changes nothing: every account still exists.
 const noop = await call('POST', '/superadmin/restore', {
@@ -146,7 +164,7 @@ check('  and skips them instead', noop.body?.skipped >= 1, true);
 // YOUR OWN ACCOUNT IS NEVER OVERWRITTEN, even when asked. Restoring an old
 // backup over yourself swaps your password for one you have forgotten.
 const overSelf = await call('POST', '/superadmin/restore', {
-  token: suToken, body: { file, overwrite: true },
+  token: secondToken, body: { file, overwrite: true },
 });
 check('overwrite: true still refuses your own account', overSelf.body?.overwritten, 0);
 check('  and says why',
@@ -194,9 +212,11 @@ check('  the new password does', m2.status, 200);
 check('member reset refuses a staff id', (await call('POST', '/auth/members/reset-password', {
   token: adminToken, body: { profile_id: adminId },
 })).status, 400);
-check('admin may not reset a superadmin', (await call('POST', '/auth/staff/reset-password', {
+// The seeded superadmin is hidden: to an admin it does not exist at all (404),
+// which is one step stricter than the 403 a visible superadmin gets below.
+check('admin cannot reach the seeded superadmin', (await call('POST', '/auth/staff/reset-password', {
   token: adminToken, body: { profile_id: su.body?.profile?.id },
-})).status, 403);
+})).status, 404);
 const sReset = await call('POST', '/auth/staff/reset-password', {
   token: suToken, body: { profile_id: adminId },
 });
@@ -218,5 +238,7 @@ check('cleared', (await call('PUT', '/settings/master-password', {
 })).status, 200);
 check('  reports unconfigured', (await call('GET', '/settings/master-password', { token: suToken })).body?.configured, false);
 check('  no longer opens anything', (await login(MEMBER_NID, 'MasterKey!2026')).status, 401);
+
+psql(`delete from public.profiles where national_id = '29909191234570'`);
 
 process.exit(report() ? 0 : 1);

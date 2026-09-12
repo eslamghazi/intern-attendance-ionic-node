@@ -18,8 +18,9 @@ import {
   sql,
   asc,
   isNotNull,
+  type SQL,
 } from 'drizzle-orm';
-import { dayOfMonth, directoryWhere, filteredMemberIds } from '../../domain/member/filter.js';
+import { dayInMonth, dayOfMonth, directoryWhere, filteredMemberIds } from '../../domain/member/filter.js';
 
 import type { IRosterRepository } from './interfaces/roster.interface.js';
 
@@ -71,6 +72,11 @@ export class RosterRepository extends GenericRepository<typeof rosterDays> imple
     if (!page.length) return { rows: [], total };
 
     const memberIds = page.map((p) => p.member_id!).filter(Boolean);
+    // The cells follow the filter: a day narrows the grid to that column, a
+    // shift to that shift's entries — in the export as much as on screen.
+    const cellWhere: SQL[] = [inArray(rosterDays.memberId, memberIds)];
+    cellWhere.push(filters?.day ? eq(rosterDays.date, dayInMonth(first, filters.day)) : between(rosterDays.date, first, last));
+    if (filters?.shiftId) cellWhere.push(eq(rosterDays.shiftId, filters.shiftId));
     const cells = await this.db
       .select({
         member_id: rosterDays.memberId,
@@ -81,7 +87,7 @@ export class RosterRepository extends GenericRepository<typeof rosterDays> imple
       })
       .from(rosterDays)
       .innerJoin(shifts, eq(shifts.id, rosterDays.shiftId))
-      .where(and(between(rosterDays.date, first, last), inArray(rosterDays.memberId, memberIds)));
+      .where(and(...cellWhere));
 
     const byMember = new Map<string, Record<string, { shift_id: string; label: string }[]>>();
     for (const c of cells) {

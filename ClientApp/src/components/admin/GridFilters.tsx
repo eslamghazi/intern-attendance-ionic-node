@@ -22,6 +22,17 @@ interface Props {
   departments?: { id: string; name: string }[];
   departmentId?: string;
   onDepartment?: (id: string) => void;
+  // Optional narrowing — the cohort, the roster type (a shift), one day of
+  // the month. Each is shown only when its handler is provided.
+  groups?: { id: string; name: string }[];
+  groupId?: string;
+  onGroup?: (id: string) => void;
+  shifts?: { id: string; name: string }[];
+  shiftId?: string;
+  onShift?: (id: string) => void;
+  /** 0 = the whole month. */
+  day?: number;
+  onDay?: (day: number) => void;
 }
 
 export default function GridFilters({
@@ -39,10 +50,19 @@ export default function GridFilters({
   departments,
   departmentId = '',
   onDepartment,
+  groups,
+  groupId = '',
+  onGroup,
+  shifts,
+  shiftId = '',
+  onShift,
+  day = 0,
+  onDay,
 }: Props) {
   const { t } = useTranslation();
   const base = Number(appToday().slice(0, 4));
   const years = [base - 3, base - 2, base - 1, base, base + 1];
+  const daysInMonth = new Date(year, month, 0).getDate();
 
   return (
     <div className="ui-surface ui-section" style={{ overflow: 'hidden' }}>
@@ -113,6 +133,62 @@ export default function GridFilters({
               {departments.map((d) => (
                 <IonSelectOption key={d.id} value={d.id}>
                   {d.name}
+                </IonSelectOption>
+              ))}
+            </IonSelect>
+          </IonItem>
+        )}
+        {groups && onGroup && (
+          <IonItem lines="none">
+            <IonSelect
+              label={t('admin.group')}
+              labelPlacement="stacked"
+              interface="popover"
+              placeholder={t('common.all')}
+              value={groupId}
+              onIonChange={(e) => onGroup(String(e.detail.value ?? ''))}
+            >
+              <IonSelectOption value="">{t('common.all')}</IonSelectOption>
+              {groups.map((g) => (
+                <IonSelectOption key={g.id} value={g.id}>
+                  {g.name}
+                </IonSelectOption>
+              ))}
+            </IonSelect>
+          </IonItem>
+        )}
+        {shifts && onShift && (
+          <IonItem lines="none">
+            <IonSelect
+              label={t('filters.rosterType')}
+              labelPlacement="stacked"
+              interface="popover"
+              placeholder={t('common.all')}
+              value={shiftId}
+              onIonChange={(e) => onShift(String(e.detail.value ?? ''))}
+            >
+              <IonSelectOption value="">{t('common.all')}</IonSelectOption>
+              {shifts.map((s) => (
+                <IonSelectOption key={s.id} value={s.id}>
+                  {s.name}
+                </IonSelectOption>
+              ))}
+            </IonSelect>
+          </IonItem>
+        )}
+        {onDay && (
+          <IonItem lines="none">
+            <IonSelect
+              label={t('filters.day')}
+              labelPlacement="stacked"
+              interface="popover"
+              value={day}
+              onIonChange={(e) => onDay(Number(e.detail.value ?? 0))}
+            >
+              <IonSelectOption value={0}>{t('filters.wholeMonth')}</IonSelectOption>
+              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => (
+                <IonSelectOption key={d} value={d}>
+                  {d}
                 </IonSelectOption>
               ))}
             </IonSelect>

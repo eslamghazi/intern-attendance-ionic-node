@@ -66,7 +66,8 @@ export class RosterController {
       month,
     );
     const t = (key: string) => this.i18n.translate(`report.${key}`, lang);
-    const dayList = Array.from({ length: daysInMonth(year, month) }, (_, i) => i + 1);
+    // One column when the grid was narrowed to a day, like the screen.
+    const dayList = query.day ? [query.day] : Array.from({ length: daysInMonth(year, month) }, (_, i) => i + 1);
 
     /** That member's cells for one day. */
     const cells = (r: (typeof rows)[number], day: number) => r.days[String(day)] ?? [];

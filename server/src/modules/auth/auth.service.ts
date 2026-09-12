@@ -6,6 +6,7 @@ import { AuthRepository, Account, StoredToken } from './auth.repository.js';
 import { classifyRefresh, expiresInSeconds, expiryFrom } from '../../domain/auth/refresh.js';
 import { initialPassword, resolveLogin } from '../../domain/identity/credentials.js';
 import {
+  isHiddenAccount,
   mayCreateStaffAs,
   mayDeleteStaff,
   mayResetPasswordOf,
@@ -288,7 +289,9 @@ export class AuthService implements IAuthService {
       const account = target.profileId
         ? await this.repo.findAccountById(target.profileId)
         : await this.repo.findAccountByNationalId(target.nationalId!);
-      if (!account) throw notFound();
+      // The seeded superadmin is not a target for anyone; it does not exist
+      // as far as this route is concerned.
+      if (!account || (isHiddenAccount(account.nationalId) && actor.id !== account.id)) throw notFound();
 
       if (target.expect === 'member' && account.role !== Role.MEMBER) {
         throw badRequest('not_a_member', 'not a member');

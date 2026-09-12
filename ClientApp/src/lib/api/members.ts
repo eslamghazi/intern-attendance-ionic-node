@@ -32,12 +32,22 @@ export function searchColumn(field: SearchField): string {
 }
 
 /** Build the query string every filtered endpoint accepts. */
-function filterParams(o: {
+/** The optional narrowing every grid shares — see GridFilters. */
+export interface GridNarrowing {
+  departmentId?: string;
+  /** The cohort. */
+  groupId?: string;
+  /** A roster type: only members rostered on this shift in the month (or on `day`). */
+  shiftId?: string;
+  /** One day of the month; the grids narrow their columns to it. 0/undefined = whole month. */
+  day?: number;
+}
+
+function filterParams(o: GridNarrowing & {
   branchId?: string;
   search?: string;
   field?: SearchField;
   filters?: MemberFilters;
-  departmentId?: string;
   year?: number;
   month?: number;
 }): URLSearchParams {
@@ -46,6 +56,9 @@ function filterParams(o: {
   if (o.search?.trim()) p.set('search', o.search.trim());
   if (o.field) p.set('field', o.field);
   if (o.departmentId) p.set('departmentId', o.departmentId);
+  if (o.groupId) p.set('groupId', o.groupId);
+  if (o.shiftId) p.set('shiftId', o.shiftId);
+  if (o.day) p.set('day', String(o.day));
   if (o.year) p.set('year', String(o.year));
   if (o.month) p.set('month', String(o.month));
   const f = o.filters ?? {};
@@ -365,7 +378,7 @@ export interface MemberPageItem {
 }
 
 /** Common server-side paging/search params for the admin grids. */
-export interface PageOpts {
+export interface PageOpts extends GridNarrowing {
   branchId: string;
   year: number;
   month: number;
@@ -373,7 +386,6 @@ export interface PageOpts {
   pageSize: number;
   search: string;
   field: SearchField;
-  departmentId?: string; // restrict to members in this department for (year, month)
 }
 
 export function monthBounds(year: number, month: number) {
@@ -473,13 +485,12 @@ export interface RosterTotals {
  * current filters match — not just the twelve on screen. Counting the page
  * would answer a different question than the row is there to answer.
  */
-export function listRosterDayTotals(o: {
+export function listRosterDayTotals(o: GridNarrowing & {
   branchId: string;
   year: number;
   month: number;
   search: string;
   field: SearchField;
-  departmentId?: string;
 }): Promise<RosterTotals> {
   return apiFetch(`/roster/totals?${filterParams(o)}`);
 }

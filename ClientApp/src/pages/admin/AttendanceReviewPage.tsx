@@ -19,7 +19,7 @@ import { documentTextOutline, downloadOutline, warningOutline } from 'ionicons/i
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useServerExport } from '../../components/useServerExport';
-import { listBranchOptions } from '../../lib/api/catalog';
+import { listBranchOptions, listGroupOptions, listShifts } from '../../lib/api/catalog';
 import { listDepartmentOptions } from '../../lib/api/departments';
 import {
   clearAttendance,
@@ -112,12 +112,20 @@ export default function AttendanceReviewPage() {
   const [field, setField] = useState<SearchField>('name');
   const [search, setSearch] = useState('');
   const [departmentId, setDepartmentId] = useState('');
+  // Optional narrowing: the cohort, one roster type (a shift), one day.
+  const [groupId, setGroupId] = useState('');
+  const [shiftId, setShiftId] = useState('');
+  const [day, setDay] = useState(0);
+  const narrow = { departmentId, groupId, shiftId, day };
+  const narrowKey = `${departmentId}|${groupId}|${shiftId}|${day}`;
   const [filter, setFilter] = useState<Filter>('all');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<ReviewRow | null>(null);
   const [probeUrl, setProbeUrl] = useState<string | null>(null);
   const [probeOutUrl, setProbeOutUrl] = useState<string | null>(null);
 
+  const { data: groups = [] } = useQuery({ queryKey: qk.groupOptions, queryFn: listGroupOptions });
+  const { data: shifts = [] } = useQuery({ queryKey: qk.shifts, queryFn: listShifts });
   const { data: branches = [] } = useQuery({
     queryKey: qk.branchOptions,
     queryFn: listBranchOptions,
@@ -132,18 +140,19 @@ export default function AttendanceReviewPage() {
   // (keyed without page) and paginate the display client-side — this keeps the
   // totals stable across pages.
   const { data, isLoading, refetch } = useQuery({
-    queryKey: qk.monthlyAttendance(branchId, year, month, 0, search, field, departmentId),
+    queryKey: qk.monthlyAttendance(branchId, year, month, 0, search, field, narrowKey),
     queryFn: () =>
       // The matrix totals are over EVERY member the filters match, so this
       // walks the pages rather than asking for one oversized page.
       fetchAllPages((page, pageSize) =>
-        listMonthlyAttendance({ branchId, year, month, page, pageSize, search, field, departmentId }),
+        listMonthlyAttendance({ branchId, year, month, page, pageSize, search, field, ...narrow }),
       ),
   });
   const allRows = data?.rows ?? [];
 
   const daysInMonth = new Date(year, month, 0).getDate();
-  const dayList = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  // One column when a day is chosen; the server narrowed the cells the same way.
+  const dayList = day ? [day] : Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const today = useServerToday();
   const todayDay =
     today.slice(0, 7) === `${year}-${pad(month)}` ? Number(today.slice(8, 10)) : -1;
@@ -221,7 +230,8 @@ export default function AttendanceReviewPage() {
   const printReview = () =>
     serverExport(
       '/attendance/monthly/export',
-      { year, month, branchId, search, field, departmentId },
+      // The same narrowing as the grid, so the file and the screen agree.
+      { year, month, branchId, search, field, ...narrow },
       `attendance_${year}_${pad(month)}`,
     );
 
@@ -390,6 +400,14 @@ export default function AttendanceReviewPage() {
           departments={departments}
           departmentId={departmentId}
           onDepartment={setDepartmentId}
+          groups={groups}
+          groupId={groupId}
+          onGroup={setGroupId}
+          shifts={shifts}
+          shiftId={shiftId}
+          onShift={setShiftId}
+          day={day}
+          onDay={setDay}
         />
 
         {rows.length > 0 && (
