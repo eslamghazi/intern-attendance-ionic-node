@@ -8,7 +8,7 @@ import type { PutDepartmentPayload, PutMemberDepartmentPayload } from '../depart
 
 export interface IDepartmentsService extends IBaseService<typeof departments, DepartmentDto> {
   getDepartments(): Promise<DepartmentDto[]>;
-  getDepartmentsOptions(branchId?: string): Promise<DepartmentDto[]>;
+  getDepartmentsOptions(branchId: string): Promise<DepartmentDto[]>;
   putDepartment(caller: Caller, d: PutDepartmentPayload): Promise<{ ok: boolean; id?: string }>;
   deleteDepartment(caller: Caller, id: string): Promise<{ ok: boolean }>;
   getMemberDepartments(year: number, month: number): Promise<Record<string, string | null>>;
@@ -17,9 +17,10 @@ export interface IDepartmentsService extends IBaseService<typeof departments, De
 
 export interface IDepartmentsRepository extends IGenericRepository<typeof departments> {
   getDepartments(): Promise<any[]>;
-  getDepartmentsOptions(branchId?: string): Promise<any[]>;
+  getDepartmentsOptions(branchId: string): Promise<any[]>;
+  memberBranchId(memberId: string): Promise<string | null>;
   getDepartmentBranchId(id: string): Promise<{ branchId: string | null } | null>;
-  upsertDepartment(id: string | undefined, name: string, branchId: string | null): Promise<{ id: string } | undefined>;
+  upsertDepartment(id: string | undefined, name: string, branchId: string): Promise<{ id: string } | undefined>;
   deleteDepartment(id: string): Promise<{ id: string } | null>;
   getMemberDepartments(year: number, month: number): Promise<Record<string, string | null>>;
   deleteMemberDepartment(memberId: string, year: number, month: number): Promise<void>;

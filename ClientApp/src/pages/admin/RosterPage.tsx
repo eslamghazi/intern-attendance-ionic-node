@@ -106,6 +106,8 @@ export default function RosterPage() {
   const { data: departments = [] } = useQuery({
     queryKey: [...qk.departmentOptions, branchId],
     queryFn: () => listDepartmentOptions(branchId),
+    // The hospital comes first; there is no department list without one.
+    enabled: !!branchId,
   });
   // Departments for the bulk modal's OWN branch (independent of the top filter).
   const { data: bulkDepartments = [] } = useQuery({

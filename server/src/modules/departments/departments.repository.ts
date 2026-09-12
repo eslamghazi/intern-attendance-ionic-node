@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { GenericRepository } from '../../infrastructure/database/generic.repository.js';
-import { departments, branches, memberDepartments } from '../../infrastructure/database/schema/index.js';
+import { departments, branches, memberDepartments, members } from '../../infrastructure/database/schema/index.js';
 import { eq, and, asc } from 'drizzle-orm';
 
 import type { IDepartmentsRepository } from './interfaces/departments.interface.js';
@@ -23,16 +23,23 @@ export class DepartmentsRepository extends GenericRepository<typeof departments>
       .orderBy(asc(departments.name), asc(departments.id));
   }
 
-  async getDepartmentsOptions(branchId?: string) {
+  async getDepartmentsOptions(branchId: string) {
     const queryBuilder = this.db
       .select({ id: departments.id, name: departments.name })
-      .from(departments);
-
-    if (branchId) {
-      queryBuilder.where(eq(departments.branchId, branchId));
-    }
+      .from(departments)
+      .where(eq(departments.branchId, branchId));
 
     return queryBuilder.orderBy(asc(departments.name), asc(departments.id));
+  }
+
+  /** The hospital a member belongs to, or null when there is no such member. */
+  async memberBranchId(memberId: string) {
+    const rows = await this.db
+      .select({ branchId: members.branchId })
+      .from(members)
+      .where(eq(members.id, memberId))
+      .limit(1);
+    return rows[0]?.branchId ?? null;
   }
 
   async getDepartmentBranchId(id: string) {
@@ -44,7 +51,7 @@ export class DepartmentsRepository extends GenericRepository<typeof departments>
     return rows[0] ?? null;
   }
 
-  async upsertDepartment(id: string | undefined, name: string, branchId: string | null) {
+  async upsertDepartment(id: string | undefined, name: string, branchId: string) {
     if (id) {
       const rows = await this.db
         .insert(departments)

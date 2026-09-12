@@ -3,7 +3,7 @@ import { UnitOfWorkService } from '../../infrastructure/database/unit-of-work.se
 import { DepartmentsRepository } from './departments.repository.js';
 import type { Caller } from '../../domain/identity/role.js';
 import type { JwtClaims } from '../../infrastructure/database/context.js';
-import { notFound, forbidden } from '../../common/errors.js';
+import { badRequest, notFound } from '../../common/errors.js';
 import { BaseService } from '../../infrastructure/database/base.service.js';
 import { departments } from '../../infrastructure/database/schema/index.js';
 import { DepartmentDto } from './dto/department.dto.js';
@@ -33,23 +33,22 @@ export class DepartmentsService extends BaseService<typeof departments, Departme
     });
   }
 
-  async getDepartmentsOptions(branchId?: string) {
+  /** The departments of ONE hospital. Every screen picks the hospital first. */
+  async getDepartmentsOptions(branchId: string) {
     return this.uow.transaction(async () => {
       const rows = await (this.repo as DepartmentsRepository).getDepartmentsOptions(branchId);
       return rows.map((r) => DepartmentsMapper.toDto(r));
     });
   }
 
+  /**
+   * A department belongs to one hospital, always — so saving one is an act
+   * within that hospital, and the caller must reach it.
+   */
   async putDepartment(caller: Caller, d: PutDepartmentPayload) {
     return this.uow.transaction(async () => {
-      const { requireBranch, scopeOf } = await import('../../common/auth/access.service.js');
-
-      if (d.branch_id) {
-        await requireBranch((this.repo as any).db, caller, d.branch_id);
-      } else if ((await scopeOf((this.repo as any).db, caller)).kind !== 'all') {
-        throw forbidden('a faculty-wide department is not yours to create');
-      }
-
+      const { requireBranch } = await import('../../common/auth/access.service.js');
+      await requireBranch((this.repo as any).db, caller, d.branch_id);
       const row = await (this.repo as DepartmentsRepository).upsertDepartment(d.id, d.name, d.branch_id);
       return { ok: true, id: row?.id };
     });
@@ -57,16 +56,11 @@ export class DepartmentsService extends BaseService<typeof departments, Departme
 
   async deleteDepartment(caller: Caller, id: string) {
     return this.uow.transaction(async () => {
-      const { requireBranch, scopeOf } = await import('../../common/auth/access.service.js');
+      const { requireBranch } = await import('../../common/auth/access.service.js');
 
       const existing = await (this.repo as DepartmentsRepository).getDepartmentBranchId(id);
       if (!existing) throw notFound();
-
-      if (existing.branchId) {
-        await requireBranch((this.repo as any).db, caller, existing.branchId);
-      } else if ((await scopeOf((this.repo as any).db, caller)).kind !== 'all') {
-        throw forbidden('a faculty-wide department is not yours to delete');
-      }
+      await requireBranch((this.repo as any).db, caller, existing.branchId);
 
       const deleted = await (this.repo as DepartmentsRepository).deleteDepartment(id);
       if (!deleted) throw notFound();
@@ -87,8 +81,21 @@ export class DepartmentsService extends BaseService<typeof departments, Departme
         await (this.repo as DepartmentsRepository).deleteMemberDepartment(b.member_id, b.year, b.month);
         return { ok: true, cleared: true };
       }
-      
-      await (this.repo as DepartmentsRepository).upsertMemberDepartment(b.member_id, b.year, b.month, b.department_id);
+
+      // A member is placed in a department of THEIR hospital. A department
+      // of another hospital is not a choice — the screens never offer one,
+      // and this is what makes that a rule rather than a habit.
+      const repo = this.repo as DepartmentsRepository;
+      const [department, memberBranch] = await Promise.all([
+        repo.getDepartmentBranchId(b.department_id),
+        repo.memberBranchId(b.member_id),
+      ]);
+      if (!department) throw notFound();
+      if (memberBranch !== null && department.branchId !== memberBranch) {
+        throw badRequest('department_not_in_branch', "the department belongs to another hospital");
+      }
+
+      await repo.upsertMemberDepartment(b.member_id, b.year, b.month, b.department_id);
       return { ok: true };
     });
   }

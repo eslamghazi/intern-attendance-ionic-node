@@ -3,7 +3,8 @@
 export interface PutDepartmentPayload {
   id?: string;
   name: string;
-  branch_id: string | null;
+  /** The hospital it belongs to — every department has one. */
+  branch_id: string;
 }
 
 export interface PutMemberDepartmentPayload {

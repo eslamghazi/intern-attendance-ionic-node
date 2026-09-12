@@ -534,7 +534,10 @@ export const departments = pgTable("departments", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: text().notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	branchId: uuid("branch_id"),
+	// A department belongs to ONE hospital, always (migration 0002). There is no
+	// faculty-wide department: the hospital is chosen first, and its departments
+	// exist under it — and go with it when it goes.
+	branchId: uuid("branch_id").notNull(),
 }, (table) => [
 	foreignKey({
 			columns: [table.branchId],

@@ -14,10 +14,15 @@ export function listDepartments(): Promise<Department[]> {
   return apiFetch('/departments');
 }
 
-/** Lightweight {id, name} options; optionally only a branch's departments. */
-export function listDepartmentOptions(branchId?: string): Promise<Option[]> {
-  const q = branchId ? `?branch_id=${encodeURIComponent(branchId)}` : '';
-  return apiFetch(`/departments/options${q}`);
+/**
+ * One hospital's departments, as {id, name} options.
+ *
+ * The hospital comes first, everywhere: the API refuses the call without one,
+ * so a screen must gate this on a chosen branch (`enabled: !!branchId`) and
+ * keep its department select disabled until then.
+ */
+export function listDepartmentOptions(branchId: string): Promise<Option[]> {
+  return apiFetch(`/departments/options?branch_id=${encodeURIComponent(branchId)}`);
 }
 
 /** Create/update a department under a branch. */

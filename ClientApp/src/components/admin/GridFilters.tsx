@@ -84,7 +84,11 @@ export default function GridFilters({
             interface="popover"
             placeholder={t('common.all')}
             value={branchId}
-            onIonChange={(e) => onBranch(e.detail.value)}
+            onIonChange={(e) => {
+              onBranch(e.detail.value);
+              // A department belongs to one hospital: a new hospital, no department.
+              onDepartment?.('');
+            }}
           >
             <IonSelectOption value="">{t('common.all')}</IonSelectOption>
             {branches.map((h) => (
@@ -100,7 +104,8 @@ export default function GridFilters({
               label={t('nav.departments')}
               labelPlacement="stacked"
               interface="popover"
-              placeholder={t('common.all')}
+              placeholder={branchId ? t('common.all') : t('departments.pickHospital')}
+              disabled={!branchId}
               value={departmentId}
               onIonChange={(e) => onDepartment(String(e.detail.value))}
             >

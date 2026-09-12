@@ -29,9 +29,15 @@ import EmptyState from '../../components/ui/EmptyState';
 import { useConfirm } from '../../components/ui/useConfirm';
 import { usePermissions } from '../../lib/usePermissions';
 
-/** Simple department catalog: each department belongs to one branch. Adding and
- *  re-linking is all this page does — per-member monthly assignment happens
- *  through the roster upload. */
+/**
+ * The department catalogue — hospital first.
+ *
+ * A department belongs to one hospital, always (the column is NOT NULL since
+ * migration 0002). So this page opens on a hospital picker and shows nothing
+ * until one is chosen; then its departments, and a form that adds a new one
+ * under it. There is no "none" group and no way to make a department that
+ * belongs nowhere. Per-member monthly placement happens through the roster.
+ */
 export default function DepartmentsPage() {
   const { t } = useTranslation();
   const { canOp } = usePermissions('departments');
@@ -95,39 +101,24 @@ export default function DepartmentsPage() {
     }
   };
 
-  // Group departments under their branch so the link is obvious at a glance.
-  const groups = branches
-    .map((b) => ({ id: b.id, name: b.name, items: departments.filter((d) => d.branch_id === b.id) }))
-    .filter((g) => g.items.length);
-  const orphans = departments.filter((d) => !d.branch_id || !branches.some((b) => b.id === d.branch_id));
-  if (orphans.length) groups.push({ id: 'none', name: t('common.none'), items: orphans });
+  // Only the chosen hospital's departments are on screen.
+  const hospital = branches.find((b) => b.id === branchId) ?? null;
+  const items = hospital ? departments.filter((d) => d.branch_id === hospital.id) : [];
 
   return (
     <IonPage>
       <AdminHeader title={t('nav.departments')} />
       <IonContent>
-        {/* Add a department and link it to its branch. */}
-        {canOp('create') && (
-          <>
-        <SectionHeader title={t('departments.add')} />
+        {/* The hospital comes first: nothing below is meaningful without one. */}
+        <SectionHeader title={t('departments.branch')} />
         <div className="ui-surface ui-section">
-          <IonItem lines="none">
-            <IonInput
-              fill="outline"
-              label={t('departments.name')}
-              labelPlacement="stacked"
-              value={name}
-              onIonInput={(e) => setName(e.detail.value ?? '')}
-              onKeyDown={(e) => e.key === 'Enter' && add()}
-            />
-          </IonItem>
           <IonItem lines="none">
             <IonSelect
               label={t('departments.branch')}
               labelPlacement="stacked"
-              placeholder={t('common.select')}
+              placeholder={t('departments.pickHospital')}
               value={branchId}
-              onIonChange={(e) => setBranchId(String(e.detail.value))}
+              onIonChange={(e) => setBranchId(String(e.detail.value ?? ''))}
             >
               {branches.map((b) => (
                 <IonSelectOption key={b.id} value={b.id}>
@@ -136,54 +127,75 @@ export default function DepartmentsPage() {
               ))}
             </IonSelect>
           </IonItem>
-          <IonButton expand="block" className="ion-margin-top" onClick={add} disabled={!name.trim() || !branchId}>
-            <IonIcon slot="start" icon={addOutline} />
-            {t('common.add')}
-          </IonButton>
         </div>
-          </>
-        )}
 
-        {/* Departments grouped by branch. */}
-        <SectionHeader title={t('departments.catalog')} />
-        {departments.length === 0 ? (
-          <EmptyState icon={businessOutline} title={t('common.none')} />
+        {!hospital ? (
+          <EmptyState icon={businessOutline} title={t('departments.pickHospital')} />
         ) : (
-          groups.map((g) => (
-            <div key={g.id} className="ui-surface ui-section">
-              <IonList>
-                <IonListHeader>
-                  <IonIcon icon={businessOutline} style={{ marginInlineEnd: 8 }} />
-                  <IonLabel>{g.name}</IonLabel>
-                  <IonNote slot="end">{g.items.length}</IonNote>
-                </IonListHeader>
-                {g.items.map((d) => (
-                  <IonItem key={d.id}>
-                    <IonLabel className="ion-text-wrap">
-                      {d.name}
-                      <div>
-                        <CopyId id={d.id} />
-                      </div>
-                    </IonLabel>
-                    {canOp('edit') && (
-                      <IonButton
-                        slot="end"
-                        fill="clear"
-                        onClick={() => setEdit({ id: d.id, name: d.name, branch_id: d.branch_id ?? '' })}
-                      >
-                        <IonIcon slot="icon-only" icon={createOutline} />
-                      </IonButton>
-                    )}
-                    {canOp('delete') && (
-                      <IonButton slot="end" fill="clear" color="danger" onClick={() => remove(d.id, d.name)}>
-                        <IonIcon slot="icon-only" icon={trashOutline} />
-                      </IonButton>
-                    )}
+          <>
+            {/* Add a department under the chosen hospital. */}
+            {canOp('create') && (
+              <>
+                <SectionHeader title={`${t('departments.add')} — ${hospital.name}`} />
+                <div className="ui-surface ui-section">
+                  <IonItem lines="none">
+                    <IonInput
+                      fill="outline"
+                      label={t('departments.name')}
+                      labelPlacement="stacked"
+                      value={name}
+                      onIonInput={(e) => setName(e.detail.value ?? '')}
+                      onKeyDown={(e) => e.key === 'Enter' && add()}
+                    />
                   </IonItem>
-                ))}
-              </IonList>
-            </div>
-          ))
+                  <IonButton expand="block" className="ion-margin-top" onClick={add} disabled={!name.trim()}>
+                    <IonIcon slot="start" icon={addOutline} />
+                    {t('common.add')}
+                  </IonButton>
+                </div>
+              </>
+            )}
+
+            {/* This hospital's departments. */}
+            <SectionHeader title={t('departments.catalog')} />
+            {items.length === 0 ? (
+              <EmptyState icon={businessOutline} title={t('common.none')} />
+            ) : (
+              <div className="ui-surface ui-section">
+                <IonList>
+                  <IonListHeader>
+                    <IonIcon icon={businessOutline} style={{ marginInlineEnd: 8 }} />
+                    <IonLabel>{hospital.name}</IonLabel>
+                    <IonNote slot="end">{items.length}</IonNote>
+                  </IonListHeader>
+                  {items.map((d) => (
+                    <IonItem key={d.id}>
+                      <IonLabel className="ion-text-wrap">
+                        {d.name}
+                        <div>
+                          <CopyId id={d.id} />
+                        </div>
+                      </IonLabel>
+                      {canOp('edit') && (
+                        <IonButton
+                          slot="end"
+                          fill="clear"
+                          onClick={() => setEdit({ id: d.id, name: d.name, branch_id: d.branch_id ?? hospital.id })}
+                        >
+                          <IonIcon slot="icon-only" icon={createOutline} />
+                        </IonButton>
+                      )}
+                      {canOp('delete') && (
+                        <IonButton slot="end" fill="clear" color="danger" onClick={() => remove(d.id, d.name)}>
+                          <IonIcon slot="icon-only" icon={trashOutline} />
+                        </IonButton>
+                      )}
+                    </IonItem>
+                  ))}
+                </IonList>
+              </div>
+            )}
+          </>
         )}
 
         {/* Edit a department: rename and/or move it to another branch. */}

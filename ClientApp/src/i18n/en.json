@@ -218,7 +218,8 @@
     "needBranch": "Enter a name and choose a branch.",
     "pickBranchFirst": "Choose a branch to assign its members' departments.",
     "assign": "Monthly assignment",
-    "assignHint": "Pick each member's department for the selected month. It can differ month to month."
+    "assignHint": "Pick each member's department for the selected month. It can differ month to month.",
+    "pickHospital": "Pick the hospital first — its departments live under it"
   },
   "lang": {
     "ar": "العربية",

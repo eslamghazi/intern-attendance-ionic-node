@@ -355,6 +355,26 @@ const deptOwn = await call('PUT', '/departments', {
 });
 check('  but can in their own', deptOwn.status < 400, true);
 
+console.log('\n--- a department belongs to ONE hospital, always ---');
+// The hospital comes first. There is no faculty-wide department: the column is
+// NOT NULL (migration 0002), the API refuses a save without one, and the
+// options list is one hospital's or nothing.
+check('a department with no hospital is refused', (await call('PUT', '/departments', {
+  token: suToken, body: { name: 'Nowhere Ward' },
+})).status, 400);
+check('  and the database would refuse it too',
+  psql(`select is_nullable from information_schema.columns where table_name='departments' and column_name='branch_id'`), 'NO');
+check('the options list needs a hospital', (await call('GET', '/departments/options', { token: suToken })).status, 400);
+const wardA = deptOwn.body?.id;
+check('  and is listed under that hospital',
+  (await call('GET', `/departments/options?branch_id=${branchA}`, { token: suToken })).body?.some((d) => d.id === wardA), true);
+check('  not under another',
+  (await call('GET', `/departments/options?branch_id=${branchB}`, { token: suToken })).body?.some((d) => d.id === wardA), false);
+// A member of Branch B cannot be placed in Branch A's ward.
+check('a member is placed only in a department of THEIR hospital', (await call('PUT', '/member-departments', {
+  token: suToken, body: { member_id: bMember, year: 2026, month: 9, department_id: wardA },
+})).status, 400);
+
 console.log('\n--- the audit log is not client-writable ---');
 // AUDIT 3.2. An insert policy once allowed any signed-in caller to write audit
 // rows attributed to themselves OR to nobody (actor_id IS NULL). This table

@@ -125,6 +125,8 @@ export default function AttendanceReviewPage() {
   const { data: departments = [] } = useQuery({
     queryKey: [...qk.departmentOptions, branchId],
     queryFn: () => listDepartmentOptions(branchId),
+    // The hospital comes first; there is no department list without one.
+    enabled: !!branchId,
   });
   // The month tally needs every member, so we fetch the whole month once
   // (keyed without page) and paginate the display client-side — this keeps the

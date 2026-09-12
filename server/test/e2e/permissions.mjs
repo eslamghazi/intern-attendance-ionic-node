@@ -46,7 +46,9 @@ check('their own account', (await call('GET', '/auth/me', { token: tok })).statu
 check('the branch options behind every filter', (await call('GET', '/branches/options', { token: tok })).status, 200);
 check('the group options', (await call('GET', '/groups/options', { token: tok })).status, 200);
 check('the shifts, read-only', (await call('GET', '/shifts', { token: tok })).status, 200);
-check('the department options', (await call('GET', '/departments/options', { token: tok })).status, 200);
+// One hospital's — the hospital comes first, so the call names one.
+const anyBranch = (await call('GET', '/branches/options', { token: tok })).body?.[0]?.id ?? '00000000-0000-4000-8000-000000000000';
+check('the department options, for a hospital', (await call('GET', `/departments/options?branch_id=${anyBranch}`, { token: tok })).status, 200);
 
 /* ------------------------------------------------------------ one page */
 console.log('\n--- granting one page opens it, and only it ---');

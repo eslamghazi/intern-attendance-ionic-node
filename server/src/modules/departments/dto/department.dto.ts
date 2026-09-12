@@ -28,10 +28,10 @@ export class CreateDepartmentDto {
   @IsNotEmpty()
   name!: string;
 
-  @ApiPropertyOptional({ example: 'b1d0e513-5b8b-4c74-8b6b-1a5ec4c74123' })
-  @IsOptional()
+  /** The hospital this department belongs to. Required: there is no department without one. */
+  @ApiProperty({ example: 'b1d0e513-5b8b-4c74-8b6b-1a5ec4c74123' })
   @IsUUID()
-  branch_id?: string | null;
+  branch_id!: string;
 }
 
 export class UpdateDepartmentDto extends CreateDepartmentDto {

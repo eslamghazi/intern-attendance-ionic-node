@@ -136,6 +136,8 @@ export default function AdminDashboard() {
   const { data: departments = [] } = useQuery({
     queryKey: [...qk.departmentOptions, branchId],
     queryFn: () => listDepartmentOptions(branchId),
+    // The hospital comes first; there is no department list without one.
+    enabled: !!branchId,
   });
   // Clear the department when the branch changes (it may not belong to the new one).
   useEffect(() => setDepartmentId(''), [branchId]);
@@ -290,7 +292,14 @@ export default function AdminDashboard() {
               </IonSelect>
             </IonItem>
             <IonItem lines="none">
-              <IonSelect label={t('nav.departments')} interface="popover" value={departmentId} onIonChange={(e) => setDepartmentId(String(e.detail.value))}>
+              <IonSelect
+                label={t('nav.departments')}
+                interface="popover"
+                placeholder={branchId ? undefined : t('departments.pickHospital')}
+                disabled={!branchId}
+                value={departmentId}
+                onIonChange={(e) => setDepartmentId(String(e.detail.value))}
+              >
                 <IonSelectOption value="">{t('admin.allDepartments')}</IonSelectOption>
                 {departments.map((d) => (
                   <IonSelectOption key={d.id} value={d.id}>{d.name}</IonSelectOption>
