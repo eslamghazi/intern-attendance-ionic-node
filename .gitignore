@@ -1,8 +1,16 @@
 # Production runtime ignores
 node_modules/
+package-lock.json
 .env
 .env.*
 !.env.example
 storage-data/
+storage/
+data/
 *.log
 .DS_Store
+
+# Secrets the app and its scripts write beside themselves.
+first-superadmin.txt
+superadmin-backup.json
+superadmin-backup*.json
