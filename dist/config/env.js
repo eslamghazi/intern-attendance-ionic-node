@@ -7,9 +7,18 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 const __dirname = dirname(fileURLToPath(import.meta.url));
+// ONE env file for the whole project, at the repo root. dotenv does not
+// overwrite a name it has already seen, so these run most-specific first and
+// the root is the last word rather than the first.
+//   cwd/.env          how the API is started in production (aaPanel runs it
+//                     from the project root, so this IS the root file)
+//   server/.env       for someone running only the server
+//   repo root/.env    development, shared with the client build — see
+//                     ClientApp/vite.config.ts, which points envDir here
 dotenv.config();
 dotenv.config({ path: resolve(__dirname, '../../.env') });
 dotenv.config({ path: resolve(__dirname, '../.env') });
+dotenv.config({ path: resolve(__dirname, '../../../.env') });
 // If DATABASE_URL is unset, automatically construct fallback from POSTGRES_PASSWORD
 if (!process.env.DATABASE_URL && process.env.POSTGRES_PASSWORD) {
     const host = process.env.POSTGRES_HOST || '127.0.0.1';
