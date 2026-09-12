@@ -84,7 +84,6 @@ node server/scripts/generate-secrets.mjs   # يولّد APP_JWT_SECRET و STORAG
 
 npm run setup                   # تثبيت معتمدات الواجهة والخادم
 npm run migrate                 # إنشاء الجداول — ملف واحد مولَّد من الموديلز
-npm run seed:superadmin         # إنشاء أول حساب مشرف عام
 npm run build                   # بناء الواجهة والخادم
 npm start                       # التشغيل على PORT (افتراضيًا 8787)
 ```
@@ -128,8 +127,6 @@ export E2E_PSQL='/path/to/psql'             # only if psql is not on PATH
 
 # The API migrates and seeds itself on boot, so an empty database is enough —
 # test:e2e:local starts it with these in the environment.
-export SUPERADMIN_NATIONAL_ID=29001011234567
-export SUPERADMIN_PASSWORD='SuperTest!2026'
 
 npm run build && npm run test:e2e:local
 ```
@@ -155,29 +152,50 @@ Before it accepts a request, the server brings itself up to date:
    stops the boot: serving on a half-applied schema is worse than not serving.
    Set `AUTO_MIGRATE=0` where a separate step owns the schema.
 2. **The `app_settings` row is ensured** — one row the whole schema assumes.
-3. **The first superadmin is created**, if `SUPERADMIN_NATIONAL_ID` and
-   `SUPERADMIN_PASSWORD` are set and no such account exists yet.
+3. **The first superadmin is created**, if the database has no superadmin at
+   all — with a password generated for this installation.
 
 So an empty database plus a configured environment is a working system:
 
 ```bash
 createdb attendance --owner attendance     # empty
-SUPERADMIN_NATIONAL_ID=29001011234567 SUPERADMIN_PASSWORD='a-real-password' npm start
+npm start
 #   [migrate] 3 pending
 #     applying  0000_init.sql ... ok
 #     ...
-#   [seed] superadmin created: Super Admin (29001011234567)
+#   ====================================================================
+#     FIRST SUPERADMIN CREATED — shown once, and never again
+#       national id  30110281500753
+#       password     <generated for this installation>
+#   ====================================================================
 #   Server listening on http://127.0.0.1:8787
 ```
 
-**It creates, it does not maintain.** An existing account is never touched — no
-password is re-applied from the environment on restart, so a superadmin who
-changed theirs keeps it, and whoever can read the environment holds the *first*
-key rather than a permanent one. The placeholder from `.env.example` is refused
-by name: copying that file and starting the server will not mint an account
-whose password is published in this repository.
+The password is also written to `first-superadmin.txt` next to the app, 0600 —
+a container's first log lines are easy to lose. Delete it once you are in.
 
-`npm run seed:superadmin` still exists for seeding without starting the API.
+**The trigger is "no superadmin exists", not "this account is missing"**, which
+makes it a recovery path: a system that has lost every superadmin gets a way
+back in on the next restart, and a system that has one is never touched.
+
+There is deliberately **no superadmin in the environment**. An env file is a
+copy of a secret that outlives the five minutes it was needed for — it gets
+committed, pasted into tickets, and read by anything that can list a process's
+environment. The password exists in two places only: the bcrypt hash in the
+database, and one 0600 file you are told to delete.
+
+### Losing and regaining access
+
+```bash
+npm run superadmin:password     # generate a strong one and print it
+npm run superadmin:backup       # save the accounts (hashes included) to JSON
+npm run superadmin:restore      # put them back; --force to overwrite a live one
+```
+
+`superadmin:backup` writes password *hashes*, so a restore brings accounts back
+as they were rather than as new ones. Treat that file as a key and keep it off
+the machine it protects. If you lose it too, delete every superadmin row and
+restart — the seed above will make a fresh one.
 
 ---
 
@@ -191,9 +209,7 @@ cp .env.example .env
 docker compose up -d --build
 
 # 3. Create initial Superadmin (use a REAL national id and a strong password)
-docker compose exec -e SUPERADMIN_NATIONAL_ID=00000000000000 \
-  -e SUPERADMIN_NAME='Super Admin' -e SUPERADMIN_PASSWORD='YourStrongPassword' \
-  api node scripts/seed-superadmin.mjs
+docker compose logs api | grep -A4 'FIRST SUPERADMIN'   # the generated password
 ```
 
 The web dashboard and API will be live at `http://localhost:8080`.

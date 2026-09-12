@@ -139,14 +139,20 @@ and waits for the API to report healthy.
 > whatever you were aiming at. There is almost never a reason to type it on the
 > server.
 
-Create the first superadmin — once, on a fresh database:
+The first superadmin creates itself on the API's first start against an empty
+database, with a generated password. Read it out of the logs:
 
 ```bash
-SUPERADMIN_NATIONAL_ID=30110281500751 \
-SUPERADMIN_NAME='Super Admin' \
-SUPERADMIN_PASSWORD='<a long one>' \
 docker compose -f docker-compose.yml -f docker-compose.prod.yml \
-  exec -T api node scripts/seed-superadmin.mjs
+  logs api | grep -A4 'FIRST SUPERADMIN'
+```
+
+Or set a fresh one at any time — this needs no old password, only the
+database:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+  exec -T api npm run superadmin:password
 ```
 
 ---

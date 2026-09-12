@@ -87,5 +87,5 @@ echo "Deployed. The app is on 127.0.0.1:${WEB_PORT:-8080} — reachable only"
 echo "through nginx, which is the point. See deploy/aapanel-nginx.conf."
 echo
 echo "First time on a fresh database, create the superadmin:"
-echo "  SUPERADMIN_NATIONAL_ID=… SUPERADMIN_NAME='…' SUPERADMIN_PASSWORD='…' \\"
-echo "    ${COMPOSE[*]} exec -T api node scripts/seed-superadmin.mjs"
+echo "  ${COMPOSE[*]} logs api | grep -A4 'FIRST SUPERADMIN'   # the generated password"
+echo "  ${COMPOSE[*]} exec -T api npm run superadmin:password   # or set a fresh one"

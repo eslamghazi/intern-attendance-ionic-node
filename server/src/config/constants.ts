@@ -66,14 +66,33 @@ export const PASSWORD_MIN = 6;
 export const MASTER_PASSWORD_MIN = 12;
 
 /**
- * The first superadmin, seeded from the environment.
+ * The account created when a database has no superadmin at all.
  *
- * Higher than an ordinary account because it is the only way into a fresh
- * deployment and is typed once, and because .env.example has documented 8 as
- * the floor since before any of this was automatic. Both doors to seeding —
- * SuperadminSeedService at boot and scripts/seed-superadmin.mjs — read it.
+ * WHY A FIXED NATIONAL ID AND A GENERATED PASSWORD
+ *
+ * A national id is a username: knowing it grants nothing, and a predictable one
+ * means the recovery story is "sign in as this, with the password we printed".
+ * The PASSWORD is the secret, so it is generated per installation rather than
+ * being a default anybody could look up in this repository.
+ *
+ * The date encoded in it (28/10/2001) is only what the national id format
+ * carries; nothing in the system reads a date of birth off this account.
  */
-export const SUPERADMIN_PASSWORD_MIN = 8;
+export const FIRST_SUPERADMIN = {
+  nationalId: '30110281500753',
+  fullName: 'Super Admin',
+} as const;
+
+/**
+ * Bytes of randomness behind the generated first password.
+ *
+ * 24 bytes is 32 base64url characters — far past anything guessable, and still
+ * short enough to read off a terminal and type once.
+ */
+export const FIRST_SUPERADMIN_PASSWORD_BYTES = 24;
+
+/** Where the generated password is written, relative to the process's cwd. */
+export const FIRST_SUPERADMIN_FILE = 'first-superadmin.txt';
 
 // ---------------------------------------------------------------- paging
 /**

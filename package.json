@@ -15,7 +15,9 @@
     "save": "node scripts/git-push.mjs",
     "migrate": "npm --prefix server run migrate",
     "migrate:status": "npm --prefix server run migrate:status",
-    "seed:superadmin": "npm --prefix server run seed:superadmin",
+    "superadmin:password": "npm --prefix server run superadmin:password",
+    "superadmin:backup": "npm --prefix server run superadmin:backup",
+    "superadmin:restore": "npm --prefix server run superadmin:restore",
     "clean": "node -e \"import('node:fs').then(fs => { for (const p of ['public', 'server/public', 'server/dist', 'ClientApp/dist', 'ClientApp/dev-dist']) { fs.rmSync(p, { recursive: true, force: true }); } })\""
   },
   "engines": {

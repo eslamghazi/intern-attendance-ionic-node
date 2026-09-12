@@ -85,8 +85,16 @@ export function onLocalRestart(fn) {
   localRestart = fn;
 }
 
+/**
+ * The account every suite signs in as.
+ *
+ * There is no seed step any more: the API creates the first superadmin itself,
+ * with a GENERATED password nobody can predict. So local mode sets a known one
+ * with scripts/superadmin-password.mjs after starting the API and passes it
+ * here — see run.mjs. Against the containers, export these yourself.
+ */
 export const SUPERADMIN = {
-  nationalId: process.env.E2E_SUPERADMIN_ID || '29001011234567',
+  nationalId: process.env.E2E_SUPERADMIN_ID || '30110281500753',
   password: process.env.E2E_SUPERADMIN_PW || 'SuperTest!2026',
 };
 

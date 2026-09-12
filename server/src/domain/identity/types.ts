@@ -50,15 +50,3 @@ export interface AdminPermissions {
   pageOps?: Partial<Record<AdminPage, AdminOp[]>>;
 }
 
-// --- Seeding the first superadmin --------------------------------------------
-
-/**
- * What an environment says to do about the first superadmin.
- *
- * `refuse` carries the reason because a boot that stops with it is shorter than
- * working out why an account nobody can sign in as was or was not created.
- */
-export type SeedVerdict =
-  | { kind: 'skip' }
-  | { kind: 'seed' }
-  | { kind: 'refuse'; why: string };

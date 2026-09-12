@@ -110,17 +110,13 @@ step "table count"
 app_psql -c "select count(*) || ' tables in public' from pg_tables where schemaname='public'"
 
 # -----------------------------------------------------------------------------
-say "6. seed a superadmin into the clean database"
+say "6. the API seeds its own superadmin, then we set a known password"
 # -----------------------------------------------------------------------------
-if DATABASE_URL="$TEST_URL" \
-   SUPERADMIN_NATIONAL_ID="${SUPERADMIN_NATIONAL_ID:-00000000000000}" \
-   SUPERADMIN_NAME='Verify Admin' \
-   SUPERADMIN_PASSWORD="${SUPERADMIN_PASSWORD:-VerifyOnly!2026}" \
-   npm run seed:superadmin; then
-  pass "seed:superadmin succeeded"
-else
-  fail "seed:superadmin failed"
-fi
+# There is no seed step any more: the first superadmin is created when the API
+# starts against a database that has none. The API is started below, so here we
+# only need a password we know in order to sign in with it.
+SUPERADMIN_NATIONAL_ID="${SUPERADMIN_NATIONAL_ID:-30110281500753}"
+SUPERADMIN_PASSWORD="${SUPERADMIN_PASSWORD:-VerifyOnly!2026}"
 
 # -----------------------------------------------------------------------------
 say "7. the API against the clean database"
@@ -149,9 +145,18 @@ done
 HEALTH=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT_TEST}/api/v1/health")
 [[ "$HEALTH" == "200" ]] && pass "GET /api/v1/health -> 200" || fail "GET /api/v1/health -> ${HEALTH}"
 
+# The API created its own superadmin on that first start, with a generated
+# password. Give it one we know, the way an operator would.
+if DATABASE_URL="$TEST_URL" npm --prefix server run superadmin:password -- \
+     --set "$SUPERADMIN_PASSWORD" >/dev/null 2>&1; then
+  pass "superadmin:password set a known password"
+else
+  fail "superadmin:password failed — was a superadmin seeded at start-up?"
+fi
+
 LOGIN=$(curl -s -X POST "http://127.0.0.1:${PORT_TEST}/api/v1/auth/login" \
   -H 'Content-Type: application/json' \
-  -d "{\"national_id\":\"${SUPERADMIN_NATIONAL_ID:-00000000000000}\",\"password\":\"${SUPERADMIN_PASSWORD:-VerifyOnly!2026}\"}")
+  -d "{\"national_id\":\"${SUPERADMIN_NATIONAL_ID}\",\"password\":\"${SUPERADMIN_PASSWORD}\"}")
 TOKEN=$(printf '%s' "$LOGIN" | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
 if [[ -n "$TOKEN" ]]; then pass "POST /api/v1/auth/login returned a token"
 else fail "login returned no token: ${LOGIN}"; fi

@@ -259,7 +259,9 @@ db/
   migrations/      generated, applied once each, checksummed. Do not edit.
 scripts/
   migrate.mjs           the runner
-  seed-superadmin.mjs   create the first account
+  superadmin-password.mjs  set or generate the superadmin password
+  superadmin-backup.mjs    save the superadmin accounts
+  superadmin-restore.mjs   put them back
   generate-secrets.mjs  APP_JWT_SECRET and STORAGE_URL_SECRET
 ```
 
@@ -281,7 +283,7 @@ cp .env.example .env       # DATABASE_URL, APP_JWT_SECRET, STORAGE_URL_SECRET
 node scripts/generate-secrets.mjs
 npm install
 npm run migrate
-npm run seed:superadmin
+npm run superadmin:password
 npm run dev
 curl localhost:8787/api/v1/health
 ```

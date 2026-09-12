@@ -56,14 +56,31 @@ try {
   }
 
   // 4. Create production .gitignore
+  // THIS IS WHAT KEEPS aaPanel's CHECKOUT CLEAN.
+  //
+  // The deployed app is a git working tree, and it writes files into its own
+  // directory: node_modules from npm install, .env from the operator,
+  // first-superadmin.txt on a fresh database, a backup if somebody takes one.
+  // Any of those tracked would make `git pull` stop on a local change, on the
+  // one machine where stopping is most expensive. They are ignored here so the
+  // tree stays exactly what the branch says it is, and every pull is a clean
+  // fast-forward.
   const gitignoreContent = `# Production runtime ignores
 node_modules/
+package-lock.json
 .env
 .env.*
 !.env.example
 storage-data/
+storage/
+data/
 *.log
 .DS_Store
+
+# Secrets the app and its scripts write beside themselves.
+first-superadmin.txt
+superadmin-backup.json
+superadmin-backup*.json
 `;
   writeFileSync(join(tempDir, '.gitignore'), gitignoreContent, 'utf8');
 

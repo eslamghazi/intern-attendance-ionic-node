@@ -32,6 +32,9 @@ const { BASE, reset, onLocalRestart, waitForHealth } = await import('./harness.m
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVER_ROOT = resolve(HERE, '../..');
 
+/** What the suites sign in with. Set on the seeded account before they run. */
+const E2E_PASSWORD = process.env.E2E_SUPERADMIN_PW || 'SuperTest!2026';
+
 /**
  * The API, when this runner is the one running it.
  *
@@ -92,6 +95,23 @@ if (LOCAL) {
   });
   await startApi();
   process.on('exit', () => api && api.kill());
+
+  // THE API CREATED THE SUPERADMIN, AND ONLY IT KNOWS THE PASSWORD.
+  //
+  // The first account is seeded at boot with generated credentials — there is
+  // no environment to read them from any more. Rather than scrape the console
+  // or the credentials file, set a known password now, with the same tool an
+  // operator would use. That also exercises it on every run.
+  const set = spawnSync(
+    process.execPath,
+    [join(SERVER_ROOT, 'scripts/superadmin-password.mjs'), '--set', E2E_PASSWORD],
+    { cwd: SERVER_ROOT, env: process.env, encoding: 'utf8' },
+  );
+  if (set.status !== 0) {
+    console.error(set.stdout || '', set.stderr || '');
+    throw new Error('could not set the superadmin password for the run');
+  }
+  process.env.E2E_SUPERADMIN_PW = E2E_PASSWORD;
 }
 // In Docker mode the stack is already running and reset() restarts it, so
 // there is nothing here to start, stop or clean up.

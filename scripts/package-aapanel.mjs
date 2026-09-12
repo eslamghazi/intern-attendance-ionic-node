@@ -55,7 +55,9 @@ const prodPkg = {
     start: 'node dist/main.js',
     migrate: 'node scripts/migrate.mjs',
     'migrate:status': 'node scripts/migrate.mjs --status',
-    'seed:superadmin': 'node scripts/seed-superadmin.mjs',
+    'superadmin:password': 'node scripts/superadmin-password.mjs',
+    'superadmin:backup': 'node scripts/superadmin-backup.mjs',
+    'superadmin:restore': 'node scripts/superadmin-restore.mjs',
   },
   dependencies: serverPkg.dependencies,
   engines: {

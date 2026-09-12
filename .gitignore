@@ -63,3 +63,10 @@ ClientApp/public/mediapipe/
 # real national id in it and a call to a function that no longer exists.
 scratch*.sql
 *.scratch.sql
+
+# Secrets the app or its scripts write next to themselves.
+# first-superadmin.txt holds a plaintext password; the backup holds bcrypt
+# hashes. Neither belongs in a repository.
+first-superadmin.txt
+superadmin-backup.json
+superadmin-backup*.json
