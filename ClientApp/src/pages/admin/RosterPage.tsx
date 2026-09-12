@@ -40,7 +40,7 @@ import {
   type RosterCell,
   type SearchField,
 } from '../../lib/api/members';
-import { getDayAttendance } from '../../lib/api/attendance';
+import { getDayAttendance, importAttendance, type ImportAttendanceRow } from '../../lib/api/attendance';
 import { listDepartmentOptions, listMemberDepartments, setMemberDepartment } from '../../lib/api/departments';
 import { qk } from '../../lib/api/keys';
 import { PAGE_SIZE, TOAST_MS } from '../../lib/config';
@@ -48,8 +48,9 @@ import { fetchAllPages } from '../../lib/pagination';
 import { usePermissions } from '../../lib/usePermissions';
 import { useServerToday } from '../../lib/useServerToday';
 import { appToday } from '../../lib/clock';
-import { parseSheet } from '../../lib/sheet';
+import { parseAttendanceSheet, parseSheet, type SheetRow } from '../../lib/sheet';
 import { downloadRosterTemplate } from '../../lib/rosterTemplate';
+import { downloadAttendanceTemplate } from '../../lib/attendanceTemplate';
 import AdminHeader from '../../components/AdminHeader';
 import GridFilters from '../../components/admin/GridFilters';
 import GridSummary from '../../components/admin/GridSummary';
@@ -73,6 +74,7 @@ export default function RosterPage() {
   const [presentAlert] = useIonAlert();
   const [showLoading, dismissLoading] = useIonLoading();
   const [importOpen, setImportOpen] = useState(false);
+  const [attendanceImportOpen, setAttendanceImportOpen] = useState(false);
   const [details, setDetails] = useState<{ title: string; rows: DetailRow[] } | null>(null);
 
   // Default to the current Cairo month/year from the single app clock.
@@ -188,11 +190,120 @@ export default function RosterPage() {
     qc.invalidateQueries({ queryKey: qk.monthlyAttendanceAll });
   };
 
+  /**
+   * Resolve an attendance sheet — code, date, shift key, check_in, check_out —
+   * to the ids the API takes, against the upload branch and month.
+   *
+   * `date` may be a full yyyy-MM-dd or just the day of the month (the file the
+   * roster page hands out carries full dates; a hand-made one may not). A row
+   * whose member or shift is unknown is invalid here; whether the slot is
+   * ROSTERED is the server's decision and comes back per row.
+   */
+  const resolveAttendanceRows = async (parsed: SheetRow[]) => {
+    const shiftByKey = new Map(
+      shifts.filter((sh) => sh.key).map((sh) => [String(sh.key).trim().toLowerCase(), sh.id]),
+    );
+    const all = await fetchAllPages((page, pageSize) =>
+      listRosterForBranchMonth({
+        branchId: uploadBranch,
+        year: uploadYear,
+        month: uploadMonth,
+        page,
+        pageSize,
+        search: '',
+        field: 'name',
+      }),
+    );
+    const memberByCode = new Map(
+      all.rows.filter((r) => r.member_code).map((r) => [String(r.member_code).trim().toLowerCase(), r.member_id]),
+    );
+    const dim = new Date(uploadYear, uploadMonth, 0).getDate();
+    const rows: ImportAttendanceRow[] = [];
+    const preview: ImportRowPreview[] = [];
+    let invalid = 0;
+    for (const r of parsed) {
+      const code = String(r.code ?? '').trim();
+      const rawDate = String(r.date ?? '').trim();
+      const shiftKey = String(r.shift ?? '').trim().toLowerCase();
+      const checkIn = String(r.check_in ?? '').trim();
+      const checkOut = String(r.check_out ?? '').trim();
+      const cells = [code, rawDate, shiftKey, checkIn, checkOut];
+      const memberId = memberByCode.get(code.toLowerCase());
+      const shiftId = shiftByKey.get(shiftKey);
+      // A bare day number belongs to the upload month.
+      const dayNum = /^\d{1,2}$/.test(rawDate) ? Number(rawDate) : NaN;
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+        ? rawDate
+        : dayNum >= 1 && dayNum <= dim
+          ? `${uploadYear}-${pad(uploadMonth)}-${pad(dayNum)}`
+          : '';
+      const error = !memberId
+        ? t('rosters.importCodeNotFound')
+        : !shiftId
+          ? t('rosters.attendanceImport.unknownShift')
+          : !date
+            ? t('rosters.attendanceImport.badDate')
+            : null;
+      if (error) {
+        invalid++;
+        preview.push({ cells, status: 'invalid', error });
+        continue;
+      }
+      rows.push({ member_id: memberId!, date, shift_id: shiftId!, check_in: checkIn || null, check_out: checkOut || null });
+      preview.push({ cells, status: 'new' });
+    }
+    return { rows, preview, invalid, total: parsed.length };
+  };
+
+  /** Send the rows and turn the per-row answer into the import summary. */
+  const applyAttendanceRows = async (rows: ImportAttendanceRow[]) => {
+    if (!rows.length) return { created: 0, updated: 0, skipped: 0, failed: 0 };
+    const res = await importAttendance(rows);
+    refreshRoster();
+    return { created: res.written, updated: 0, skipped: 0, failed: res.no_roster + res.not_yours + res.invalid };
+  };
+
+  // Check-in/check-out times from a file, onto rostered slots only. Uploaded
+  // AFTER the roster (this flow), or WITH it — a roster workbook carrying a
+  // sheet named "attendance" has it imported right after the roster is written.
+  const attendanceImport = useMemo<ImportStrategy<ImportAttendanceRow>>(() => {
+    return {
+      titleKey: 'rosters.attendanceImport.title',
+      accept: '.xlsx,.xls,.csv',
+      modes: ['update'],
+      defaultMode: 'update',
+      previewColumns: [
+        t('admin.memberCode'),
+        t('filters.day'),
+        t('filters.rosterType'),
+        t('attendance.checkInAt'),
+        t('attendance.checkOutAt'),
+      ],
+      downloadTemplate: () => downloadAttendanceTpl(),
+      prepare: async (file) => {
+        const parsed = await parseSheet(file);
+        const { rows, preview, invalid, total } = await resolveAttendanceRows(parsed);
+        return {
+          rows,
+          preview,
+          existing: 0,
+          fresh: rows.length,
+          invalid,
+          total,
+          notes: [t('rosters.attendanceImport.note')],
+          isExisting: () => false,
+        };
+      },
+      apply: async (prep) => applyAttendanceRows(prep.rows),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadBranch, uploadYear, uploadMonth, shifts, t]);
+
   // Monthly roster upload via the options modal: rows = members (by CODE), cols =
   // days, cell = shift key(s). The chosen conflict mode decides how existing
   // (member, date, shift) assignments are handled (update / skip / fail).
   type RosterRow = { member_id: string; date: string; shift_id: string };
-  const rosterImport = useMemo<ImportStrategy<RosterRow, { uploadedMembers: string[] }>>(() => {
+  const rosterImport = useMemo<ImportStrategy<RosterRow, { uploadedMembers: string[]; attendanceSheet: SheetRow[] | null }>>(() => {
     return {
       titleKey: 'rosters.monthly',
       accept: '.xlsx,.xls,.csv',
@@ -203,6 +314,7 @@ export default function RosterPage() {
       downloadTemplate: () => downloadTpl(),
       prepare: async (file) => {
         const parsed = await parseSheet(file);
+        const attendanceSheet = await parseAttendanceSheet(file);
         const shiftByKey = new Map(
           shifts.filter((s) => s.key).map((s) => [String(s.key).trim().toLowerCase(), s.id]),
         );
@@ -273,6 +385,7 @@ export default function RosterPage() {
         const existing = rows.filter(isExisting).length;
         const notes: string[] = [t('rosters.importAssignmentsNote')];
         if (unmatched) notes.push(t('rosters.importUnmatched', { count: unmatched }));
+        if (attendanceSheet?.length) notes.push(t('rosters.attendanceImport.sheetFound', { count: attendanceSheet.length }));
         if (unknownKeys.size)
           notes.push(t('rosters.importUnknownShifts', { keys: [...unknownKeys].join(', ') }));
         return {
@@ -284,7 +397,7 @@ export default function RosterPage() {
           total: parsed.length,
           notes,
           isExisting,
-          meta: { uploadedMembers: [...uploadedMembers] },
+          meta: { uploadedMembers: [...uploadedMembers], attendanceSheet },
         };
       },
       apply: async (prep, mode) => {
@@ -294,6 +407,17 @@ export default function RosterPage() {
         }
         const toWrite = mode === 'skip' ? rows.filter((r) => !prep.isExisting(r)) : rows;
         await upsertRosterDays(toWrite);
+        // WITH the roster: a sheet of times in the same workbook lands now,
+        // after the roster it needs exists.
+        if (prep.meta?.attendanceSheet?.length) {
+          const resolved = await resolveAttendanceRows(prep.meta.attendanceSheet);
+          const res = await applyAttendanceRows(resolved.rows);
+          present({
+            message: t('rosters.attendanceImport.withRoster', { written: res.created, failed: res.failed + resolved.invalid }),
+            duration: TOAST_MS.long,
+            color: res.failed + resolved.invalid ? 'warning' : 'success',
+          });
+        }
         // Uploading onto a department assigns everyone in the file to it.
         const meta = prep.meta;
         if (uploadDeptId && meta?.uploadedMembers.length) {
@@ -364,6 +488,53 @@ export default function RosterPage() {
           code: t('admin.memberCode'),
           fullName: t('admin.fullName'),
           total: t('rosters.total'),
+        },
+      });
+    } catch {
+      present({ message: t('common.error'), duration: TOAST_MS.medium, color: 'danger' });
+    } finally {
+      await dismissLoading();
+    }
+  };
+
+  // The attendance file, generated FROM the roster: one row per rostered slot,
+  // the two time columns blank. What is not rostered is not in the file.
+  const downloadAttendanceTpl = async () => {
+    await showLoading({ message: t('common.processing') });
+    try {
+      const all = await fetchAllPages((page, pageSize) =>
+        listRosterForBranchMonth({
+          branchId: uploadBranch,
+          year: uploadYear,
+          month: uploadMonth,
+          page,
+          pageSize,
+          search: '',
+          field: 'name',
+        }),
+      );
+      const keyOfShift = new Map(shifts.map((sh) => [sh.id, String(sh.key ?? '').trim()]));
+      const slots = all.rows.flatMap((r) =>
+        Object.entries(r.days).flatMap(([d, cells]) =>
+          cells.map((c) => ({
+            code: r.member_code ?? '',
+            fullName: r.full_name,
+            date: `${uploadYear}-${pad(uploadMonth)}-${pad(Number(d))}`,
+            shiftKey: keyOfShift.get(c.shift_id) || c.label,
+          })),
+        ),
+      );
+      slots.sort((a, b) => a.date.localeCompare(b.date) || a.code.localeCompare(b.code));
+      await downloadAttendanceTemplate({
+        filename: `attendance_${uploadYear}_${pad(uploadMonth)}.xlsx`,
+        slots,
+        labels: {
+          code: t('admin.memberCode'),
+          full_name: t('admin.fullName'),
+          date: t('attendance.date'),
+          shift: t('filters.rosterType'),
+          check_in: t('attendance.checkInAt'),
+          check_out: t('attendance.checkOutAt'),
         },
       });
     } catch {
@@ -558,6 +729,11 @@ export default function RosterPage() {
           strategy={rosterImport}
           onClose={() => setImportOpen(false)}
         />
+        <ImportModal
+          isOpen={attendanceImportOpen}
+          strategy={attendanceImport}
+          onClose={() => setAttendanceImportOpen(false)}
+        />
         <DetailsModal
           isOpen={!!details}
           title={details?.title ?? ''}
@@ -692,6 +868,22 @@ export default function RosterPage() {
                 ) : (
                   <div className="ui-caption" style={{ padding: '0 14px 14px' }}>{t('rosters.monthlyHint')}</div>
                 )}
+
+                {/* Check-in/check-out times, onto the roster above — with it (a
+                    sheet named "attendance" in the same workbook) or after it. */}
+                <div style={{ borderTop: '1px solid var(--ion-color-step-150, #e5e7eb)', padding: '12px 12px 0' }}>
+                  <div className="ui-caption" style={{ paddingBottom: 8 }}>{t('rosters.attendanceImport.hint')}</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, paddingBottom: 12 }}>
+                    <IonButton fill="outline" onClick={downloadAttendanceTpl} disabled={!uploadBranch}>
+                      <IonIcon slot="start" icon={downloadOutline} />
+                      {t('rosters.attendanceImport.template')}
+                    </IonButton>
+                    <IonButton onClick={() => setAttendanceImportOpen(true)} disabled={!uploadBranch}>
+                      <IonIcon slot="start" icon={cloudUploadOutline} />
+                      {t('rosters.attendanceImport.upload')}
+                    </IonButton>
+                  </div>
+                </div>
               </div>
             </IonAccordion>
           </IonAccordionGroup>

@@ -11,6 +11,8 @@ import { ApiResponse } from '../../common/dto/api-response.dto.js';
 import {
   RecordAttendanceDto,
   SetManualAttendanceDto,
+  ImportAttendanceDto,
+  ImportAttendanceResultDto,
   AttendanceResultDto,
   SetAttendanceResponseDto,
 } from './dto/attendance.dto.js';
@@ -87,6 +89,34 @@ export class AttendanceController {
       clear: Boolean(body.clear),
       shiftId: body.shift_id ?? null,
     });
+    return new ApiResponse(data);
+  }
+
+  /**
+   * Attendance from a file, written only onto rostered slots. Reached from
+   * the roster page (beside the roster upload) and from the review page, so
+   * either page's edit grant admits it.
+   */
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @HttpCode(HttpStatus.OK)
+  @Page(['rosters', 'review'], 'edit')
+  @Post('import')
+  @ApiOperation({ summary: 'Import check-in/check-out times onto rostered slots (Admin only)' })
+  @SwaggerResponse({ status: 200, type: ApiResponse<ImportAttendanceResultDto> })
+  async importAttendance(
+    @CallerDecorator() caller: Caller | null,
+    @Body() body: ImportAttendanceDto,
+  ): Promise<ApiResponse<ImportAttendanceResultDto>> {
+    const data = await this.service.importAttendance(
+      caller!,
+      body.rows.map((r) => ({
+        memberId: r.member_id,
+        date: r.date,
+        shiftId: r.shift_id,
+        checkIn: r.check_in?.trim() || null,
+        checkOut: r.check_out?.trim() || null,
+      })),
+    );
     return new ApiResponse(data);
   }
 }

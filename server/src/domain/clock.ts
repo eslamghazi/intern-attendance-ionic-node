@@ -7,7 +7,7 @@
 //
 // The process timezone is UTC (see docker-compose.yml) and must stay that way:
 // nothing here reads the host's local zone.
-import { formatInTimeZone } from 'date-fns-tz';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 
 import { APP_TIMEZONE } from '../config/constants.js';
 
@@ -46,6 +46,19 @@ export function cairoClock(at: string | Date | null | undefined): string {
   if (!at) return '';
   const d = at instanceof Date ? at : new Date(at);
   return Number.isNaN(d.getTime()) ? '' : formatInTimeZone(d, CAIRO, 'HH:mm');
+}
+
+/**
+ * The instant a Cairo wall-clock moment is, as an ISO timestamp.
+ *
+ * For times that arrive as a date and 'HH:mm' — an attendance file typed by
+ * a person in Cairo — and must be stored as the timestamptz a real check-in
+ * writes. DST is decided by the zone for THAT date, never assumed.
+ */
+export function cairoInstant(date: string, minutesOfDay: number): string {
+  const hh = String(Math.floor(minutesOfDay / 60)).padStart(2, '0');
+  const mm = String(minutesOfDay % 60).padStart(2, '0');
+  return fromZonedTime(`${date}T${hh}:${mm}:00`, CAIRO).toISOString();
 }
 
 /** 'HH:mm:ss' for an instant, in Cairo. */

@@ -44,6 +44,34 @@ export function listPresentNow(dates: string[]): Promise<PresentRow[]> {
   return apiFetch(`/attendance/present?dates=${encodeURIComponent(dates.join(','))}`);
 }
 
+/** One typed slot of an attendance file, resolved to ids. */
+export interface ImportAttendanceRow {
+  member_id: string;
+  date: string;
+  shift_id: string;
+  check_in: string | null;
+  check_out: string | null;
+}
+
+export type ImportAttendanceOutcome = 'written' | 'no_roster' | 'not_yours' | 'invalid';
+
+export interface ImportAttendanceResult {
+  written: number;
+  no_roster: number;
+  not_yours: number;
+  invalid: number;
+  rows: { index: number; outcome: ImportAttendanceOutcome }[];
+}
+
+/**
+ * Attendance from a file, written only onto rostered slots. The server
+ * decides late and early leave from the shift's windows, exactly as at the
+ * door, and reports every row that did not land by its index.
+ */
+export function importAttendance(rows: ImportAttendanceRow[]): Promise<ImportAttendanceResult> {
+  return apiFetch('/attendance/import', { method: 'POST', body: { rows } });
+}
+
 /** Admin manually sets a member's status for a date + shift. */
 export function setAttendance(
   member_id: string,

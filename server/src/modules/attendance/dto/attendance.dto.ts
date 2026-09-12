@@ -10,6 +10,8 @@ import {
   Matches,
   IsArray,
   ArrayMaxSize,
+  ArrayMinSize,
+  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CheckType, AttendanceStatus } from '../../../common/enums/index.js';
@@ -152,3 +154,60 @@ export class SetAttendanceResponseDto {
   cleared?: boolean;
 }
 
+
+/** One typed slot: who, which rostered day and shift, and when they came and left. */
+export class ImportAttendanceRowDto {
+  @ApiProperty({ description: 'Member UUID' })
+  @IsUUID()
+  member_id!: string;
+
+  @ApiProperty({ description: 'YYYY-MM-DD', example: '2026-09-14' })
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  date!: string;
+
+  @ApiProperty({ description: 'The rostered shift' })
+  @IsUUID()
+  shift_id!: string;
+
+  @ApiPropertyOptional({ description: 'HH:mm in Cairo; empty = did not come', example: '08:10' })
+  @IsOptional()
+  @IsString()
+  check_in?: string | null;
+
+  @ApiPropertyOptional({ description: 'HH:mm in Cairo', example: '14:05' })
+  @IsOptional()
+  @IsString()
+  check_out?: string | null;
+}
+
+/**
+ * Attendance from a file. Every row is written onto a ROSTERED slot or not
+ * at all — an import cannot invent attendance; see AttendanceService.importAttendance.
+ */
+export class ImportAttendanceDto {
+  @ApiProperty({ type: [ImportAttendanceRowDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(5000)
+  @ValidateNested({ each: true })
+  @Type(() => ImportAttendanceRowDto)
+  rows!: ImportAttendanceRowDto[];
+}
+
+export class ImportAttendanceRowResultDto {
+  @ApiProperty({ description: 'Index of the row in the request' })
+  index!: number;
+
+  @ApiProperty({ enum: ['written', 'no_roster', 'not_yours', 'invalid'] })
+  outcome!: 'written' | 'no_roster' | 'not_yours' | 'invalid';
+}
+
+export class ImportAttendanceResultDto {
+  @ApiProperty() written!: number;
+  @ApiProperty() no_roster!: number;
+  @ApiProperty() not_yours!: number;
+  @ApiProperty() invalid!: number;
+  @ApiProperty({ type: [ImportAttendanceRowResultDto] })
+  rows!: ImportAttendanceRowResultDto[];
+}

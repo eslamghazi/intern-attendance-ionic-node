@@ -5,12 +5,13 @@ import type { ShiftRow } from '../../../domain/attendance/windows.js';
 import type { IGenericRepository } from '../../../infrastructure/database/interfaces/generic-repository.interface.js';
 import { attendance } from '../../../infrastructure/database/schema/index.js';
 import type { CheckInWrite, CheckOutWrite } from '../attendance.repository.js';
-import type { CheckResult, SetAttendanceInput } from '../attendance.service.js';
+import type { CheckResult, SetAttendanceInput, ImportAttendanceRow, ImportAttendanceResult } from '../attendance.types.js';
 import type { JsonValue } from '../../../common/json.types.js';
 
 export interface IAttendanceService {
   recordAttendance(callerId: string, payload: CheckPayload): Promise<CheckResult>;
   setAttendanceManually(caller: Caller, input: SetAttendanceInput): Promise<{ ok: true; cleared?: true }>;
+  importAttendance(caller: Caller, rows: ImportAttendanceRow[]): Promise<ImportAttendanceResult>;
 }
 
 export interface IAttendanceRepository extends IGenericRepository<typeof attendance> {

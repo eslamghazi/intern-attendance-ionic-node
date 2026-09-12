@@ -18,13 +18,39 @@ async function parseCsv(file: File): Promise<SheetRow[]> {
   });
 }
 
-async function parseXlsx(file: File): Promise<SheetRow[]> {
+async function loadWorkbook(file: File) {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(await file.arrayBuffer());
+  return wb;
+}
+
+type Worksheet = Awaited<ReturnType<typeof loadWorkbook>>['worksheets'][number];
+
+async function parseXlsx(file: File): Promise<SheetRow[]> {
+  const wb = await loadWorkbook(file);
   const ws = wb.worksheets[0];
   if (!ws) return [];
+  return readSheet(ws);
+}
 
+/** The names a sheet of check-in/check-out times goes by inside a roster workbook. */
+export const ATTENDANCE_SHEET_NAMES = ['attendance', 'الحضور', 'حضور', 'الحضور والانصراف'];
+
+/**
+ * The attendance sheet of a roster workbook, when it carries one — so the
+ * times can be uploaded WITH the roster rather than after it. Null for a
+ * CSV, a workbook with one sheet, or one with no sheet so named.
+ */
+export async function parseAttendanceSheet(file: File): Promise<SheetRow[] | null> {
+  const name = file.name.toLowerCase();
+  if (!name.endsWith('.xlsx') && !name.endsWith('.xls')) return null;
+  const wb = await loadWorkbook(file);
+  const ws = wb.worksheets.find((w) => ATTENDANCE_SHEET_NAMES.includes(w.name.trim().toLowerCase()));
+  return ws ? readSheet(ws) : null;
+}
+
+function readSheet(ws: Worksheet): SheetRow[] {
   // Find the header row: the first (within the top rows) that contains a known
   // key cell (`national_id` for the members import, `code` for the roster). This
   // lets a template carry a decorative row above the headers (e.g. Arabic day

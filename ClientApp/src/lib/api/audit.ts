@@ -32,6 +32,7 @@ export const AUDIT_EVENTS = [
   'server_error',
   'superadmin_backup',
   'superadmin_restore',
+  'attendance_imported',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENTS)[number];

@@ -42,6 +42,25 @@ export interface CheckOutWrite {
   bypass: JsonObject | null;
 }
 
+/** One typed slot, as the import service receives it. */
+export interface ImportAttendanceRow {
+  memberId: string;
+  date: string;
+  shiftId: string;
+  checkIn: string | null;
+  checkOut: string | null;
+}
+
+export type ImportOutcome = 'written' | 'no_roster' | 'not_yours' | 'invalid';
+
+export interface ImportAttendanceResult {
+  written: number;
+  no_roster: number;
+  not_yours: number;
+  invalid: number;
+  rows: { index: number; outcome: ImportOutcome }[];
+}
+
 export interface SetAttendanceInput {
   memberId: string;
   date: string;

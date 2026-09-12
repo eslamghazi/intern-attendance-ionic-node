@@ -48,8 +48,12 @@ wipe();
 const branch = psql(`select id from public.branches limit 1`);
 const group = psql(`select id from public.groups limit 1`);
 
-psql(`insert into public.shifts (name, start_time, end_time)
-      values ('Report Shift', '08:00', '14:00')`);
+// With its own windows: late from 08:00, check-out from 14:00. Without them
+// the installation's global shift_start/shift_end (07:00/17:00 by default)
+// would decide, and "08:30 is late" below would be about the settings, not
+// the shift.
+psql(`insert into public.shifts (name, start_time, end_time, checkin_late, checkout_open)
+      values ('Report Shift', '08:00', '14:00', '08:00', '14:00')`);
 const shift = psql(`select id from public.shifts where name = 'Report Shift'`);
 
 // Far enough either side of today that no run of this suite lands on a
@@ -314,6 +318,63 @@ const memberDash = await call(
 check('a member cannot export the dashboard', memberDash.status, 403);
 
 /* ------------------------------------------------------------------- clean up */
+
+/* ------------------------------------------------- attendance from a file */
+
+console.log('\n--- attendance imported from a file lands only on rostered slots ---');
+// The rule the whole feature exists for: no attendance except on a roster
+// that exists. B has no record on days[1] (the absence above); C is rostered
+// on every day but came to none. A row for a day nobody is rostered on is
+// refused, and a bad time never reaches the database.
+const notRostered = `${PAST}-20`;
+const imported = await call('POST', '/attendance/import', {
+  token: suToken,
+  body: {
+    rows: [
+      // B on the day of the absence: came at 08:30 — late against an 08:00 shift.
+      { member_id: members.B, date: days[1], shift_id: shift, check_in: '08:30', check_out: '14:05' },
+      // C on days[0]: on time, left early.
+      { member_id: members.C, date: days[0], shift_id: shift, check_in: '07:55', check_out: '12:00' },
+      // C on days[1]: no check-in — an absence on a rostered slot, written as such.
+      { member_id: members.C, date: days[1], shift_id: shift, check_in: '', check_out: '' },
+      // A on a day with NO roster: refused, nothing written.
+      { member_id: members.A, date: notRostered, shift_id: shift, check_in: '08:00', check_out: '14:00' },
+      // A bad time never reaches the database.
+      { member_id: members.A, date: days[2], shift_id: shift, check_in: '8h', check_out: '' },
+    ],
+  },
+});
+check('the import answers', imported.status, 200);
+check('  three rows written', imported.body?.written, 3);
+check('  one refused for having no roster', imported.body?.no_roster, 1);
+check('  one refused as invalid', imported.body?.invalid, 1);
+check('  each row is answered by its index',
+  (imported.body?.rows ?? []).map((r) => r.outcome).join(','), 'written,written,written,no_roster,invalid');
+check('  nothing was written on the unrostered day',
+  psql(`select count(*) from public.attendance where member_id='${members.A}' and date='${notRostered}'`), '0');
+check('  and nothing for the invalid row',
+  psql(`select count(*) from public.attendance where member_id='${members.A}' and date='${days[2]}' and check_in_at is null`), '0');
+
+const bRow = psql(`select status || '|' || coalesce(checkout_status,'') from public.attendance where member_id='${members.B}' and date='${days[1]}'`);
+check('B at 08:30 on an 08:00 shift is LATE, checked out', bRow, 'late|checked_out');
+const cRow = psql(`select status || '|' || coalesce(checkout_status,'') from public.attendance where member_id='${members.C}' and date='${days[0]}'`);
+check('C at 07:55, leaving at 12:00 on a shift ending 14:00, is present with an EARLY LEAVE', cRow, 'present|early_leave');
+const cAbsent = psql(`select status || '|' || coalesce(check_in_at::text,'none') from public.attendance where member_id='${members.C}' and date='${days[1]}'`);
+check('C with no check-in is absent, with no time', cAbsent, 'absent|none');
+// The instant is the Cairo wall clock, not UTC: 08:30 Cairo is 05:30Z or 06:30Z
+// depending on the season, and either way its Cairo clock reads 08:30.
+check('the stored instant reads 08:30 in Cairo',
+  psql(`select to_char(check_in_at at time zone 'Africa/Cairo', 'HH24:MI') from public.attendance where member_id='${members.B}' and date='${days[1]}'`), '08:30');
+
+// The month's numbers moved the way the rows say: B's absence became a late
+// arrival (+1 attended, +1 late, -1 absent) and C came once (+1 attended).
+const after = await stats(pastYear, pastMonth);
+check('the settled month now counts 9 attended', after.body?.attended, 9);
+check('  3 of them late', after.body?.late, 3);
+check('  and 3 absent', after.body?.absent, 3);
+
+check('the import left one audit row',
+  ((await call('GET', '/audit?event=attendance_imported', { token: suToken })).body?.rows ?? []).length >= 1, true);
 
 wipe();
 
