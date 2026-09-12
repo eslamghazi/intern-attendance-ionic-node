@@ -13,6 +13,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { AnyStaff, Page } from '../../common/decorators/page.decorator.js';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import { MembersService } from './members.service.js';
 import { ApiResponse, PaginatedResponse } from '../../common/dto/api-response.dto.js';
@@ -179,6 +180,7 @@ let MembersController = class MembersController {
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
     HttpCode(HttpStatus.OK),
+    Page('members', 'create'),
     Post(),
     ApiOperation({ summary: 'Create member or batch of members' }),
     SwaggerResponse({ status: 201, type: (ApiResponse) }),
@@ -190,6 +192,7 @@ __decorate([
 ], MembersController.prototype, "createMembers", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('members'),
     Get('national-ids'),
     ApiOperation({ summary: 'Get list of existing member national IDs' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -199,6 +202,7 @@ __decorate([
 ], MembersController.prototype, "getNationalIds", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('members'),
     Get(),
     ApiOperation({ summary: 'List members with optional filters (Admin only)' }),
     SwaggerResponse({ status: 200, type: (PaginatedResponse) }),
@@ -209,6 +213,7 @@ __decorate([
 ], MembersController.prototype, "getMembers", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('members'),
     Get('page'),
     ApiOperation({ summary: 'Paginated members list (Admin only)' }),
     SwaggerResponse({ status: 200, type: (PaginatedResponse) }),
@@ -219,6 +224,7 @@ __decorate([
 ], MembersController.prototype, "getMembersPage", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('memberLookup'),
     Get('lookup'),
     ApiOperation({ summary: 'Find one member by code or national id, faculty-wide (Admin only)' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -230,6 +236,7 @@ __decorate([
 ], MembersController.prototype, "lookupMember", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('members', 'export'),
     Get('export'),
     ApiOperation({ summary: 'Export the filtered members as .xlsx (Admin only)' }),
     __param(0, Query()),
@@ -241,6 +248,7 @@ __decorate([
 ], MembersController.prototype, "exportMembers", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('members'),
     Get('flag-stats'),
     ApiOperation({ summary: 'Get summary statistics of flagged members (Admin only)' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -251,6 +259,7 @@ __decorate([
 ], MembersController.prototype, "getFlagStats", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    AnyStaff(),
     Get('count-active'),
     ApiOperation({ summary: 'Count active members (Admin only)' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -260,6 +269,7 @@ __decorate([
 ], MembersController.prototype, "getCountActive", null);
 __decorate([
     Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN),
+    AnyStaff(),
     Get('by-profile/:profileId'),
     ApiOperation({ summary: 'Get member details by profile ID (own, or staff)' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -271,6 +281,7 @@ __decorate([
 ], MembersController.prototype, "getByProfile", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('members', 'edit'),
     Patch(':id'),
     ApiOperation({ summary: 'Update a member profile and attendance rules (Admin only)' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -282,6 +293,7 @@ __decorate([
 ], MembersController.prototype, "updateMember", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('members', 'delete'),
     Delete('by-profile/:profileId'),
     ApiOperation({ summary: 'Delete a member by profile ID' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -294,6 +306,7 @@ __decorate([
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
     HttpCode(HttpStatus.OK),
+    Page('members', 'edit'),
     Post('bulk/flag'),
     ApiOperation({ summary: 'Bulk update a boolean flag across members' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -305,6 +318,7 @@ __decorate([
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
     HttpCode(HttpStatus.OK),
+    Page('members', 'edit'),
     Post('bulk/frozen'),
     ApiOperation({ summary: 'Bulk update frozen date across members' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -316,6 +330,7 @@ __decorate([
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
     HttpCode(HttpStatus.OK),
+    Page('members', 'edit'),
     Post('bulk/update'),
     ApiOperation({ summary: 'Bulk update members assignments or active status' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -327,6 +342,7 @@ __decorate([
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
     HttpCode(HttpStatus.OK),
+    Page('members', 'delete'),
     Post('bulk/delete'),
     ApiOperation({ summary: 'Bulk delete members matching filter criteria' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),

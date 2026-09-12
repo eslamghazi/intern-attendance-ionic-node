@@ -13,6 +13,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Post, Query, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { AnyStaff, Page } from '../../common/decorators/page.decorator.js';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import { badRequest } from '../../common/errors.js';
 import { RosterService } from './roster.service.js';
@@ -149,6 +150,7 @@ let RosterController = class RosterController {
 };
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('rosters', 'export'),
     Get('export'),
     ApiOperation({ summary: 'Export the monthly roster as .xlsx (Admin only)' }),
     __param(0, CallerDecorator()),
@@ -161,6 +163,7 @@ __decorate([
 ], RosterController.prototype, "exportRoster", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('rosters'),
     Get('view'),
     ApiOperation({ summary: 'Get monthly roster grid view with pagination (Admin only)' }),
     SwaggerResponse({ status: 200, type: (PaginatedResponse) }),
@@ -172,6 +175,7 @@ __decorate([
 ], RosterController.prototype, "getRosterView", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('rosters'),
     Get('totals'),
     ApiOperation({ summary: 'Get monthly roster totals (Admin only)' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -183,6 +187,7 @@ __decorate([
 ], RosterController.prototype, "getRosterTotals", null);
 __decorate([
     Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN),
+    AnyStaff(),
     Get('maker-data'),
     ApiOperation({ summary: 'Get roster maker options and metadata for given month' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -195,6 +200,7 @@ __decorate([
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
     HttpCode(HttpStatus.OK),
+    Page('rosters'),
     Post('existing-keys'),
     ApiOperation({ summary: 'Query existing roster schedule keys for members (Admin only)' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -207,6 +213,7 @@ __decorate([
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
     HttpCode(HttpStatus.OK),
+    Page('rosters', 'edit'),
     Post('days'),
     ApiOperation({ summary: 'Assign one or more member roster shift days' }),
     SwaggerResponse({ status: 201, type: (ApiResponse) }),
@@ -218,6 +225,7 @@ __decorate([
 ], RosterController.prototype, "postRosterDays", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('rosters', 'edit'),
     Delete('days'),
     ApiOperation({ summary: 'Remove a member roster shift assignment' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -230,6 +238,7 @@ __decorate([
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
     HttpCode(HttpStatus.OK),
+    Page('rosters', 'edit'),
     Post('bulk'),
     ApiOperation({ summary: 'Bulk schedule roster shifts across members' }),
     SwaggerResponse({ status: 201, type: (ApiResponse) }),

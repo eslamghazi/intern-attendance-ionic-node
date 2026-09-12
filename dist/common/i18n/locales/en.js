@@ -124,6 +124,23 @@ export const enLocale = {
         check_out: 'Check-out',
         legend: 'Key',
         generated_at: 'Generated at',
+        rights_reserved: 'All rights reserved',
+        charts: 'Charts',
+        // The dashboard's chart panels, named as the screen names them so the
+        // reader finds in the file the panel they picked on the screen.
+        chart_donut: 'Attendance donut',
+        chart_gauge: 'Rate gauge',
+        chart_status_pie: 'Status breakdown',
+        chart_trend_bar: 'Daily rate (columns)',
+        chart_trend_line: 'Daily rate (line)',
+        chart_heatmap: 'Calendar heat-map',
+        chart_stacked: 'Branches by status (stacked)',
+        chart_radar: 'Branches (radar)',
+        chart_polar: 'Status (polar)',
+        chart_bubble: 'Daily rate (bubble)',
+        chart_scatter: 'Daily rate (scatter)',
+        attendance_rate: 'Attendance rate',
+        daily_rate: 'Daily rate',
     },
     outcome: {
         off: 'Off — not rostered',

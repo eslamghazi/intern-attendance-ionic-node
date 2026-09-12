@@ -13,6 +13,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 import { Controller, Get, Post, Patch, Delete, Body, Param, } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { AnyStaff, Page } from '../../common/decorators/page.decorator.js';
 import { CatalogService } from './catalog.service.js';
 import { ApiResponse } from '../../common/dto/api-response.dto.js';
 import { CreateInstitutionDto, UpdateInstitutionDto, CreateBranchDto, UpdateBranchDto, CreateGroupDto, UpdateGroupDto, CreateShiftDto, UpdateShiftDto, } from './dto/catalog.dto.js';
@@ -106,6 +107,7 @@ let CatalogController = class CatalogController {
 };
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page(['branches', 'groups']),
     Get('institutions'),
     ApiOperation({ summary: 'Get all institutions' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -115,6 +117,7 @@ __decorate([
 ], CatalogController.prototype, "getInstitutions", null);
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('groups', 'create'),
     Post('institutions'),
     ApiOperation({ summary: 'Create an institution' }),
     SwaggerResponse({ status: 201, type: (ApiResponse) }),
@@ -125,6 +128,7 @@ __decorate([
 ], CatalogController.prototype, "createInstitution", null);
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('groups', 'edit'),
     Patch('institutions/:id'),
     ApiOperation({ summary: 'Update an institution' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -136,6 +140,7 @@ __decorate([
 ], CatalogController.prototype, "updateInstitution", null);
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('groups', 'delete'),
     Delete('institutions/:id'),
     ApiOperation({ summary: 'Delete an institution' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -146,6 +151,7 @@ __decorate([
 ], CatalogController.prototype, "deleteInstitution", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('branches'),
     Get('branches'),
     ApiOperation({ summary: 'Get all branches' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -155,6 +161,7 @@ __decorate([
 ], CatalogController.prototype, "getBranches", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    AnyStaff(),
     Get('branches/options'),
     ApiOperation({ summary: 'Get lightweight branch options for dropdowns' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -165,6 +172,7 @@ __decorate([
 ], CatalogController.prototype, "getBranchesOptions", null);
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('branches', 'create'),
     Post('branches'),
     ApiOperation({ summary: 'Create a branch with geofence settings' }),
     SwaggerResponse({ status: 201, type: (ApiResponse) }),
@@ -175,6 +183,7 @@ __decorate([
 ], CatalogController.prototype, "createBranch", null);
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('branches', 'edit'),
     Patch('branches/:id'),
     ApiOperation({ summary: 'Update a branch' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -186,6 +195,7 @@ __decorate([
 ], CatalogController.prototype, "updateBranch", null);
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('branches', 'delete'),
     Delete('branches/:id'),
     ApiOperation({ summary: 'Delete a branch' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -196,6 +206,7 @@ __decorate([
 ], CatalogController.prototype, "deleteBranch", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('groups'),
     Get('groups'),
     ApiOperation({ summary: 'Get all groups' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -205,6 +216,7 @@ __decorate([
 ], CatalogController.prototype, "getGroups", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    AnyStaff(),
     Get('groups/options'),
     ApiOperation({ summary: 'Get lightweight group options for dropdowns' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -215,6 +227,7 @@ __decorate([
 ], CatalogController.prototype, "getGroupsOptions", null);
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('groups', 'create'),
     Post('groups'),
     ApiOperation({ summary: 'Create a group' }),
     SwaggerResponse({ status: 201, type: (ApiResponse) }),
@@ -225,6 +238,7 @@ __decorate([
 ], CatalogController.prototype, "createGroup", null);
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('groups', 'edit'),
     Patch('groups/:id'),
     ApiOperation({ summary: 'Update a group' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -236,6 +250,7 @@ __decorate([
 ], CatalogController.prototype, "updateGroup", null);
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('groups', 'delete'),
     Delete('groups/:id'),
     ApiOperation({ summary: 'Delete a group' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -246,6 +261,7 @@ __decorate([
 ], CatalogController.prototype, "deleteGroup", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    AnyStaff(),
     Get('shifts'),
     ApiOperation({ summary: 'Get all shifts' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -255,6 +271,7 @@ __decorate([
 ], CatalogController.prototype, "getShifts", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    AnyStaff(),
     Get('shifts/keys'),
     ApiOperation({ summary: 'Get shift keys list' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -264,6 +281,7 @@ __decorate([
 ], CatalogController.prototype, "getShiftsKeys", null);
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('shifts', 'create'),
     Post('shifts'),
     ApiOperation({ summary: 'Create a shift' }),
     SwaggerResponse({ status: 201, type: (ApiResponse) }),
@@ -274,6 +292,7 @@ __decorate([
 ], CatalogController.prototype, "createShift", null);
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('shifts', 'edit'),
     Patch('shifts/:id'),
     ApiOperation({ summary: 'Update a shift' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -285,6 +304,7 @@ __decorate([
 ], CatalogController.prototype, "updateShift", null);
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('shifts', 'delete'),
     Delete('shifts/:id'),
     ApiOperation({ summary: 'Delete a shift' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),

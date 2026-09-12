@@ -20,9 +20,17 @@ let AdminsService = class AdminsService extends BaseService {
     mapToResponse(entity) {
         return AdminsMapper.toDto(entity);
     }
-    async getAdmins() {
+    /**
+     * The staff accounts the caller manages — everyone but themselves.
+     *
+     * A superadmin's own row has nothing to do on this screen: it cannot be
+     * granted pages (a superadmin holds them all), cannot be deleted by its
+     * owner, and its password is changed from the profile, not here. Listing it
+     * only offered ways to lock oneself out.
+     */
+    async getAdmins(caller) {
         return this.uow.transaction(async () => {
-            const rows = await this.repo.getAdmins();
+            const rows = await this.repo.getAdmins(caller.id);
             return AdminsMapper.toList(rows);
         });
     }

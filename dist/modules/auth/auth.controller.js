@@ -14,6 +14,7 @@ import { Body, Controller, Delete, Get, Headers, HttpCode, HttpStatus, Param, Po
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { AnyStaff, Page } from '../../common/decorators/page.decorator.js';
 import { Caller as CallerDecorator, Claims as ClaimsDecorator } from '../../common/decorators/caller.decorator.js';
 import { AuthService } from './auth.service.js';
 import { badRequest } from '../../common/errors.js';
@@ -140,6 +141,7 @@ __decorate([
     ApiBearerAuth(),
     Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN),
     HttpCode(HttpStatus.OK),
+    AnyStaff(),
     Post('logout-all'),
     ApiOperation({ summary: 'Invalidate all refresh tokens for caller' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -151,6 +153,7 @@ __decorate([
 __decorate([
     ApiBearerAuth(),
     Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN),
+    AnyStaff(),
     Get('me'),
     ApiOperation({ summary: 'Get current authenticated user profile' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -164,6 +167,7 @@ __decorate([
     ApiBearerAuth(),
     Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN),
     HttpCode(HttpStatus.OK),
+    AnyStaff(),
     Post('password'),
     ApiOperation({ summary: 'Change current user password' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -178,6 +182,7 @@ __decorate([
     ApiBearerAuth(),
     Roles(Role.ADMIN, Role.SUPERADMIN),
     HttpCode(HttpStatus.OK),
+    Page('members', 'edit'),
     Post('members/reset-password'),
     ApiOperation({ summary: 'Reset a member password (Admin only)' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -191,6 +196,7 @@ __decorate([
     ApiBearerAuth(),
     Roles(Role.ADMIN, Role.SUPERADMIN),
     HttpCode(HttpStatus.OK),
+    Page('admins', 'edit'),
     Post('staff/reset-password'),
     ApiOperation({ summary: 'Reset a staff password (Admin/Superadmin only)' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),

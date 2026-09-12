@@ -13,6 +13,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Query, Res } from '@nestjs/common';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { AnyStaff, Page } from '../../common/decorators/page.decorator.js';
 import { Caller as CallerDecorator, Claims as ClaimsDecorator } from '../../common/decorators/caller.decorator.js';
 import { ApiError, badRequest, notFound } from '../../common/errors.js';
 import { FileManager } from '../../infrastructure/storage/file-manager.service.js';
@@ -96,6 +97,7 @@ let StorageController = class StorageController {
 };
 __decorate([
     Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN),
+    AnyStaff(),
     Post(':kind'),
     __param(0, CallerDecorator()),
     __param(1, ClaimsDecorator()),
@@ -138,6 +140,7 @@ __decorate([
 ], StorageController.prototype, "getObject", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('faceImages', 'delete'),
     Delete(':kind'),
     __param(0, Param('kind')),
     __param(1, Body()),

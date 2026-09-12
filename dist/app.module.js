@@ -10,6 +10,7 @@ import { AuthMiddleware } from './common/middleware/auth.middleware.js';
 import { ApiExceptionFilter } from './common/filters/api-exception.filter.js';
 import { AuthGuard } from './common/guards/auth.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
+import { PermissionsGuard } from './common/guards/permissions.guard.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { TimeModule } from './modules/time/time.module.js';
@@ -76,6 +77,13 @@ AppModule = __decorate([
             {
                 provide: APP_GUARD,
                 useClass: RolesGuard,
+            },
+            // After RolesGuard on purpose: by the time this runs, the caller is known
+            // to be a kind of account the route accepts, and the only question left
+            // is whether an ADMIN holds the page.
+            {
+                provide: APP_GUARD,
+                useClass: PermissionsGuard,
             },
         ],
     })

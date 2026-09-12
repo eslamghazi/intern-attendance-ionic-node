@@ -13,6 +13,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse as SwaggerResponse } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Page } from '../../common/decorators/page.decorator.js';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import { Role } from '../../common/enums/index.js';
 import { ApiResponse, PaginatedResponse } from '../../common/dto/api-response.dto.js';
@@ -56,6 +57,7 @@ let AuditController = class AuditController {
 };
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('audit'),
     Get(),
     ApiOperation({ summary: 'Page through the audit trail, newest first' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -67,6 +69,7 @@ __decorate([
 ], AuditController.prototype, "list", null);
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('audit'),
     Get('summary'),
     ApiOperation({ summary: 'Count per event type, for the same filters' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),

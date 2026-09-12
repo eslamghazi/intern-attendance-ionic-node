@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MAX_PAGE_SIZE } from '../../../domain/member/filter.js';
 import { OUTCOME_LEGEND_ORDER } from '../../../config/constants.js';
-import { IsString, IsNotEmpty, IsUUID, IsOptional, IsIn, IsInt, Min, Max, IsArray, Matches, } from 'class-validator';
+import { IsString, IsNotEmpty, IsUUID, IsOptional, IsIn, IsInt, Min, Max, IsArray, Matches, MaxLength, } from 'class-validator';
 import { Type } from 'class-transformer';
 import { MemberFilterQueryDto } from '../../members/dto/member.dto.js';
 export class GetPresentQueryDto {
@@ -247,6 +247,12 @@ export class GetDashboardExportQueryDto extends GetStatsQueryDto {
     shiftId;
     departmentId;
     format;
+    /**
+     * The chart panels the screen is showing, comma-separated, in the order
+     * shown — `donut,trendBar,branch`. Unknown names are ignored rather than
+     * rejected, so an older app talking to a newer API still gets its file.
+     */
+    charts;
 }
 __decorate([
     ApiPropertyOptional({ description: 'Group UUID' }),
@@ -272,6 +278,13 @@ __decorate([
     IsIn(['xlsx', 'pdf']),
     __metadata("design:type", String)
 ], GetDashboardExportQueryDto.prototype, "format", void 0);
+__decorate([
+    ApiPropertyOptional({ description: 'Chart panels to draw, comma-separated', example: 'donut,trendBar' }),
+    IsOptional(),
+    IsString(),
+    MaxLength(200),
+    __metadata("design:type", String)
+], GetDashboardExportQueryDto.prototype, "charts", void 0);
 export class GetProbesDto {
     member_ids;
     from;

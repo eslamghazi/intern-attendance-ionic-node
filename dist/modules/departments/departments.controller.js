@@ -13,6 +13,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 import { Controller, Get, Put, Delete, Body, Param, Query, } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { AnyStaff, Page } from '../../common/decorators/page.decorator.js';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import { badRequest } from '../../common/errors.js';
 import { DepartmentsService } from './departments.service.js';
@@ -64,6 +65,7 @@ let DepartmentsController = class DepartmentsController {
 };
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('departments'),
     Get(),
     ApiOperation({ summary: 'Get all departments with branch names' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -73,6 +75,7 @@ __decorate([
 ], DepartmentsController.prototype, "getDepartments", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    AnyStaff(),
     Get('options'),
     ApiOperation({ summary: 'Get department options for select dropdowns' }),
     ApiQuery({ name: 'branch_id', required: false, type: String }),
@@ -84,6 +87,7 @@ __decorate([
 ], DepartmentsController.prototype, "getDepartmentsOptions", null);
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('departments', ['create', 'edit']),
     Put(),
     ApiOperation({ summary: 'Upsert a department' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -95,6 +99,7 @@ __decorate([
 ], DepartmentsController.prototype, "putDepartment", null);
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('departments', 'delete'),
     Delete(':id'),
     ApiOperation({ summary: 'Delete a department' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -106,6 +111,7 @@ __decorate([
 ], DepartmentsController.prototype, "deleteDepartment", null);
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('departments'),
     Get('members'),
     ApiOperation({ summary: 'Get member-department mappings for month/year' }),
     ApiQuery({ name: 'year', required: true, type: Number }),
@@ -119,6 +125,7 @@ __decorate([
 ], DepartmentsController.prototype, "getMemberDepartments", null);
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('departments', 'edit'),
     Put('members'),
     ApiOperation({ summary: 'Assign or clear member department for month/year' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -159,6 +166,7 @@ let MemberDepartmentsController = class MemberDepartmentsController {
 };
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page(['rosters', 'presence']),
     Get(),
     ApiOperation({ summary: 'Get member-department mappings for month/year' }),
     ApiQuery({ name: 'year', required: true, type: Number }),
@@ -172,6 +180,7 @@ __decorate([
 ], MemberDepartmentsController.prototype, "getMemberDepartments", null);
 __decorate([
     Roles(Role.SUPERADMIN, Role.ADMIN),
+    Page('rosters', 'edit'),
     Put(),
     ApiOperation({ summary: 'Assign or clear member department for month/year' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),

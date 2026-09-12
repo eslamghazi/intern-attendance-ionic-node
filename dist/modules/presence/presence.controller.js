@@ -13,6 +13,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Page } from '../../common/decorators/page.decorator.js';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import { badRequest } from '../../common/errors.js';
 import { PresenceService } from './presence.service.js';
@@ -66,6 +67,7 @@ let PresenceController = class PresenceController {
 };
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('presence', 'create'),
     Post('checks'),
     ApiOperation({ summary: 'Create a new spot-check verification session (Admin only)' }),
     SwaggerResponse({ status: 201, type: (ApiResponse) }),
@@ -77,6 +79,7 @@ __decorate([
 ], PresenceController.prototype, "createCheck", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('presence'),
     Get('checks'),
     ApiOperation({ summary: 'Get active and recent spot-checks created by admin' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -87,6 +90,7 @@ __decorate([
 ], PresenceController.prototype, "getChecks", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('presence', 'delete'),
     Delete('checks/:id'),
     ApiOperation({ summary: 'Cancel or delete an active spot-check session' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -99,6 +103,7 @@ __decorate([
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
     HttpCode(HttpStatus.OK),
+    Page('presence', 'edit'),
     Post('checks/:id/confirm'),
     ApiOperation({ summary: 'Manually confirm a member presence during a spot-check (Admin only)' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
@@ -112,6 +117,7 @@ __decorate([
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
     HttpCode(HttpStatus.OK),
+    Page('presence', 'edit'),
     Post('checks/:id/resolve'),
     ApiOperation({ summary: 'Resolve an expired or completed spot-check' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),

@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsOptional, MinLength, IsUUID, IsArray, ValidateNested, IsIn, } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Role } from '../../../common/enums/index.js';
+import { Role, STAFF_ROLES } from '../../../common/enums/index.js';
 import { PASSWORD_MIN } from '../../../config/constants.js';
 export class LoginDto {
     national_id;
@@ -122,6 +122,10 @@ export class CreateStaffDto {
     full_name;
     phone;
     password;
+    // A superadmin may create another superadmin. The route is superadmin-only
+    // (see AuthController.createStaff), so this is the ONLY way one comes into
+    // being by hand — an admin cannot promote themselves or anyone else, because
+    // no admin can reach the route at all.
     role = Role.ADMIN;
     assignments = [];
 }
@@ -150,8 +154,8 @@ __decorate([
     __metadata("design:type", String)
 ], CreateStaffDto.prototype, "password", void 0);
 __decorate([
-    ApiPropertyOptional({ enum: [Role.ADMIN], default: Role.ADMIN }),
-    IsIn([Role.ADMIN]),
+    ApiPropertyOptional({ enum: STAFF_ROLES, default: Role.ADMIN }),
+    IsIn([...STAFF_ROLES]),
     IsOptional(),
     __metadata("design:type", String)
 ], CreateStaffDto.prototype, "role", void 0);

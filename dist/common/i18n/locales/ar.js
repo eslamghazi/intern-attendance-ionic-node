@@ -127,6 +127,23 @@ export const arLocale = {
         check_out: 'الانصراف',
         legend: 'دليل الرموز',
         generated_at: 'تاريخ الإصدار',
+        rights_reserved: 'جميع الحقوق محفوظة',
+        charts: 'الرسوم البيانية',
+        // The dashboard's chart panels, named as the screen names them so the
+        // reader finds in the file the panel they picked on the screen.
+        chart_donut: 'نسبة الحضور (دائري)',
+        chart_gauge: 'مؤشر النسبة',
+        chart_status_pie: 'توزيع الحالات',
+        chart_trend_bar: 'المعدل اليومي (أعمدة)',
+        chart_trend_line: 'المعدل اليومي (خط)',
+        chart_heatmap: 'خريطة حرارية (تقويم)',
+        chart_stacked: 'الفروع حسب الحالة (مكدّس)',
+        chart_radar: 'الفروع (رادار)',
+        chart_polar: 'الحالة (قطبي)',
+        chart_bubble: 'المعدل اليومي (فقاعي)',
+        chart_scatter: 'المعدل اليومي (مبعثر)',
+        attendance_rate: 'نسبة الحضور',
+        daily_rate: 'المعدل اليومي',
     },
     outcome: {
         off: 'يوم راحة — لا يوجد جدول',

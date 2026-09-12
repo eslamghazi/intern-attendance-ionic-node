@@ -12,6 +12,7 @@ import { eq } from 'drizzle-orm';
 import { UnitOfWorkService } from '../../infrastructure/database/unit-of-work.service.js';
 import * as schema from '../../infrastructure/database/schema/index.js';
 import { bearerToken, verifyToken } from '../auth/jwt.js';
+import { Role } from '../enums/index.js';
 let AuthMiddleware = class AuthMiddleware {
     uow;
     constructor(uow) {
@@ -36,17 +37,30 @@ let AuthMiddleware = class AuthMiddleware {
         try {
             const profile = await this.uow.transaction(async (tx) => {
                 const rows = await tx
-                    .select({ role: schema.profiles.role, isActive: schema.profiles.isActive })
+                    .select({
+                    role: schema.profiles.role,
+                    isActive: schema.profiles.isActive,
+                    // The grant rides along on the lookup this middleware already
+                    // makes, so PermissionsGuard costs no query of its own — and it
+                    // is read fresh on every request, so taking a page away from an
+                    // admin takes effect on their next click, not their next sign-in.
+                    permissions: schema.profiles.permissions,
+                })
                     .from(schema.profiles)
                     .where(eq(schema.profiles.id, claims.sub))
                     .limit(1);
                 return rows[0] ?? null;
             });
             if (profile && profile.isActive !== false) {
+                const role = profile.role;
                 const caller = {
                     id: claims.sub,
-                    role: profile.role,
+                    role,
                     nationalId: claims.national_id,
+                    // Only an admin has a grant to carry. A superadmin's column is
+                    // whatever a superadmin once was before promotion; ignoring it here
+                    // is what keeps "superadmin passes everything" true.
+                    ...(role === Role.ADMIN ? { permissions: profile.permissions ?? null } : {}),
                 };
                 const claimsWithRole = { ...claims, user_role: profile.role };
                 req.caller = caller;

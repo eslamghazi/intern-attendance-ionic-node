@@ -1,5 +1,8 @@
 import ExcelJS from 'exceljs';
 import { REPORT_FONT, REPORT_PALETTE as P, SHEET_NAME_ILLEGAL, SHEET_NAME_MAX, XLSX_CONTENT_TYPE, } from '../../config/constants.js';
+import { copyrightLine } from './copyright.js';
+import { addChartsSheet } from './charts-sheet.js';
+import { reportLabel } from './labels.js';
 /**
  * Report tables, as .xlsx.
  *
@@ -101,13 +104,15 @@ export async function buildWorkbook(table) {
     ws.columns.forEach((c, i) => {
         c.width = i === 0 ? 26 : 14;
     });
-    // Footer, one blank row below the table.
+    // Footer, one blank row below the table: whose work this is.
     const footerRow = ws.rowCount + 2;
     ws.mergeCells(footerRow, 1, footerRow, cols);
     const footer = ws.getCell(footerRow, 1);
-    footer.value = `${new Date().getFullYear()}`;
+    footer.value = copyrightLine(rtl);
     footer.font = { name: fontName, size: 9, color: { argb: ARGB.muted }, italic: true };
     footer.alignment = { horizontal: 'center' };
+    // The charts, when the report has any, on a sheet after the table.
+    addChartsSheet(wb, table.charts, { name: reportLabel(rtl, 'charts'), rtl, font: fontName });
     // exceljs types this as its own ArrayBuffer alias; Buffer.from copies it once.
     return Buffer.from(await wb.xlsx.writeBuffer());
 }

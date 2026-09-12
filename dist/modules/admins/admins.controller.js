@@ -13,6 +13,8 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 import { Controller, Get, Patch, Post, Delete, Body, Param, } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Page } from '../../common/decorators/page.decorator.js';
+import { Caller as CallerDecorator, } from '../../common/decorators/caller.decorator.js';
 import { AdminsService } from './admins.service.js';
 import { ApiResponse } from '../../common/dto/api-response.dto.js';
 import { UpdateAdminDto, CreateAdminAssignmentDto, } from './dto/admin.dto.js';
@@ -22,8 +24,8 @@ let AdminsController = class AdminsController {
     constructor(adminsService) {
         this.adminsService = adminsService;
     }
-    async getAdmins() {
-        const data = await this.adminsService.getAdmins();
+    async getAdmins(caller) {
+        const data = await this.adminsService.getAdmins(caller);
         return new ApiResponse(data);
     }
     async getAssignments() {
@@ -45,15 +47,18 @@ let AdminsController = class AdminsController {
 };
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('admins'),
     Get(),
-    ApiOperation({ summary: 'Get all admins (Admin only)' }),
+    ApiOperation({ summary: 'Get every staff account but the caller (Admin only)' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
+    __param(0, CallerDecorator()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AdminsController.prototype, "getAdmins", null);
 __decorate([
     Roles(Role.ADMIN, Role.SUPERADMIN),
+    Page('admins'),
     Get('assignments'),
     ApiOperation({ summary: 'Get all admin branch/group assignments (Admin only)' }),
     SwaggerResponse({ status: 200, type: (ApiResponse) }),
