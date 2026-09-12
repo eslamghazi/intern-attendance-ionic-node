@@ -19,7 +19,7 @@ export const GRANTABLE_PAGES = [
 ] as const;
 
 /** Pages only the superadmin ever sees. */
-export const SUPERADMIN_PAGES = ['shifts', 'departments', 'admins', 'settings'] as const;
+export const SUPERADMIN_PAGES = ['shifts', 'departments', 'admins', 'settings', 'backup'] as const;
 
 export type GrantablePage = (typeof GRANTABLE_PAGES)[number];
 export type AdminPage = GrantablePage | (typeof SUPERADMIN_PAGES)[number];

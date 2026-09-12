@@ -205,6 +205,9 @@ export const XLSX_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 export const HTML_CONTENT_TYPE = 'text/html; charset=utf-8';
 
+/** For a downloaded file that happens to be JSON — the superadmin backup. */
+export const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
+
 // ---------------------------------------------------------------- storage
 /**
  * The kinds of file this system stores, and everything that differs between
@@ -363,6 +366,7 @@ export const ADMIN_PAGES = [
   'departments',
   'admins',
   'settings',
+  'backup',
 ] as const;
 
 /** What a grant may allow on a page. Reading is implied by having the page. */

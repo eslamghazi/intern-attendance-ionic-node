@@ -32,6 +32,7 @@ export const ROUTES = {
     qr: '/admin/qr',
     rosterMaker: '/admin/roster-maker',
     settings: '/admin/settings',
+    backup: '/admin/backup',
     profile: '/admin/profile',
   },
   manager: {

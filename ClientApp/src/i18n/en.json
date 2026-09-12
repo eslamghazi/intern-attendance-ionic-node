@@ -333,7 +333,8 @@
     "rosterMaker": "Roster maker",
     "settings": "Settings",
     "audit": "Audit trail",
-    "memberLookup": "Find a member"
+    "memberLookup": "Find a member",
+    "backup": "Backup"
   },
   "member": {
     "welcome": "Hello {{name}}",
@@ -814,5 +815,31 @@
   },
   "report": {
     "legend": "Key"
+  },
+  "backup": {
+    "accounts": "Superadmin accounts",
+    "noAccounts": "No superadmin accounts",
+    "backupTitle": "Backup",
+    "backupHelp": "Download a file holding the superadmin accounts, password hashes included. Restoring it brings them back with the passwords they already had.",
+    "secretWarning": "This file is a secret. Keep it as you would keep a key, and off the machine it protects.",
+    "download": "Download backup",
+    "downloaded": "Backup downloaded",
+    "restoreTitle": "Restore",
+    "restoreHelp": "Upload a backup file to bring lost accounts back. Accounts that still exist are left alone unless you choose to overwrite.",
+    "chooseFile": "Choose a file and restore",
+    "restore": "Restore",
+    "overwrite": "Overwrite accounts that exist",
+    "overwriteOff": "Accounts that already exist will be left alone.",
+    "overwriteOn": "Existing accounts will have their passwords replaced by the file's. Your own account is never overwritten.",
+    "confirmRestore": "Only missing accounts will be added. Continue?",
+    "confirmOverwrite": "Existing accounts will have their passwords replaced by the file's. This cannot be undone. Continue?",
+    "restored": "Done: {{added}} added, {{overwritten}} overwritten",
+    "notJson": "That file is not valid JSON",
+    "lastRestore": "Last restore",
+    "outcome": {
+      "added": "added",
+      "overwritten": "overwritten",
+      "skipped": "skipped"
+    }
   }
 }

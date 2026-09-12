@@ -221,6 +221,9 @@ const NO_SCOPE_NEEDED = new Map([
   ['modules/profile/profile.service.ts', "every statement is pinned to the caller's own id"],
   ['modules/storage/storage.service.ts', 'staff-only deletes and maintenance; paths are not member ids'],
   ['modules/time/time.service.ts', "reads frozen_at for the caller's OWN member row"],
+  ['modules/superadmin/superadmin.service.ts',
+    'superadmin accounts are faculty-wide, and every route is superadmin-only; '
+    + 'the caller is used for the audit trail and to refuse overwriting yourself'],
 ]);
 
 const SCOPE_HELPER =

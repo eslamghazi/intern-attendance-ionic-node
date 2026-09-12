@@ -77,6 +77,7 @@ const superExtra: Item[] = [
   { path: ROUTES.admin.shifts, labelKey: 'nav.shifts', icon: timeOutline, page: 'shifts' },
   { path: ROUTES.admin.admins, labelKey: 'nav.admins', icon: personCircle, page: 'admins' },
   { path: ROUTES.admin.settings, labelKey: 'nav.settings', icon: settings, page: 'settings' },
+  { path: ROUTES.admin.backup, labelKey: 'nav.backup', icon: shieldCheckmark, page: 'backup' },
 ];
 
 export default function AppMenu({ role }: { role: Role }) {

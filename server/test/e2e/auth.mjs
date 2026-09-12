@@ -98,6 +98,56 @@ check('opens an admin', (await login(ADMIN_NID, 'MasterKey!2026')).status, 200);
 check('NEVER opens a superadmin', (await login(SUPERADMIN.nationalId, 'MasterKey!2026')).status, 403);
 check('own password still wins for the superadmin', (await login(SUPERADMIN.nationalId, SUPERADMIN.password)).status, 200);
 
+console.log('\n--- superadmin backup and restore ---');
+// The accounts that can do everything, and the one page that can copy them.
+const accounts = await call('GET', '/superadmin/accounts', { token: suToken });
+check('the superadmin lists the accounts', accounts.status, 200);
+check('  and there is at least one', (accounts.body ?? []).length >= 1, true);
+check('  with no password hash in sight',
+  JSON.stringify(accounts.body ?? []).includes('$2a$'), false);
+
+const backup = await call('GET', '/superadmin/backup', { token: suToken, raw: true });
+check('the backup downloads', backup.status, 200);
+check('  as an attachment',
+  (backup.headers.get('content-disposition') ?? '').includes('superadmin-backup'), true);
+const file = JSON.parse(backup.bytes.toString('utf8'));
+check('  stamped so a restore can recognise it', file.kind, 'intern-attendance/superadmin-backup');
+// The hash IS in the file — that is the point of it, and why it is a secret.
+check('  carrying the hashes that make a restore faithful',
+  typeof file.accounts?.[0]?.password_hash, 'string');
+
+// Restoring the file we just took changes nothing: every account still exists.
+const noop = await call('POST', '/superadmin/restore', {
+  token: suToken, body: { file, overwrite: false },
+});
+check('restoring over live accounts adds nothing', noop.body?.added, 0);
+check('  and skips them instead', noop.body?.skipped >= 1, true);
+
+// YOUR OWN ACCOUNT IS NEVER OVERWRITTEN, even when asked. Restoring an old
+// backup over yourself swaps your password for one you have forgotten.
+const overSelf = await call('POST', '/superadmin/restore', {
+  token: suToken, body: { file, overwrite: true },
+});
+check('overwrite: true still refuses your own account', overSelf.body?.overwritten, 0);
+check('  and says why',
+  (overSelf.body?.accounts ?? []).some((a) => /your own account/.test(a.reason ?? '')), true);
+
+// A file that is not one of ours is refused with the reason.
+const junk = await call('POST', '/superadmin/restore', {
+  token: suToken, body: { file: { kind: 'nope' }, overwrite: false },
+});
+check('a foreign file is refused', junk.status, 400);
+check('  naming what was wrong', /not a superadmin backup/.test(junk.body?.error?.message ?? ''), true);
+
+// AN ADMIN HAS NO BUSINESS HERE. These are the credentials that could grant
+// themselves anything.
+check('an admin cannot list them',
+  (await call('GET', '/superadmin/accounts', { token: adminToken })).status, 403);
+check('an admin cannot download the backup',
+  (await call('GET', '/superadmin/backup', { token: adminToken, raw: true })).status, 403);
+check('an admin cannot restore',
+  (await call('POST', '/superadmin/restore', { token: adminToken, body: { file } })).status, 403);
+
 console.log('\n--- member: national id as the initial password ---');
 // A member as a roster upload creates one: a profile with NO password hash.
 const MEMBER_NID = '30101011234563';

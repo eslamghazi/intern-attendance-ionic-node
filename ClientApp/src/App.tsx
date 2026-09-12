@@ -73,6 +73,7 @@ import BranchesPage from './pages/admin/BranchesPage';
 import MembersPage from './pages/admin/MembersPage';
 import RosterPage from './pages/admin/RosterPage';
 import AdminsPage from './pages/admin/AdminsPage';
+import BackupPage from './pages/admin/BackupPage';
 import AttendanceReviewPage from './pages/admin/AttendanceReviewPage';
 import LivePresencePage from './pages/admin/LivePresencePage';
 import AuditPage from './pages/admin/AuditPage';
@@ -249,6 +250,7 @@ function AdminShell({ role }: { role: Role }) {
           superadmin && <Route key="departments" exact path={ROUTES.admin.departments} component={DepartmentsPage} />,
           superadmin && <Route key="admins" exact path={ROUTES.admin.admins} component={AdminsPage} />,
           superadmin && <Route key="settings" exact path={ROUTES.admin.settings} component={SettingsPage} />,
+          superadmin && <Route key="backup" exact path={ROUTES.admin.backup} component={BackupPage} />,
           <Route key="catch" render={() => <Redirect to={landing} />} />,
         ].filter(Boolean)}
       </IonRouterOutlet>

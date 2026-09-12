@@ -20,7 +20,7 @@ export const attendanceStatus = pgEnum("attendance_status", ['present', 'late', 
 // `checkout_blocked` from the recorder — but the enum never had them, so every
 // one of those audit inserts raised and was swallowed by a bare catch. No
 // master-password login and no time-window refusal was ever recorded.
-export const auditEvent = pgEnum("audit_event", ['login', 'password_changed', 'face_enrolled', 'mock_location_detected', 'out_of_range', 'low_accuracy', 'face_mismatch', 'liveness_failed', 'integrity_failed', 'check_in', 'check_out', 'master_login', 'staff_deleted', 'member_lookup_out_of_scope', 'outside_window', 'checkout_blocked', 'server_error'])
+export const auditEvent = pgEnum("audit_event", ['login', 'password_changed', 'face_enrolled', 'mock_location_detected', 'out_of_range', 'low_accuracy', 'face_mismatch', 'liveness_failed', 'integrity_failed', 'check_in', 'check_out', 'master_login', 'staff_deleted', 'member_lookup_out_of_scope', 'outside_window', 'checkout_blocked', 'server_error', 'superadmin_backup', 'superadmin_restore'])
 export const enrollmentStatus = pgEnum("enrollment_status", ['pending', 'enrolled'])
 export const role = pgEnum("role", ['superadmin', 'admin', 'member'])
 
