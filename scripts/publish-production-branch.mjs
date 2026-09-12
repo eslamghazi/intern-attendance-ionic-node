@@ -9,10 +9,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 const deployDir = resolve(root, 'deploy-aapanel');
 
-console.log('==> Ensuring fresh deploy package exists...');
-if (!existsSync(deployDir) || !existsSync(join(deployDir, 'dist')) || !existsSync(join(deployDir, 'public'))) {
-  execSync('node scripts/package-aapanel.mjs', { cwd: root, stdio: 'inherit' });
-}
+// ALWAYS REPACKAGE.
+//
+// This used to build only when deploy-aapanel/ was missing, which meant the
+// second release of the day shipped the first one's code: the directory was
+// there, the check passed, and a stale dist went to production carrying the
+// commit message of the work it did not contain. A build takes a minute; being
+// wrong about what is deployed takes considerably longer.
+console.log('==> Building a fresh deploy package...');
+execSync('node scripts/package-aapanel.mjs', { cwd: root, stdio: 'inherit' });
 
 const tempDir = join(tmpdir(), `intern-attendance-prod-${randomUUID()}`);
 console.log(`==> Staging production branch in isolated environment: ${tempDir}`);
