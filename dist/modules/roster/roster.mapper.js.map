@@ -1,0 +1,1 @@
+{"version":3,"file":"roster.mapper.js","sourceRoot":"","sources":["../../../src/modules/roster/roster.mapper.ts"],"names":[],"mappings":"AAAA,MAAM,OAAO,YAAY;IACvB,MAAM,CAAC,kBAAkB,CAAC,IAAoC;QAC5D,OAAO;YACL,IAAI,EAAE,IAAI,CAAC,IAAI;YACf,KAAK,EAAE,IAAI,CAAC,KAAK;SAClB,CAAC;IACJ,CAAC;CACF"}

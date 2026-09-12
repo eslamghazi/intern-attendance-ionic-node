@@ -1,0 +1,39 @@
+export var AttendanceRefusalReason;
+(function (AttendanceRefusalReason) {
+    AttendanceRefusalReason["OUT_OF_RANGE"] = "out_of_range";
+    AttendanceRefusalReason["MOCK"] = "mock";
+    AttendanceRefusalReason["LOW_ACCURACY"] = "low_accuracy";
+    AttendanceRefusalReason["FACE_MISMATCH"] = "face_mismatch";
+    AttendanceRefusalReason["FACE_REQUIRED"] = "face_required";
+    AttendanceRefusalReason["LIVENESS"] = "liveness";
+    AttendanceRefusalReason["NOT_ENROLLED"] = "not_enrolled";
+    AttendanceRefusalReason["INTEGRITY_FAILED"] = "integrity_failed";
+    AttendanceRefusalReason["NOT_A_MEMBER"] = "not_a_member";
+    AttendanceRefusalReason["NO_SETTINGS"] = "no_settings";
+    AttendanceRefusalReason["QR_REQUIRED"] = "qr_required";
+    AttendanceRefusalReason["QR_DISABLED"] = "qr_disabled";
+    AttendanceRefusalReason["QR_INVALID"] = "qr_invalid";
+    AttendanceRefusalReason["OUTSIDE_SHIFT"] = "outside_shift";
+    AttendanceRefusalReason["OUTSIDE_WINDOW"] = "outside_window";
+    AttendanceRefusalReason["CHECKIN_CLOSED"] = "checkin_closed";
+    AttendanceRefusalReason["ALREADY_CHECKED_IN"] = "already_checked_in";
+    AttendanceRefusalReason["ALREADY_CHECKED_OUT"] = "already_checked_out";
+    AttendanceRefusalReason["NOT_CHECKED_IN"] = "not_checked_in";
+    AttendanceRefusalReason["BRANCH_BLOCKED"] = "branch_blocked";
+    AttendanceRefusalReason["GEOFENCE_ERROR"] = "geofence_error";
+})(AttendanceRefusalReason || (AttendanceRefusalReason = {}));
+export var CommonErrorCode;
+(function (CommonErrorCode) {
+    CommonErrorCode["NOT_FOUND"] = "not_found";
+    CommonErrorCode["FORBIDDEN"] = "forbidden";
+    CommonErrorCode["UNAUTHORIZED"] = "unauthorized";
+    CommonErrorCode["BAD_REQUEST"] = "bad_request";
+    CommonErrorCode["CONFLICT"] = "conflict";
+    CommonErrorCode["INTERNAL_ERROR"] = "internal_error";
+    CommonErrorCode["MEMBER_NOT_FOUND"] = "member_not_found";
+    CommonErrorCode["INVALID_NATIONAL_ID"] = "invalid_national_id";
+    CommonErrorCode["MISSING_NAME"] = "missing_name";
+    CommonErrorCode["NATIONAL_ID_TAKEN"] = "national_id_taken";
+    CommonErrorCode["BAD_BASE64"] = "bad_base64";
+})(CommonErrorCode || (CommonErrorCode = {}));
+//# sourceMappingURL=error-code.enum.js.map

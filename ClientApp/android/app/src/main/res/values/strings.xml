@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Attendance System</string>
-    <string name="title_activity_main">Attendance System</string>
-    <string name="package_name">eg.edu.kfs.nursing.attendance</string>
-    <string name="custom_url_scheme">eg.edu.kfs.nursing.attendance</string>
-</resources>

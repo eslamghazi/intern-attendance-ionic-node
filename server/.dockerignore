@@ -1,7 +1,0 @@
-# The build context is uploaded to the daemon before anything runs — keep the
-# huge, the generated and the secret out of it.
-node_modules
-dist
-storage-data
-.env
-*.log
