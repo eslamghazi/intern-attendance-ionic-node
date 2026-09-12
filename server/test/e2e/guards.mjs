@@ -50,6 +50,7 @@ const PUBLIC_ROUTES = new Map([
   ['GET /api/v1/time/now', 'the server clock, which the app needs before sign-in'],
   ['GET /api/v1/settings', 'returns null without a session; the client falls back to defaults'],
   ['GET /api/v1/settings/branding', 'org name and logo, shown on the sign-in screen'],
+  ['GET /api/v1/settings/branding/logo.png', 'the logo as an image, for a link-preview crawler that has no token'],
   ['POST /api/v1/auth/login', 'the credential IS the request'],
   ['POST /api/v1/auth/refresh', 'renews an access token that has usually just expired'],
   ['POST /api/v1/auth/logout', 'a client with an expired access token must still be able to end its session'],

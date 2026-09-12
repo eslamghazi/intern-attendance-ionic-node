@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { GenericRepository } from '../../infrastructure/database/generic.repository.js';
 import { and, asc, eq, inArray, ne } from 'drizzle-orm';
 import { profiles, adminAssignments, groups, branches } from '../../infrastructure/database/schema/index.js';
-import { STAFF_ROLES } from '../../common/enums/index.js';
+import { STAFF_ROLES, type Role } from '../../common/enums/index.js';
 
 import type { IAdminsRepository } from './interfaces/admins.interface.js';
 import type { AdminPatch } from './admins.types.js';
@@ -72,6 +72,29 @@ export class AdminsRepository extends GenericRepository<typeof profiles> impleme
       })
       .returning({ id: adminAssignments.id });
     return rows[0] ?? null;
+  }
+
+  /** The staff account an assignment belongs to, with its role — or null. */
+  async assignmentOwner(id: string) {
+    const rows = await this.db
+      .select({ adminId: adminAssignments.adminId, role: profiles.role })
+      .from(adminAssignments)
+      .innerJoin(profiles, eq(profiles.id, adminAssignments.adminId))
+      .where(eq(adminAssignments.id, id))
+      .limit(1);
+    const row = rows[0];
+    // The enum column is typed as its string union; Role is the same set.
+    return row ? { adminId: row.adminId, role: row.role as Role } : null;
+  }
+
+  /** A staff account's role, or null when there is no staff account with that id. */
+  async staffRole(id: string) {
+    const rows = await this.db
+      .select({ role: profiles.role })
+      .from(profiles)
+      .where(and(eq(profiles.id, id), inArray(profiles.role, STAFF_ROLES)))
+      .limit(1);
+    return (rows[0]?.role as Role | undefined) ?? null;
   }
 
   async deleteAssignment(id: string) {

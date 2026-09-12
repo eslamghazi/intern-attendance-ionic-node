@@ -6,6 +6,7 @@ import { AuditService } from '../../modules/audit/audit.service.js';
 import { AuditEvent } from '../enums/index.js';
 import type { SupportedLanguage } from '../i18n/i18n.types.js';
 import type { ErrorReply, ErrorRequest } from './api-exception.types.js';
+import { IndexPageService } from '../../infrastructure/web/index-page.service.js';
 
 @Catch()
 @Injectable()
@@ -13,6 +14,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
   constructor(
     @Optional() private readonly i18n?: I18nService,
     @Optional() private readonly audit?: AuditService,
+    @Optional() private readonly indexPage?: IndexPageService,
   ) {
     if (!this.i18n) {
       this.i18n = new I18nService();
@@ -99,14 +101,20 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const api = toApiError(exception);
     const lang = this.i18n?.resolveLanguage(request.headers) ?? 'ar';
 
-    // SPA fallback: serve index.html for non-API, non-health frontend routes
+    // SPA fallback: serve index.html for non-API, non-health frontend routes —
+    // branded, the same page GET / serves, so a deep link shared to a member
+    // previews the same way as the root.
     if (
       api.status === 404 &&
       !request.url.startsWith('/api') &&
-      !request.url.startsWith('/health') &&
-      typeof response.sendFile === 'function'
+      !request.url.startsWith('/health')
     ) {
-      return response.sendFile('index.html');
+      if (this.indexPage?.available) {
+        return this.indexPage
+          .render({ protocol: request.protocol, host: request.host })
+          .then((html) => response.status(200).header('content-type', 'text/html; charset=utf-8').send(html));
+      }
+      if (typeof response.sendFile === 'function') return response.sendFile('index.html');
     }
 
     if (api.status >= 500) {

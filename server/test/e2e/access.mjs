@@ -414,9 +414,7 @@ check('a member cannot read the whole roster grid',
   (await call('GET', '/roster/view?year=2026&month=9&page=1&page_size=5', asMember)).status, 403);
 
 // And an ADMIN with the pages still can, so the checks refuse the right people.
-// The one exception is the staff list: the admins page is the superadmin's and
-// no grant hands it out, so even a fully granted admin is refused there.
-check('an admin CANNOT list staff — no grant covers the admins page', (await call('GET', '/admins', { token: wTok })).status, 403);
+check('an admin granted the admins page lists staff', (await call('GET', '/admins', { token: wTok })).status, 200);
 check('an admin reads the roster grid',
   (await call('GET', '/roster/view?year=2026&month=9&page=1&page_size=5', { token: wTok })).status, 200);
 check('a superadmin still creates an institution',

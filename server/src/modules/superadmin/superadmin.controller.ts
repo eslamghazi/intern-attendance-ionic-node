@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Post, Res } from '@nestjs/
 import type { FastifyReply } from 'fastify';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Page } from '../../common/decorators/page.decorator.js';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
 import { Role } from '../../common/enums/index.js';
@@ -28,7 +29,11 @@ import {
 export class SuperadminController {
   constructor(private readonly service: SuperadminService) {}
 
-  @Roles(Role.SUPERADMIN)
+  // The backup page is grantable: listing and downloading open with the grant.
+  // Restoring does not — it creates superadmins, and a superadmin is only ever
+  // created by a superadmin, whatever page the actor holds.
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('backup')
   @Get('accounts')
   @ApiOperation({ summary: 'List the superadmin accounts (Superadmin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<SuperadminAccountDto[]> })
@@ -46,7 +51,8 @@ export class SuperadminController {
    * before the script will take it is a file somebody will get wrong at the
    * worst possible moment.
    */
-  @Roles(Role.SUPERADMIN)
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('backup', 'export')
   @Get('backup')
   @ApiOperation({ summary: 'Download a superadmin backup file (Superadmin only)' })
   async backup(

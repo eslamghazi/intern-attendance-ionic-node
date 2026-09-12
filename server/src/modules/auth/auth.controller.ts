@@ -172,7 +172,8 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
-  @Roles(Role.SUPERADMIN)
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('admins', 'create')
   @Post('staff')
   @ApiOperation({ summary: 'Create new staff member (Superadmin only)' })
   @SwaggerResponse({ status: 201, type: ApiResponse<{ ok: true; id: string; password: string }> })
@@ -197,7 +198,8 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
-  @Roles(Role.SUPERADMIN)
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('admins', 'delete')
   @Delete('staff/:id')
   @ApiOperation({ summary: 'Delete staff account (Superadmin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })

@@ -374,7 +374,11 @@ export const MEMBER_FIELDS = Object.keys(MEMBER_COLUMN) as (keyof typeof MEMBER_
 // ---------------------------------------------------------------------------
 
 /**
- * Every page a superadmin can grant, then the two only a superadmin ever sees.
+ * Every page a superadmin can grant — all of them, `admins` and `backup`
+ * included. A superadmin holds every page by role; an admin holds exactly what
+ * was granted, and any page may be. What stays with the role regardless of
+ * grants is not a page but an act: creating or restoring a superadmin, and
+ * setting the master password.
  *
  * These are the client's route names, which is why the list lives in both
  * projects — but the server is where a grant is stored, so it is the server that
@@ -382,8 +386,7 @@ export const MEMBER_FIELDS = Object.keys(MEMBER_COLUMN) as (keyof typeof MEMBER_
  * being written into a jsonb column and never matching a page again.
  *
  * The ORDER matters to one thing: ClientApp/src/lib/permissions.test.ts
- * compares `[...GRANTABLE_PAGES, ...SUPERADMIN_PAGES]` to this list verbatim,
- * so the grantable pages come first here and `admins`/`backup` last.
+ * compares its GRANTABLE_PAGES to this list verbatim.
  *
  * `qr` is a page in its own right: minting a location-bypass QR lets a member
  * check in from anywhere, which is not something every admin should be able to
@@ -440,5 +443,6 @@ export const PAGE_OPS = {
   departments: ['create', 'edit', 'delete'],
   settings: ['edit'],
   admins: ['create', 'edit', 'delete'],
-  backup: ['export', 'create'],
+  // Restore is not here: it creates superadmins, and only a superadmin does that.
+  backup: ['export'],
 } as const satisfies Record<(typeof ADMIN_PAGES)[number], readonly (typeof ADMIN_OPS)[number][]>;

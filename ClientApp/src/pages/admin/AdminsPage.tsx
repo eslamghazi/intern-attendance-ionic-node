@@ -57,6 +57,7 @@ import {
   type Op,
 } from '../../lib/permissions';
 import { DEFAULT_STAFF_TYPE, STAFF_TYPES, staffTypeDefaults, staffTypeOf, type StaffType } from '../../lib/staffTypes';
+import { usePermissions } from '../../lib/usePermissions';
 import AdminHeader from '../../components/AdminHeader';
 import Avatar from '../../components/ui/Avatar';
 import EmptyState from '../../components/ui/EmptyState';
@@ -85,6 +86,11 @@ function initialPageOps(perm: AdminProfile['permissions']): Partial<Record<Admin
 export default function AdminsPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  // What the signed-in staff may do here. A superadmin: everything, to any
+  // admin. An admin granted this page: what the grant says, and only to other
+  // admins — a superadmin's row shows, with nothing to press.
+  const { superadmin: iAmSuper, canOp } = usePermissions('admins');
+  const mayTouch = (a: AdminProfile) => iAmSuper || a.role !== 'superadmin';
   const [present] = useIonToast();
   const [presentAlert] = useIonAlert();
   const confirm = useConfirm();
@@ -313,43 +319,51 @@ export default function AdminsPage() {
                       </div>
                     )}
                   </IonLabel>
-                  <IonButton fill="clear" onClick={() => showStaffPassword(a)} title={t('admin.loginPassword')}>
-                    <IonIcon slot="icon-only" icon={keyOutline} />
-                  </IonButton>
-                  {!isSuper && (
+                  {mayTouch(a) && canOp('edit') && (
+                    <IonButton fill="clear" onClick={() => showStaffPassword(a)} title={t('admin.loginPassword')}>
+                      <IonIcon slot="icon-only" icon={keyOutline} />
+                    </IonButton>
+                  )}
+                  {!isSuper && canOp('edit') && (
                     <IonButton fill="clear" onClick={() => openAssign(a.id)} title={t('admin.assignment')}>
                       <IonIcon slot="icon-only" icon={personAddOutline} />
                     </IonButton>
                   )}
-                  <IonButton
-                    fill="clear"
-                    onClick={() => {
-                      setEditForm({
-                        full_name: a.full_name,
-                        national_id: a.national_id,
-                        phone: a.phone ?? '',
-                        pages: a.permissions?.pages ?? [],
-                        pageOps: initialPageOps(a.permissions),
-                      });
-                      setEditAdmin(a);
-                    }}
-                  >
-                    <IonIcon slot="icon-only" icon={createOutline} />
-                  </IonButton>
-                  <IonButton fill="clear" color="danger" onClick={() => onDelete(a)}>
-                    <IonIcon slot="icon-only" icon={trashOutline} />
-                  </IonButton>
+                  {mayTouch(a) && canOp('edit') && (
+                    <IonButton
+                      fill="clear"
+                      onClick={() => {
+                        setEditForm({
+                          full_name: a.full_name,
+                          national_id: a.national_id,
+                          phone: a.phone ?? '',
+                          pages: a.permissions?.pages ?? [],
+                          pageOps: initialPageOps(a.permissions),
+                        });
+                        setEditAdmin(a);
+                      }}
+                    >
+                      <IonIcon slot="icon-only" icon={createOutline} />
+                    </IonButton>
+                  )}
+                  {!isSuper && canOp('delete') && (
+                    <IonButton fill="clear" color="danger" onClick={() => onDelete(a)}>
+                      <IonIcon slot="icon-only" icon={trashOutline} />
+                    </IonButton>
+                  )}
                 </IonItem>
               );
             })}
           </IonList>
         )}
 
-        <IonFab slot="fixed" vertical="bottom" horizontal="end">
-          <IonFabButton onClick={() => setOpen(true)}>
-            <IonIcon icon={add} />
-          </IonFabButton>
-        </IonFab>
+        {canOp('create') && (
+          <IonFab slot="fixed" vertical="bottom" horizontal="end">
+            <IonFabButton onClick={() => setOpen(true)}>
+              <IonIcon icon={add} />
+            </IonFabButton>
+          </IonFab>
+        )}
 
         {/* Create admin */}
         <IonModal isOpen={open} onDidDismiss={() => setOpen(false)}>
@@ -365,7 +379,9 @@ export default function AdminsPage() {
                   value={form.type ?? DEFAULT_STAFF_TYPE}
                   onIonChange={(e) => setForm({ ...form, type: e.detail.value as StaffType })}
                 >
-                  {STAFF_TYPES.map((type) => (
+                  {/* Only a superadmin creates a superadmin — the server refuses it
+                      to anyone else, so it is not offered to anyone else. */}
+                  {STAFF_TYPES.filter((type) => iAmSuper || type !== 'superadmin').map((type) => (
                     <IonSelectOption key={type} value={type}>
                       {t(`staffType.${type}`)}
                     </IonSelectOption>

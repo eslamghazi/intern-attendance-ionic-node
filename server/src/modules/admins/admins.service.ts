@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { UnitOfWorkService } from '../../infrastructure/database/unit-of-work.service.js';
 import { AdminsRepository } from './admins.repository.js';
-import { notFound } from '../../common/errors.js';
+import { forbidden, notFound } from '../../common/errors.js';
+import { mayManageStaff } from '../../domain/identity/role.js';
 import type { JwtClaims } from '../../infrastructure/database/context.js';
 import { BaseService } from '../../infrastructure/database/base.service.js';
 import { profiles } from '../../infrastructure/database/schema/index.js';
@@ -47,8 +48,21 @@ export class AdminsService extends BaseService<typeof profiles, AdminDto> implem
     });
   }
 
-  async updateAdmin(id: string, b: UpdateAdminDto): Promise<{ ok: true }> {
+  /**
+   * The target must be the actor's to manage — see mayManageStaff. Read
+   * inside the transaction, so the role checked is the role written against.
+   */
+  private async requireManageable(actor: Caller, targetId: string): Promise<void> {
+    const role = await (this.repo as AdminsRepository).staffRole(targetId);
+    if (!role) throw notFound();
+    if (!mayManageStaff(actor, targetId, role)) {
+      throw forbidden('not yours to manage');
+    }
+  }
+
+  async updateAdmin(actor: Caller, id: string, b: UpdateAdminDto): Promise<{ ok: true }> {
     return this.uow.transaction(async () => {
+      await this.requireManageable(actor, id);
       const patch: AdminPatch = {
         fullName: b.full_name,
         nationalId: b.national_id,
@@ -67,20 +81,24 @@ export class AdminsService extends BaseService<typeof profiles, AdminDto> implem
   }
 
   async createAssignment(
-    
+    actor: Caller,
     adminId: string,
     groupId: string | null,
     branchId: string | null,
   ): Promise<AdminAssignmentResponseDto> {
     return this.uow.transaction(async () => {
+      await this.requireManageable(actor, adminId);
       const created = await (this.repo as AdminsRepository).createAssignment(adminId, groupId, branchId);
       if (!created) throw notFound();
       return AdminsMapper.toAssignmentDto(created);
     });
   }
 
-  async deleteAssignment(id: string): Promise<void> {
+  async deleteAssignment(actor: Caller, id: string): Promise<void> {
     return this.uow.transaction(async () => {
+      const owner = await (this.repo as AdminsRepository).assignmentOwner(id);
+      if (!owner) throw notFound();
+      if (!mayManageStaff(actor, owner.adminId, owner.role)) throw forbidden('not yours to manage');
       const deleted = await (this.repo as AdminsRepository).deleteAssignment(id);
       if (!deleted) throw notFound();
     });

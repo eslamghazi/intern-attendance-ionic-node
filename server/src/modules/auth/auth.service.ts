@@ -6,6 +6,7 @@ import { AuthRepository, Account, StoredToken } from './auth.repository.js';
 import { classifyRefresh, expiresInSeconds, expiryFrom } from '../../domain/auth/refresh.js';
 import { initialPassword, resolveLogin } from '../../domain/identity/credentials.js';
 import {
+  mayCreateStaffAs,
   mayDeleteStaff,
   mayResetPasswordOf,
   type Caller,
@@ -312,6 +313,11 @@ export class AuthService implements IAuthService {
     actor: Caller,
     input: NewStaff,
   ): Promise<{ id: string; password: string }> {
+    // An admin holding the admins page creates admins. A superadmin is only
+    // ever created by a superadmin — whatever page the actor holds.
+    if (!mayCreateStaffAs(actor, input.role)) {
+      throw forbidden('only a superadmin may create a superadmin');
+    }
     const parsed = parseNationalId(input.national_id);
     if (!parsed.valid) throw badRequest('invalid_national_id', 'invalid national id');
     const password = input.password || parsed.dobPassword!;

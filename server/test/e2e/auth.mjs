@@ -159,13 +159,14 @@ const junk = await call('POST', '/superadmin/restore', {
 check('a foreign file is refused', junk.status, 400);
 check('  naming what was wrong', /not a superadmin backup/.test(junk.body?.error?.message ?? ''), true);
 
-// AN ADMIN HAS NO BUSINESS HERE. These are the credentials that could grant
-// themselves anything.
-check('an admin cannot list them',
-  (await call('GET', '/superadmin/accounts', { token: adminToken })).status, 403);
-check('an admin cannot download the backup',
-  (await call('GET', '/superadmin/backup', { token: adminToken, raw: true })).status, 403);
-check('an admin cannot restore',
+// This admin holds the backup page (grantAll), so listing and downloading
+// open. Restoring NEVER does, whatever they hold: it creates superadmins, and
+// a superadmin is only ever created by a superadmin.
+check('an admin granted the backup page lists the accounts',
+  (await call('GET', '/superadmin/accounts', { token: adminToken })).status, 200);
+check('  and downloads the backup',
+  (await call('GET', '/superadmin/backup', { token: adminToken, raw: true })).status, 200);
+check('  but can never restore',
   (await call('POST', '/superadmin/restore', { token: adminToken, body: { file } })).status, 403);
 
 console.log('\n--- member: national id as the initial password ---');
@@ -205,7 +206,8 @@ check('  admin signs in with it', (await login(ADMIN_NID, sReset.body?.password)
 console.log('\n--- delete (the created_by foreign key) ---');
 // This admin created the member above. While created_by pointed at auth.users
 // with no delete rule, deleting them raised a foreign key violation.
-check('admin may not delete', (await call('DELETE', `/auth/staff/${adminId}`, { token: adminToken })).status, 403);
+// This admin holds the admins page, so deleting is theirs — but never themselves.
+check('an admin may not delete themselves', (await call('DELETE', `/auth/staff/${adminId}`, { token: adminToken })).status, 400);
 check('superadmin deletes an admin who created an account', (await call('DELETE', `/auth/staff/${adminId}`, { token: suToken })).status, 200);
 check('  the account they created survives', (await login(MEMBER_NID, mReset.body?.password)).status, 200);
 check('  the deleted admin cannot sign in', (await login(ADMIN_NID, sReset.body?.password)).status, 404);

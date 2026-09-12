@@ -5,17 +5,19 @@ import { profiles } from '../../../infrastructure/database/schema/index.js';
 import type { AdminDto, AdminAssignmentResponseDto, UpdateAdminDto } from '../dto/admin.dto.js';
 import type { AdminPatch } from '../admins.types.js';
 import type { Caller } from '../../../domain/identity/types.js';
+import type { Role } from '../../../common/enums/index.js';
 
 export interface IAdminsService extends IBaseService<typeof profiles, AdminDto> {
   getAdmins(caller: Caller): Promise<AdminDto[]>;
   getAssignments(): Promise<AdminAssignmentResponseDto[]>;
-  updateAdmin(id: string, b: UpdateAdminDto): Promise<{ ok: true }>;
+  updateAdmin(actor: Caller, id: string, b: UpdateAdminDto): Promise<{ ok: true }>;
   createAssignment(
+    actor: Caller,
     adminId: string,
     groupId: string | null,
     branchId: string | null,
   ): Promise<AdminAssignmentResponseDto>;
-  deleteAssignment(id: string): Promise<void>;
+  deleteAssignment(actor: Caller, id: string): Promise<void>;
 }
 
 export interface IAdminsRepository extends IGenericRepository<typeof profiles> {
@@ -24,4 +26,6 @@ export interface IAdminsRepository extends IGenericRepository<typeof profiles> {
   updateAdmin(id: string, patch: AdminPatch): Promise<{ id: string } | null>;
   createAssignment(adminId: string, groupId: string | null, branchId: string | null): Promise<{ id: string } | null>;
   deleteAssignment(id: string): Promise<{ id: string } | null>;
+  assignmentOwner(id: string): Promise<{ adminId: string; role: Role } | null>;
+  staffRole(id: string): Promise<Role | null>;
 }

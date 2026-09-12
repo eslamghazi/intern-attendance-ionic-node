@@ -4,13 +4,14 @@
 import type { Role } from './types';
 
 /**
- * Pages a superadmin can grant to an admin.
+ * Pages a superadmin can grant to an admin — ALL of them.
  *
- * Everything an admin could ever open is here, INCLUDING shifts, departments
- * and settings, which used to be superadmin-only screens. A superadmin who
- * wants to hand one of those to a trusted admin now can; one who does not,
- * simply does not grant it. The only pages that stay out of reach are the two
- * that govern admins themselves.
+ * Nothing is reserved. A superadmin holds every page by role; an admin holds
+ * exactly what was granted, and any page may be, the admins page and the
+ * backup page included. What an admin so granted may do there is still
+ * bounded per target on the server (other admins only, never a superadmin,
+ * never themselves), and two acts stay with the superadmin role whatever is
+ * granted: creating or restoring a superadmin, and the master password.
  *
  * `qr` is a page in its own right: minting a location-bypass QR lets a member
  * check in from anywhere, so it is granted deliberately, not implied.
@@ -31,10 +32,12 @@ export const GRANTABLE_PAGES = [
   'shifts',
   'departments',
   'settings',
+  'admins',
+  'backup',
 ] as const;
 
-/** Pages only the superadmin ever sees: who the admins are, and the way back in. */
-export const SUPERADMIN_PAGES = ['admins', 'backup'] as const;
+/** None any more — kept so the two lists still read as one vocabulary. */
+export const SUPERADMIN_PAGES = [] as const;
 
 export type GrantablePage = (typeof GRANTABLE_PAGES)[number];
 export type AdminPage = GrantablePage | (typeof SUPERADMIN_PAGES)[number];
@@ -68,6 +71,10 @@ export const PAGE_OPS: Record<GrantablePage, Op[]> = {
   shifts: ['create', 'edit', 'delete'],
   departments: ['create', 'edit', 'delete'],
   settings: ['edit'],
+  admins: ['create', 'edit', 'delete'],
+  // Restore is not an operation here: it creates superadmins, and only a
+  // superadmin does that.
+  backup: ['export'],
 };
 
 export interface Permissions {

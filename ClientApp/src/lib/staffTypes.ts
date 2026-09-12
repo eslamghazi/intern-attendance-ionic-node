@@ -35,12 +35,17 @@ function grantOf(preset: Preset): Permissions {
   return { pages, pageOps };
 }
 
-const EVERYTHING: Preset = Object.fromEntries(GRANTABLE_PAGES.map((p) => [p, '*'])) as Preset;
+/** Every page but the two that manage staff — those a superadmin grants on purpose. */
+const ALL_BUT_STAFF: Preset = Object.fromEntries(
+  GRANTABLE_PAGES.filter((p) => p !== 'admins' && p !== 'backup').map((p) => [p, '*']),
+) as Preset;
 
 /**
  * What each type grants by default.
  *
- *   manager     every grantable page, every operation — a second in command
+ *   manager     every page but the two that manage staff, every operation —
+ *               a second in command; the admins and backup pages are granted
+ *               on purpose, never by a preset
  *   supervisor  runs the day: the dashboard, the roster and its review, who
  *               is present now, lookups and the face tool, and the QR bypass;
  *               reads the members list but does not change it
@@ -49,7 +54,7 @@ const EVERYTHING: Preset = Object.fromEntries(GRANTABLE_PAGES.map((p) => [p, '*'
  *   custom      nothing pre-filled; the superadmin picks page by page
  */
 const PRESETS: Record<Exclude<StaffType, 'superadmin'>, Preset> = {
-  manager: EVERYTHING,
+  manager: ALL_BUT_STAFF,
   supervisor: {
     dashboard: '*',
     members: [],

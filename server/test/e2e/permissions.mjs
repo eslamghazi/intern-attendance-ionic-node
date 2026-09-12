@@ -98,12 +98,42 @@ check('but not save one', (await call('PUT', '/departments', { token: tok, body:
 check('may edit settings (400: empty body, past the guard)', (await call('PATCH', '/settings', { token: tok, body: {} })).status, 400);
 check('but NEVER the master password — no grant covers it', (await call('PUT', '/settings/master-password', { token: tok, body: { password: 'MasterKey!2026' } })).status, 403);
 
-console.log('\n--- and the two that cannot ---');
-check('granted everything', (await grantAll(suToken, adminId, 'Fresh Admin', NID)).status, 200);
-check('the admins page is still refused', (await call('GET', '/admins', { token: tok })).status, 403);
-check('so is granting', (await patch({ pages: [] }).then(() => call('PATCH', `/admins/${adminId}`, { token: tok, body: { full_name: 'Fresh Admin', national_id: NID, permissions: { pages: ALL_GRANTABLE_PAGES } } }))).status, 403);
-check('and the superadmin backup', (await call('GET', '/superadmin/backup', { token: tok })).status, 403);
-check('and creating staff of any kind', (await call('POST', '/auth/staff', { token: tok, body: { national_id: '29808181234564', full_name: 'x' } })).status, 403);
+console.log('\n--- nothing is reserved: the admins page and the backup page can be granted ---');
+check('granted everything, those two included', (await grantAll(suToken, adminId, 'Fresh Admin', NID)).status, 200);
+check('the admins page opens', (await call('GET', '/admins', { token: tok })).status, 200);
+check('  and leaves the caller\'s own account out', (await call('GET', '/admins', { token: tok })).body?.some((a) => a.id === adminId), false);
+check('the backup downloads', (await call('GET', '/superadmin/backup', { token: tok, raw: true })).status, 200);
+check('  and the account list', (await call('GET', '/superadmin/accounts', { token: tok })).status, 200);
+
+console.log('\n--- but what an admin may touch there is bounded per target ---');
+// A second admin, for the granted one to manage.
+const peer = await call('POST', '/auth/staff', {
+  token: tok, body: { national_id: '29606161234566', full_name: 'Peer Admin', role: 'admin' },
+});
+check('an admin granted create creates an admin', peer.status, 201);
+check('  and may edit that admin', (await call('PATCH', `/admins/${peer.body?.id}`, {
+  token: tok, body: { full_name: 'Peer Admin', national_id: '29606161234566', permissions: { pages: ['dashboard'] } },
+})).status, 200);
+check('  but NOT themselves - a grant one can edit is a grant one can widen', (await call('PATCH', `/admins/${adminId}`, {
+  token: tok, body: { full_name: 'Fresh Admin', national_id: NID, permissions: { pages: ALL_GRANTABLE_PAGES } },
+})).status, 403);
+check('  and NOT a superadmin', (await call('PATCH', `/admins/${suId}`, {
+  token: tok, body: { full_name: 'x', national_id: SUPERADMIN.nationalId },
+})).status, 403);
+check('  nor assign one', (await call('POST', '/admins/assignments', {
+  token: tok, body: { admin_id: suId },
+})).status, 403);
+check('an admin NEVER creates a superadmin, whatever they hold', (await call('POST', '/auth/staff', {
+  token: tok, body: { national_id: '29606161234567', full_name: 'x', role: 'superadmin' },
+})).status, 403);
+check('and never restores one', (await call('POST', '/superadmin/restore', {
+  token: tok, body: { file: { kind: 'intern-attendance/superadmin-backup', accounts: [] }, overwrite: false },
+})).status, 403);
+check('and never sets the master password', (await call('PUT', '/settings/master-password', {
+  token: tok, body: { password: 'MasterKey!2026' },
+})).status, 403);
+check('an admin granted delete deletes an admin', (await call('DELETE', `/auth/staff/${peer.body?.id}`, { token: tok })).status, 200);
+check('  but never a superadmin', (await call('DELETE', `/auth/staff/${suId}`, { token: tok })).status, 403);
 
 /* ------------------------------------------- a type, in one request */
 console.log('\n--- an account and its starting grant are one request ---');

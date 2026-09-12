@@ -22,6 +22,7 @@ import {
 } from 'ionicons/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { usePermissions } from '../../lib/usePermissions';
 import AdminHeader from '../../components/AdminHeader';
 import SectionHeader from '../../components/ui/SectionHeader';
 import EmptyState from '../../components/ui/EmptyState';
@@ -50,6 +51,7 @@ import type { JsonValue } from '../../lib/json.types';
  */
 export default function BackupPage() {
   const { t } = useTranslation();
+  const { superadmin, canOp } = usePermissions('backup');
   const confirm = useConfirm();
   const [toast] = useIonToast();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -160,13 +162,16 @@ export default function BackupPage() {
           <IonNote color="warning" style={{ display: 'block', marginBottom: 12 }}>
             <IonIcon icon={warningOutline} /> {t('backup.secretWarning')}
           </IonNote>
-          <IonButton expand="block" disabled={busy} onClick={doBackup}>
+          <IonButton expand="block" disabled={busy || !canOp('export')} onClick={doBackup}>
             <IonIcon slot="start" icon={cloudDownloadOutline} />
             {t('backup.download')}
           </IonButton>
         </div>
 
-        {/* --- restore --- */}
+        {/* --- restore: superadmin only, whatever page is held. It creates
+            superadmins, and a superadmin is only ever created by a superadmin. */}
+        {superadmin && (
+          <>
         <SectionHeader title={t('backup.restoreTitle')} />
         <div className="ui-surface ui-section" style={{ padding: 16 }}>
           <p className="ui-muted" style={{ marginTop: 0 }}>
@@ -204,6 +209,8 @@ export default function BackupPage() {
             {t('backup.chooseFile')}
           </IonButton>
         </div>
+          </>
+        )}
 
         {/* --- what the last restore did --- */}
         {result && (

@@ -26,6 +26,7 @@ import { RosterModule } from './modules/roster/roster.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
 import { DatabaseModule } from './infrastructure/database/database.module.js';
 import { ExportModule } from './infrastructure/export/export.module.js';
+import { WebModule } from './infrastructure/web/web.module.js';
 import { FileManagerModule } from './infrastructure/storage/file-manager.module.js';
 import { SchedulerModule } from './infrastructure/scheduler/scheduler.module.js';
 import { I18nModule } from './common/i18n/i18n.module.js';
@@ -36,6 +37,7 @@ import { I18nModule } from './common/i18n/i18n.module.js';
     FileManagerModule,
     DatabaseModule,
     ExportModule,
+    WebModule,
     AuditModule,
 
     HealthModule,

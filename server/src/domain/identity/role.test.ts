@@ -3,7 +3,9 @@ import {
   isRole,
   isStaff,
   masterPasswordMayOpen,
+  mayCreateStaffAs,
   mayDeleteStaff,
+  mayManageStaff,
   mayResetPasswordOf,
   privilegeScope,
 } from './role.js';
@@ -77,8 +79,52 @@ describe('mayDeleteStaff', () => {
     expect(mayDeleteStaff(sa, 'b', Role.MEMBER)).toBe(false);
   });
 
-  it('refuses an admin doing any of it', () => {
-    expect(mayDeleteStaff({ id: 'x', role: Role.ADMIN }, 'b', Role.ADMIN)).toBe(false);
+  it('lets an admin delete another admin — the route checks they hold the page', () => {
+    expect(mayDeleteStaff({ id: 'x', role: Role.ADMIN }, 'b', Role.ADMIN)).toBe(true);
+  });
+
+  it('never lets an admin delete a superadmin, or themselves', () => {
+    expect(mayDeleteStaff({ id: 'x', role: Role.ADMIN }, 'b', Role.SUPERADMIN)).toBe(false);
+    expect(mayDeleteStaff({ id: 'x', role: Role.ADMIN }, 'x', Role.ADMIN)).toBe(false);
+  });
+});
+
+describe('mayManageStaff', () => {
+  const sa = { id: 'a', role: Role.SUPERADMIN };
+  const admin = { id: 'x', role: Role.ADMIN };
+
+  it('a superadmin manages any admin, but not a superadmin and not themselves', () => {
+    expect(mayManageStaff(sa, 'b', Role.ADMIN)).toBe(true);
+    expect(mayManageStaff(sa, 'b', Role.SUPERADMIN)).toBe(false);
+    expect(mayManageStaff(sa, 'a', Role.ADMIN)).toBe(false);
+  });
+
+  it('an admin manages OTHER admins only', () => {
+    expect(mayManageStaff(admin, 'b', Role.ADMIN)).toBe(true);
+    expect(mayManageStaff(admin, 'b', Role.SUPERADMIN)).toBe(false);
+    // A grant one can edit is a grant one can widen.
+    expect(mayManageStaff(admin, 'x', Role.ADMIN)).toBe(false);
+  });
+
+  it('a member manages nobody', () => {
+    expect(mayManageStaff({ id: 'm', role: Role.MEMBER }, 'b', Role.ADMIN)).toBe(false);
+  });
+});
+
+describe('mayCreateStaffAs', () => {
+  it('only a superadmin creates a superadmin, whatever page an admin holds', () => {
+    expect(mayCreateStaffAs({ id: 'a', role: Role.SUPERADMIN }, Role.SUPERADMIN)).toBe(true);
+    expect(mayCreateStaffAs({ id: 'x', role: Role.ADMIN }, Role.SUPERADMIN)).toBe(false);
+  });
+
+  it('either creates an admin', () => {
+    expect(mayCreateStaffAs({ id: 'a', role: Role.SUPERADMIN }, Role.ADMIN)).toBe(true);
+    expect(mayCreateStaffAs({ id: 'x', role: Role.ADMIN }, Role.ADMIN)).toBe(true);
+  });
+
+  it('nobody creates a member through the staff route, and a member creates nothing', () => {
+    expect(mayCreateStaffAs({ id: 'a', role: Role.SUPERADMIN }, Role.MEMBER)).toBe(false);
+    expect(mayCreateStaffAs({ id: 'm', role: Role.MEMBER }, Role.ADMIN)).toBe(false);
   });
 });
 

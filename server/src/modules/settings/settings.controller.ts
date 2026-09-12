@@ -1,4 +1,7 @@
-import { Controller, Get, Patch, Put, Body } from '@nestjs/common';
+import { Controller, Get, Patch, Put, Body, Res } from '@nestjs/common';
+import type { FastifyReply } from 'fastify';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -16,6 +19,8 @@ import {
   SetMasterPasswordDto,
 } from './dto/settings.dto.js';
 import { Role } from '../../common/enums/index.js';
+import { IndexPageService } from '../../infrastructure/web/index-page.service.js';
+import { BRANDING_FALLBACK_ICON } from '../../infrastructure/web/index-page.constants.js';
 
 @ApiTags('Settings')
 @Controller('api/v1/settings')
@@ -23,6 +28,7 @@ export class SettingsController {
   constructor(
     private readonly settingsService: SettingsService,
     private readonly authService: AuthService,
+    private readonly indexPage: IndexPageService,
   ) {}
 
   @Public()
@@ -46,6 +52,37 @@ export class SettingsController {
     return new ApiResponse(data);
   }
 
+  /**
+   * The organisation's logo as an image, for the link preview.
+   *
+   * A preview crawler needs a plain image URL — it cannot read a data URL out
+   * of a JSON body — so the logo Settings stores is decoded and served here.
+   * The app's own icon stands in when there is none, so a shared link always
+   * carries a picture. Public: the crawler has no token. Cached briefly, the
+   * way IndexPageService remembers the name beside it.
+   */
+  @Public()
+  @Get('branding/logo.png')
+  @ApiOperation({ summary: "The organisation's logo as a PNG/JPEG, or the app icon" })
+  async getBrandingLogo(@Res() reply: FastifyReply): Promise<void> {
+    const { logo } = await this.indexPage.publicBranding();
+    const m = /^data:image\/(png|jpeg);base64,(.+)$/.exec(logo ?? '');
+    // Headers are set and send() is called in ONE chain: a Fastify reply is a
+    // thenable that resolves once the response is sent, so awaiting it any
+    // earlier waits forever.
+    reply.header('cache-control', 'public, max-age=300');
+    if (m) {
+      await reply.header('content-type', `image/${m[1]}`).send(Buffer.from(m[2]!, 'base64'));
+      return;
+    }
+    const root = this.indexPage.clientDist;
+    if (!root) {
+      await reply.code(404).send();
+      return;
+    }
+    await reply.header('content-type', 'image/png').send(readFileSync(join(root, BRANDING_FALLBACK_ICON)));
+  }
+
   @ApiBearerAuth()
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   @Page('settings', 'edit')
@@ -56,6 +93,8 @@ export class SettingsController {
     @Body() body: UpdateSettingsDto,
   ): Promise<ApiResponse<{ ok: true }>> {
     const data = await this.settingsService.updateSettings(body);
+    // The link preview shows the name and logo; it must not show last hour's.
+    this.indexPage.invalidate();
     return new ApiResponse(data);
   }
 

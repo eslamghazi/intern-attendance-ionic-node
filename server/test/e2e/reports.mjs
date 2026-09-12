@@ -33,7 +33,7 @@
 //
 // Both months are computed from the database's today, not hardcoded, so this
 // keeps meaning the same thing next year.
-import { SUPERADMIN, call, check, login, psql, report } from './harness.mjs';
+import { ORIGIN, SUPERADMIN, call, check, login, psql, report } from './harness.mjs';
 
 console.log('\n--- months whose answers are known by hand ---');
 
@@ -263,6 +263,22 @@ check('the workbook embeds the logo as an image', brandedXlsx.bytes.toString('la
 // prove it is not a dashboard-only path.
 const membersXlsx = await call('GET', '/members/export?format=xlsx', { token: suToken, raw: true });
 check('so does the members export', membersXlsx.status === 200 && membersXlsx.bytes.toString('latin1').includes('xl/media/image1.png'), true);
+
+console.log('\n--- and on the link preview ---');
+// A crawler fetches the page with no token and reads its <meta> tags.
+const page = await fetch(`${ORIGIN}/`);
+const pageHtml = await page.text();
+check('the index page answers', page.status, 200);
+check('  named for the organisation', pageHtml.includes('<title>Faculty of Nursing — نظام الحضور</title>'), true);
+check('  with an og:title to match', pageHtml.includes('<meta property="og:title" content="Faculty of Nursing — نظام الحضور"'), true);
+check('  and an ABSOLUTE og:image on this origin', pageHtml.includes(`<meta property="og:image" content="${ORIGIN}/api/v1/settings/branding/logo.png"`), true);
+check('  and an absolute og:url', pageHtml.includes(`<meta property="og:url" content="${ORIGIN}/"`), true);
+const deep = await fetch(`${ORIGIN}/admin/dashboard`);
+check('a deep link previews the same way (SPA fallback)', (await deep.text()).includes('og:title" content="Faculty of Nursing'), true);
+const logoRes = await fetch(`${ORIGIN}/api/v1/settings/branding/logo.png`);
+check('the logo route serves the organisation\'s logo', logoRes.status, 200);
+check('  as an image', logoRes.headers.get('content-type'), 'image/png');
+check('  the bytes Settings holds', Buffer.from(await logoRes.arrayBuffer()).toString('base64'), PNG.split(',')[1]);
 psql(`update public.app_settings set org_name = null, org_logo_url = null where id = 1`);
 
 console.log('\n--- the charts travel with it ---');

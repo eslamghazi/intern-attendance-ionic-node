@@ -181,6 +181,7 @@ describe('route authorization is always declared', () => {
       'HealthController.getHealth',
       'HealthController.getReady',
       'SettingsController.getBranding',
+      'SettingsController.getBrandingLogo',
       'SettingsController.getSettings',
       'StorageController.getObject',
       'StorageController.getSignedUrl',

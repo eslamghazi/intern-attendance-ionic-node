@@ -13,10 +13,19 @@ describe('a type is a name for a grant', () => {
     }
   });
 
-  it('a manager holds every grantable page with every operation it has', () => {
+  it('a manager holds every page but the two that manage staff, with every operation', () => {
     const { permissions } = staffTypeDefaults('manager');
-    expect([...(permissions?.pages ?? [])].sort()).toEqual([...GRANTABLE_PAGES].sort());
-    for (const p of GRANTABLE_PAGES) expect(permissions?.pageOps?.[p]).toEqual(PAGE_OPS[p]);
+    const expected = GRANTABLE_PAGES.filter((p) => p !== 'admins' && p !== 'backup');
+    expect([...(permissions?.pages ?? [])].sort()).toEqual([...expected].sort());
+    for (const p of expected) expect(permissions?.pageOps?.[p]).toEqual(PAGE_OPS[p]);
+  });
+
+  it('no preset hands out the admins or backup page — those are granted on purpose', () => {
+    for (const type of ['manager', 'supervisor', 'reviewer'] as const) {
+      const pages = staffTypeDefaults(type).permissions?.pages ?? [];
+      expect(pages).not.toContain('admins');
+      expect(pages).not.toContain('backup');
+    }
   });
 
   it('custom starts with nothing', () => {
