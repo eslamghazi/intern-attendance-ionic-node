@@ -30,7 +30,6 @@
     "drizzle-orm": "^0.45.2",
     "exceljs": "^4.4.0",
     "fastify": "^5.2.1",
-    "fastify-plugin": "^5.0.1",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.2",
