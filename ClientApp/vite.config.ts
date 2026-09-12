@@ -1,5 +1,6 @@
 /// <reference types="vitest" />
 
+import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -8,6 +9,19 @@ import { VitePWA } from 'vite-plugin-pwa';
 // (Android System WebView / WKWebView / current desktop browsers). The legacy
 // plugin's old targets (chrome64/safari12) predate BigInt and break the build.
 export default defineConfig({
+  // ONE env file for the whole project, at the repo root — the server's runtime
+  // settings and the client's build settings together.
+  //
+  // Vite defaults this to the ClientApp folder, which is why a second `.env`
+  // grew here. That one was a developer's own file, gitignored, and it set
+  // VITE_API_URL=http://localhost:8787/api/v1 — so `npm run build` baked a
+  // localhost address into the DEPLOYED bundle and the app asked the user's own
+  // phone for the API.
+  //
+  // Putting the API's secrets in a file Vite reads is safe: only names starting
+  // with VITE_ are exposed to client code, and this config sets no envPrefix
+  // and no define() that would widen that.
+  envDir: fileURLToPath(new URL('..', import.meta.url)),
   plugins: [
     react(),
     VitePWA({

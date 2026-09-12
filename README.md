@@ -219,20 +219,33 @@ The web dashboard and API will be live at `http://localhost:8080`.
 ## 💻 Local Development Workflow
 
 ```bash
-# 1. Start database only
+# 1. One env file for everything, at the repo root
+cp .env.example .env            # then fill in DATABASE_URL and APP_JWT_SECRET
+
+# 2. Start database only
 docker compose up -d db
 
-# 2. Setup and run backend (listening on http://localhost:8787)
-cd server && cp .env.example .env && npm install
+# 3. Setup and run backend (listening on http://localhost:8787)
+cd server && npm install
 npm run migrate
 npm run dev
 
-# 3. Setup and run frontend (listening on http://localhost:5173)
-cd ../ClientApp && cp .env.example .env && npm install
+# 4. Setup and run frontend (listening on http://localhost:5173)
+cd ../ClientApp && npm install
 npm run dev
 ```
 
-> **Note**: When running client and server on separate ports in dev mode, set `VITE_API_URL=http://localhost:8787/api/v1` in `ClientApp/.env`.
+> **One `.env`, at the repo root.** The server reads it, and so does the client
+> build — `ClientApp/vite.config.ts` points Vite's `envDir` there. Only names
+> starting with `VITE_` reach the browser bundle, so the API's secrets living in
+> the same file are not exposed.
+>
+> **Do not set `VITE_API_URL`.** The client defaults to the relative `/api/v1`,
+> which is right in both places: Vite's dev server proxies `/api` to port 8787,
+> and in production the app and the API share an origin behind nginx. Setting it
+> to an absolute address bakes one deployment's domain into the bundle — and
+> setting it to `localhost` makes the *deployed* app ask the user's own phone for
+> the API, which looks exactly like the server being down.
 
 ---
 

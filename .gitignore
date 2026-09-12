@@ -24,11 +24,6 @@ ClientApp/dev-dist/
 .env
 .env.*
 !.env.example
-# The client's production build settings are NOT a local secret: every Vite var
-# ends up in the shipped bundle anyway. It has to be tracked, or the build falls
-# back to whoever's dev `.env` is on the building machine — which is how
-# http://localhost:8787 got baked into a deployed bundle.
-!ClientApp/.env.production
 
 # local credential notes — never commit
 admin-credentials.txt
