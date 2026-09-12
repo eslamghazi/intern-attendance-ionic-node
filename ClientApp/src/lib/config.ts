@@ -173,8 +173,13 @@ export const TOAST_MS = {
 } as const;
 
 /** Vendor / licensing — the app is licensed by Calaix AI. */
+/**
+ * Whose work this is — shown in every screen's footer and printed on every
+ * export. Mirrors COPYRIGHT in server/src/config/constants.ts.
+ */
 export const CALAIX = {
   name: 'Calaix AI',
+  author: 'Eslam Ghazi',
   url: 'https://calaixai.com',
   logo: '/Calaix_Logos/Calaix_AI.svg',
   icon: '/Calaix_Logos/calaix-icon.svg',

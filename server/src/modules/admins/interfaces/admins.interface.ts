@@ -4,9 +4,10 @@ import type { IGenericRepository } from '../../../infrastructure/database/interf
 import { profiles } from '../../../infrastructure/database/schema/index.js';
 import type { AdminDto, AdminAssignmentResponseDto, UpdateAdminDto } from '../dto/admin.dto.js';
 import type { AdminPatch } from '../admins.types.js';
+import type { Caller } from '../../../domain/identity/types.js';
 
 export interface IAdminsService extends IBaseService<typeof profiles, AdminDto> {
-  getAdmins(): Promise<AdminDto[]>;
+  getAdmins(caller: Caller): Promise<AdminDto[]>;
   getAssignments(): Promise<AdminAssignmentResponseDto[]>;
   updateAdmin(id: string, b: UpdateAdminDto): Promise<{ ok: true }>;
   createAssignment(
@@ -18,7 +19,7 @@ export interface IAdminsService extends IBaseService<typeof profiles, AdminDto> 
 }
 
 export interface IAdminsRepository extends IGenericRepository<typeof profiles> {
-  getAdmins(): Promise<any[]>;
+  getAdmins(exceptId: string): Promise<any[]>;
   getAssignments(): Promise<any[]>;
   updateAdmin(id: string, patch: AdminPatch): Promise<{ id: string } | null>;
   createAssignment(adminId: string, groupId: string | null, branchId: string | null): Promise<{ id: string } | null>;

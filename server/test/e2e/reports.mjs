@@ -232,6 +232,33 @@ check('  and as a print document', dashPdf.status, 200);
 // the numbers were not reaching it, this is what says so.
 check('  carrying the month\'s real numbers',
   /58|7/.test(dashPdf.bytes.toString('utf8')), true);
+check('  with no charts unless the screen sent some',
+  dashPdf.bytes.toString('utf8').includes('<svg '), false);
+check('  and the copyright line',
+  dashPdf.bytes.toString('utf8').includes('Calaix AI · Eslam Ghazi'), true);
+
+console.log('\n--- the charts travel with it ---');
+// The screen names the panels it is showing; the file draws the same numbers.
+const withCharts = await call(
+  'GET',
+  `/attendance/dashboard/export?year=${pastYear}&month=${pastMonth}&format=pdf&charts=donut,branch,trendBar,bogus`,
+  { token: suToken, raw: true },
+);
+check('the print document draws the panels it was sent', withCharts.status, 200);
+const chartsHtml = withCharts.bytes.toString('utf8');
+check('  as inline SVG', (chartsHtml.match(/<svg /g) ?? []).length >= 2, true);
+check('  the donut, with the rate in the middle', /<figure class="chart chart--half">/.test(chartsHtml), true);
+check('  a daily trend, as columns', chartsHtml.includes('المعدل اليومي (أعمدة)') || chartsHtml.includes('Daily rate (columns)'), true);
+check('  an unknown panel name is ignored, not an error', withCharts.status, 200);
+
+const xlsxCharts = await call(
+  'GET',
+  `/attendance/dashboard/export?year=${pastYear}&month=${pastMonth}&format=xlsx&charts=donut,branch`,
+  { token: suToken, raw: true },
+);
+check('the workbook gets a charts sheet', xlsxCharts.status, 200);
+// A second worksheet shows up as a second sheet part in the zip's directory.
+check('  as a second sheet', (xlsxCharts.bytes.toString('latin1').match(/xl\/worksheets\/sheet\d+\.xml/g) ?? []).length >= 2, true);
 
 // A MEMBER has no business here — the dashboard is every member the caller can
 // reach, not their own record.

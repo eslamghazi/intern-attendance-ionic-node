@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Post, Query, Res }
 import type { FastifyReply } from 'fastify';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { AnyStaff, Page } from '../../common/decorators/page.decorator.js';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
 import { badRequest } from '../../common/errors.js';
@@ -44,6 +45,7 @@ export class RosterController {
    * "how many people are on the morning shift on the 12th?" without a formula.
    */
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('rosters', 'export')
   @Get('export')
   @ApiOperation({ summary: 'Export the monthly roster as .xlsx (Admin only)' })
   async exportRoster(
@@ -122,6 +124,7 @@ export class RosterController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('rosters')
   @Get('view')
   @ApiOperation({ summary: 'Get monthly roster grid view with pagination (Admin only)' })
   @SwaggerResponse({ status: 200, type: PaginatedResponse<RosterViewRowDto> })
@@ -138,6 +141,7 @@ export class RosterController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('rosters')
   @Get('totals')
   @ApiOperation({ summary: 'Get monthly roster totals (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<RosterTotalsResponseDto> })
@@ -153,6 +157,7 @@ export class RosterController {
   }
 
   @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
+  @AnyStaff()
   @Get('maker-data')
   @ApiOperation({ summary: 'Get roster maker options and metadata for given month' })
   @SwaggerResponse({ status: 200, type: ApiResponse<RosterMakerDataDto> })
@@ -168,6 +173,7 @@ export class RosterController {
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
+  @Page('rosters')
   @Post('existing-keys')
   @ApiOperation({ summary: 'Query existing roster schedule keys for members (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<string[]> })
@@ -185,6 +191,7 @@ export class RosterController {
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
+  @Page('rosters', 'edit')
   @Post('days')
   @ApiOperation({ summary: 'Assign one or more member roster shift days' })
   @SwaggerResponse({ status: 201, type: ApiResponse<{ ok: true }> })
@@ -206,6 +213,7 @@ export class RosterController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('rosters', 'edit')
   @Delete('days')
   @ApiOperation({ summary: 'Remove a member roster shift assignment' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -223,6 +231,7 @@ export class RosterController {
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
+  @Page('rosters', 'edit')
   @Post('bulk')
   @ApiOperation({ summary: 'Bulk schedule roster shifts across members' })
   @SwaggerResponse({ status: 201, type: ApiResponse<BulkRosterResultDto> })

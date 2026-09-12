@@ -3,7 +3,7 @@
 
 import type { JsonObject } from './json.types';
 
-export type Role = 'superadmin' | 'admin' | 'manager' | 'member';
+export type Role = 'superadmin' | 'admin' | 'member';
 
 export type EnrollmentStatus = 'pending' | 'enrolled';
 

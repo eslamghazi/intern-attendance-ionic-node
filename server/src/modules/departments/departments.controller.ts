@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { AnyStaff, Page } from '../../common/decorators/page.decorator.js';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../domain/identity/role.js';
 import { badRequest } from '../../common/errors.js';
@@ -24,6 +25,7 @@ export class DepartmentsController {
   constructor(private readonly departmentsService: DepartmentsService) {}
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('departments')
   @Get()
   @ApiOperation({ summary: 'Get all departments with branch names' })
   @SwaggerResponse({ status: 200, type: ApiResponse<DepartmentDto[]> })
@@ -33,6 +35,7 @@ export class DepartmentsController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @AnyStaff()
   @Get('options')
   @ApiOperation({ summary: 'Get department options for select dropdowns' })
   @ApiQuery({ name: 'branch_id', required: false, type: String })
@@ -45,6 +48,7 @@ export class DepartmentsController {
   }
 
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('departments', ['create', 'edit'])
   @Put()
   @ApiOperation({ summary: 'Upsert a department' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true; id?: string }> })
@@ -61,6 +65,7 @@ export class DepartmentsController {
   }
 
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('departments', 'delete')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a department' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -73,6 +78,7 @@ export class DepartmentsController {
   }
 
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('departments')
   @Get('members')
   @ApiOperation({ summary: 'Get member-department mappings for month/year' })
   @ApiQuery({ name: 'year', required: true, type: Number })
@@ -91,6 +97,7 @@ export class DepartmentsController {
   }
 
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('departments', 'edit')
   @Put('members')
   @ApiOperation({ summary: 'Assign or clear member department for month/year' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true; cleared?: boolean }> })
@@ -114,6 +121,7 @@ export class MemberDepartmentsController {
   constructor(private readonly departmentsService: DepartmentsService) {}
 
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page(['rosters', 'presence'])
   @Get()
   @ApiOperation({ summary: 'Get member-department mappings for month/year' })
   @ApiQuery({ name: 'year', required: true, type: Number })
@@ -132,6 +140,7 @@ export class MemberDepartmentsController {
   }
 
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('rosters', 'edit')
   @Put()
   @ApiOperation({ summary: 'Assign or clear member department for month/year' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true; cleared?: boolean }> })

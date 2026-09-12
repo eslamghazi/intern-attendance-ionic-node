@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { AnyStaff, Page } from '../../common/decorators/page.decorator.js';
 import { Claims as ClaimsDecorator } from '../../common/decorators/caller.decorator.js';
 import { CatalogService } from './catalog.service.js';
 import { ApiResponse } from '../../common/dto/api-response.dto.js';
@@ -41,6 +42,7 @@ export class CatalogController {
 
   /* Institutions */
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page(['branches', 'groups'])
   @Get('institutions')
   @ApiOperation({ summary: 'Get all institutions' })
   @SwaggerResponse({ status: 200, type: ApiResponse<InstitutionResponseDto[]> })
@@ -50,6 +52,7 @@ export class CatalogController {
   }
 
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('groups', 'create')
   @Post('institutions')
   @ApiOperation({ summary: 'Create an institution' })
   @SwaggerResponse({ status: 201, type: ApiResponse<InstitutionResponseDto> })
@@ -61,6 +64,7 @@ export class CatalogController {
   }
 
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('groups', 'edit')
   @Patch('institutions/:id')
   @ApiOperation({ summary: 'Update an institution' })
   @SwaggerResponse({ status: 200, type: ApiResponse<InstitutionResponseDto> })
@@ -73,6 +77,7 @@ export class CatalogController {
   }
 
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('groups', 'delete')
   @Delete('institutions/:id')
   @ApiOperation({ summary: 'Delete an institution' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -85,6 +90,7 @@ export class CatalogController {
 
   /* Branches */
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('branches')
   @Get('branches')
   @ApiOperation({ summary: 'Get all branches' })
   @SwaggerResponse({ status: 200, type: ApiResponse<BranchResponseDto[]> })
@@ -94,6 +100,7 @@ export class CatalogController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @AnyStaff()
   @Get('branches/options')
   @ApiOperation({ summary: 'Get lightweight branch options for dropdowns' })
   @SwaggerResponse({ status: 200, type: ApiResponse<BranchOptionResponseDto[]> })
@@ -103,6 +110,7 @@ export class CatalogController {
   }
 
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('branches', 'create')
   @Post('branches')
   @ApiOperation({ summary: 'Create a branch with geofence settings' })
   @SwaggerResponse({ status: 201, type: ApiResponse<BranchResponseDto> })
@@ -114,6 +122,7 @@ export class CatalogController {
   }
 
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('branches', 'edit')
   @Patch('branches/:id')
   @ApiOperation({ summary: 'Update a branch' })
   @SwaggerResponse({ status: 200, type: ApiResponse<BranchResponseDto> })
@@ -126,6 +135,7 @@ export class CatalogController {
   }
 
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('branches', 'delete')
   @Delete('branches/:id')
   @ApiOperation({ summary: 'Delete a branch' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -138,6 +148,7 @@ export class CatalogController {
 
   /* Groups */
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('groups')
   @Get('groups')
   @ApiOperation({ summary: 'Get all groups' })
   @SwaggerResponse({ status: 200, type: ApiResponse<GroupResponseDto[]> })
@@ -147,6 +158,7 @@ export class CatalogController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @AnyStaff()
   @Get('groups/options')
   @ApiOperation({ summary: 'Get lightweight group options for dropdowns' })
   @SwaggerResponse({ status: 200, type: ApiResponse<GroupOptionResponseDto[]> })
@@ -156,6 +168,7 @@ export class CatalogController {
   }
 
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('groups', 'create')
   @Post('groups')
   @ApiOperation({ summary: 'Create a group' })
   @SwaggerResponse({ status: 201, type: ApiResponse<GroupResponseDto> })
@@ -167,6 +180,7 @@ export class CatalogController {
   }
 
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('groups', 'edit')
   @Patch('groups/:id')
   @ApiOperation({ summary: 'Update a group' })
   @SwaggerResponse({ status: 200, type: ApiResponse<GroupResponseDto> })
@@ -179,6 +193,7 @@ export class CatalogController {
   }
 
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('groups', 'delete')
   @Delete('groups/:id')
   @ApiOperation({ summary: 'Delete a group' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -191,6 +206,7 @@ export class CatalogController {
 
   /* Shifts */
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @AnyStaff()
   @Get('shifts')
   @ApiOperation({ summary: 'Get all shifts' })
   @SwaggerResponse({ status: 200, type: ApiResponse<ShiftResponseDto[]> })
@@ -200,6 +216,7 @@ export class CatalogController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @AnyStaff()
   @Get('shifts/keys')
   @ApiOperation({ summary: 'Get shift keys list' })
   @SwaggerResponse({ status: 200, type: ApiResponse<ShiftKeyOptionResponseDto[]> })
@@ -209,6 +226,7 @@ export class CatalogController {
   }
 
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('shifts', 'create')
   @Post('shifts')
   @ApiOperation({ summary: 'Create a shift' })
   @SwaggerResponse({ status: 201, type: ApiResponse<ShiftResponseDto> })
@@ -220,6 +238,7 @@ export class CatalogController {
   }
 
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('shifts', 'edit')
   @Patch('shifts/:id')
   @ApiOperation({ summary: 'Update a shift' })
   @SwaggerResponse({ status: 200, type: ApiResponse<ShiftResponseDto> })
@@ -232,6 +251,7 @@ export class CatalogController {
   }
 
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('shifts', 'delete')
   @Delete('shifts/:id')
   @ApiOperation({ summary: 'Delete a shift' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })

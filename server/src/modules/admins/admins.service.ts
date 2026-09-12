@@ -10,6 +10,7 @@ import { AdminsMapper } from './admins.mapper.js';
 
 import type { IAdminsService } from './interfaces/admins.interface.js';
 import type { AdminPatch } from './admins.types.js';
+import type { Caller } from '../../domain/identity/types.js';
 
 @Injectable()
 export class AdminsService extends BaseService<typeof profiles, AdminDto> implements IAdminsService {
@@ -24,9 +25,17 @@ export class AdminsService extends BaseService<typeof profiles, AdminDto> implem
     return AdminsMapper.toDto(entity);
   }
 
-  async getAdmins(): Promise<AdminDto[]> {
+  /**
+   * The staff accounts the caller manages — everyone but themselves.
+   *
+   * A superadmin's own row has nothing to do on this screen: it cannot be
+   * granted pages (a superadmin holds them all), cannot be deleted by its
+   * owner, and its password is changed from the profile, not here. Listing it
+   * only offered ways to lock oneself out.
+   */
+  async getAdmins(caller: Caller): Promise<AdminDto[]> {
     return this.uow.transaction(async () => {
-      const rows = await (this.repo as AdminsRepository).getAdmins();
+      const rows = await (this.repo as AdminsRepository).getAdmins(caller.id);
       return AdminsMapper.toList(rows);
     });
   }

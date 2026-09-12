@@ -35,9 +35,6 @@ export const ROUTES = {
     backup: '/admin/backup',
     profile: '/admin/profile',
   },
-  manager: {
-    qr: '/manager/qr',
-  },
 } as const;
 
 /** Landing route for a given role after login. */
@@ -46,8 +43,6 @@ export function homePathForRole(role: Role | null): string {
     case 'superadmin':
     case 'admin':
       return ROUTES.admin.dashboard;
-    case 'manager':
-      return ROUTES.manager.qr;
     case 'member':
       return ROUTES.member.home;
     default:

@@ -27,7 +27,7 @@ if (process.argv.includes('--prod') && !process.env.API_BASE) {
 if (process.argv.includes('--local')) process.env.E2E_LOCAL = '1';
 const LOCAL = process.env.E2E_LOCAL === '1';
 
-const { BASE, reset, onLocalRestart, waitForHealth } = await import('./harness.mjs');
+const { BASE, SUPERADMIN, reset, onLocalRestart, waitForHealth } = await import('./harness.mjs');
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVER_ROOT = resolve(HERE, '../..');
@@ -102,9 +102,13 @@ if (LOCAL) {
   // no environment to read them from any more. Rather than scrape the console
   // or the credentials file, set a known password now, with the same tool an
   // operator would use. That also exercises it on every run.
+  //
+  // Named, not "the" superadmin: more than one is a legitimate state now (a
+  // superadmin may create another), and a suite that made one and then died
+  // would otherwise leave the tool refusing to guess on the next run.
   const set = spawnSync(
     process.execPath,
-    [join(SERVER_ROOT, 'scripts/superadmin-password.mjs'), '--set', E2E_PASSWORD],
+    [join(SERVER_ROOT, 'scripts/superadmin-password.mjs'), SUPERADMIN.nationalId, '--set', E2E_PASSWORD],
     { cwd: SERVER_ROOT, env: process.env, encoding: 'utf8' },
   );
   if (set.status !== 0) {
@@ -120,7 +124,7 @@ if (LOCAL) {
 // that say nothing about what they test.
 // guards last: it asserts the invariant the other four exercise case by case,
 // so a failure there is most legible once they have all reported.
-const SUITES = ['token', 'auth', 'storage', 'access', 'attendance', 'reports', 'guards'];
+const SUITES = ['token', 'auth', 'permissions', 'storage', 'access', 'attendance', 'reports', 'guards'];
 
 console.log(`\nEnd-to-end against ${BASE}\n${'='.repeat(60)}`);
 

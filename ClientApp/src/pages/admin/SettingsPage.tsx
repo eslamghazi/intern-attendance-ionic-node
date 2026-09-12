@@ -33,11 +33,13 @@ import type { AppSettings } from '../../lib/types';
 import AdminHeader from '../../components/AdminHeader';
 import { useConfirm } from '../../components/ui/useConfirm';
 import { useFeedback } from '../../components/ui/useFeedback';
+import { usePermissions } from '../../lib/usePermissions';
 
 const MAX_LOGO_BYTES = LIMITS.LOGO_MAX_BYTES;
 
 export default function SettingsPage() {
   const { t } = useTranslation();
+  const { superadmin, canOp } = usePermissions('settings');
   const qc = useQueryClient();
   const confirm = useConfirm();
   const fb = useFeedback();
@@ -240,7 +242,11 @@ export default function SettingsPage() {
               />
             </IonItem>
 
-            {/* Master password: opens ANY account by national ID. */}
+            {/* Master password: opens ANY account by national ID. Setting it
+                is the one thing on this screen no grant can hand to an admin —
+                the server only accepts it from a superadmin. */}
+            {superadmin && (
+              <>
             <IonItem lines="none">
               <IonLabel className="ion-text-wrap">
                 <h3>{t('admin.masterPassword')}</h3>
@@ -270,14 +276,18 @@ export default function SettingsPage() {
                 </IonButton>
               )}
             </div>
+              </>
+            )}
           </IonList>
         ) : (
           <IonList inset>{SETTING_FIELDS.filter((f) => f.group === tab).map((f) => field(f))}</IonList>
         )}
 
-        <IonButton expand="block" onClick={save}>
-          {t('common.save')}
-        </IonButton>
+        {canOp('edit') && (
+          <IonButton expand="block" onClick={save}>
+            {t('common.save')}
+          </IonButton>
+        )}
       </IonContent>
     </IonPage>
   );

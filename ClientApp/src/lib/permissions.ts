@@ -3,7 +3,18 @@
 // bypasses everything.
 import type { Role } from './types';
 
-/** Pages a superadmin can grant to an admin. */
+/**
+ * Pages a superadmin can grant to an admin.
+ *
+ * Everything an admin could ever open is here, INCLUDING shifts, departments
+ * and settings, which used to be superadmin-only screens. A superadmin who
+ * wants to hand one of those to a trusted admin now can; one who does not,
+ * simply does not grant it. The only pages that stay out of reach are the two
+ * that govern admins themselves.
+ *
+ * `qr` is a page in its own right: minting a location-bypass QR lets a member
+ * check in from anywhere, so it is granted deliberately, not implied.
+ */
 export const GRANTABLE_PAGES = [
   'dashboard',
   'groups',
@@ -16,10 +27,14 @@ export const GRANTABLE_PAGES = [
   'faceTest',
   'faceImages',
   'memberLookup',
+  'qr',
+  'shifts',
+  'departments',
+  'settings',
 ] as const;
 
-/** Pages only the superadmin ever sees. */
-export const SUPERADMIN_PAGES = ['shifts', 'departments', 'admins', 'settings', 'backup'] as const;
+/** Pages only the superadmin ever sees: who the admins are, and the way back in. */
+export const SUPERADMIN_PAGES = ['admins', 'backup'] as const;
 
 export type GrantablePage = (typeof GRANTABLE_PAGES)[number];
 export type AdminPage = GrantablePage | (typeof SUPERADMIN_PAGES)[number];
@@ -27,8 +42,13 @@ export type AdminPage = GrantablePage | (typeof SUPERADMIN_PAGES)[number];
 export const OPS = ['create', 'edit', 'delete', 'export'] as const;
 export type Op = (typeof OPS)[number];
 
-/** The operations that actually exist on each page — drives both the grant UI
- *  and the checks (e.g. the dashboard only has "export", not "delete"). */
+/**
+ * The operations that actually exist on each page — drives both the grant UI
+ * and the checks (e.g. the dashboard only has "export", not "delete").
+ *
+ * Mirrors PAGE_OPS in server/src/config/constants.ts, where the same table
+ * decides whether a request is honoured; permissions.test.ts compares them.
+ */
 export const PAGE_OPS: Record<GrantablePage, Op[]> = {
   dashboard: ['export'],
   groups: ['create', 'edit', 'delete'],
@@ -39,11 +59,15 @@ export const PAGE_OPS: Record<GrantablePage, Op[]> = {
   // Read-only by nature: the trail is written by the server and nothing may
   // edit or delete a row through the UI.
   audit: ['export'],
-  presence: ['export'],
+  presence: ['create', 'edit', 'delete', 'export'],
   faceTest: [],
-  faceImages: ['export', 'delete'],
   // Read-only: there is nothing to create, edit or delete here.
   memberLookup: [],
+  faceImages: ['export', 'delete'],
+  qr: ['create'],
+  shifts: ['create', 'edit', 'delete'],
+  departments: ['create', 'edit', 'delete'],
+  settings: ['edit'],
 };
 
 export interface Permissions {
@@ -52,10 +76,17 @@ export interface Permissions {
   pageOps?: Partial<Record<AdminPage, Op[]>>; // granted per page; wins over `ops`
 }
 
-/** Default when an admin has no explicit permissions yet — full base access. */
+/**
+ * What an admin has until a superadmin grants something: NOTHING.
+ *
+ * This used to be every grantable page with every operation, which made a
+ * freshly created admin a near-superadmin until somebody remembered to open
+ * the editor. Now a new admin sees an empty menu and the superadmin adds what
+ * they should have — and the server (PermissionsGuard) reads a missing grant
+ * the same way, so this is not a cosmetic default.
+ */
 export const DEFAULT_ADMIN_PERMISSIONS: Permissions = {
-  pages: [...GRANTABLE_PAGES],
-  ops: [...OPS],
+  pages: [],
 };
 
 export interface EffectivePermissions {

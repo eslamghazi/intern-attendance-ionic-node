@@ -228,7 +228,6 @@
   "roles": {
     "superadmin": "مدير عام",
     "admin": "مشرف",
-    "manager": "مدير",
     "member": "عضو"
   },
   "auth": {
@@ -770,9 +769,12 @@
       "check_out": "تسجيل انصراف",
       "master_login": "دخول بكلمة المرور الرئيسية",
       "staff_deleted": "حذف حساب إداري",
+      "member_lookup_out_of_scope": "بحث عن عضو خارج النطاق",
       "outside_window": "خارج نافذة الوردية",
       "checkout_blocked": "انصراف مرفوض",
-      "server_error": "خطأ في الخادم"
+      "server_error": "خطأ في الخادم",
+      "superadmin_backup": "نسخة احتياطية لحسابات المدير العام",
+      "superadmin_restore": "استرجاع حسابات المدير العام"
     }
   },
   "lookup": {

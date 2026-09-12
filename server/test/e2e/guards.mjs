@@ -224,6 +224,9 @@ const NO_SCOPE_NEEDED = new Map([
   ['modules/superadmin/superadmin.service.ts',
     'superadmin accounts are faculty-wide, and every route is superadmin-only; '
     + 'the caller is used for the audit trail and to refuse overwriting yourself'],
+  ['modules/admins/admins.service.ts',
+    'staff accounts are faculty-wide; the caller is used only to leave their '
+    + 'own account out of the list they manage'],
 ]);
 
 const SCOPE_HELPER =

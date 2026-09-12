@@ -10,7 +10,7 @@ import {
   IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Role } from '../../../common/enums/index.js';
+import { Role, STAFF_ROLES } from '../../../common/enums/index.js';
 import { PASSWORD_MIN } from '../../../config/constants.js';
 
 export class LoginDto {
@@ -113,8 +113,12 @@ export class CreateStaffDto {
   @IsOptional()
   password?: string;
 
-  @ApiPropertyOptional({ enum: [Role.ADMIN], default: Role.ADMIN })
-  @IsIn([Role.ADMIN])
+  // A superadmin may create another superadmin. The route is superadmin-only
+  // (see AuthController.createStaff), so this is the ONLY way one comes into
+  // being by hand — an admin cannot promote themselves or anyone else, because
+  // no admin can reach the route at all.
+  @ApiPropertyOptional({ enum: STAFF_ROLES, default: Role.ADMIN })
+  @IsIn([...STAFF_ROLES])
   @IsOptional()
   role?: Role = Role.ADMIN;
 

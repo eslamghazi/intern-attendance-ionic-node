@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { GenericRepository } from '../../infrastructure/database/generic.repository.js';
-import { eq, inArray, asc } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne } from 'drizzle-orm';
 import { profiles, adminAssignments, groups, branches } from '../../infrastructure/database/schema/index.js';
 import { STAFF_ROLES } from '../../common/enums/index.js';
 
@@ -12,7 +12,8 @@ export class AdminsRepository extends GenericRepository<typeof profiles> impleme
   constructor() {
     super(profiles, profiles.id);
   }
-  async getAdmins() {
+  /** Every staff account except the one asking. */
+  async getAdmins(exceptId: string) {
     return this.db
       .select({
         id: profiles.id,
@@ -23,7 +24,7 @@ export class AdminsRepository extends GenericRepository<typeof profiles> impleme
         permissions: profiles.permissions,
       })
       .from(profiles)
-      .where(inArray(profiles.role, STAFF_ROLES))
+      .where(and(inArray(profiles.role, STAFF_ROLES), ne(profiles.id, exceptId)))
       .orderBy(asc(profiles.fullName), asc(profiles.id));
   }
 

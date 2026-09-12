@@ -37,6 +37,7 @@ import SearchBox from '../../components/admin/SearchBox';
 import type { SearchField } from '../../lib/api/members';
 import { qk } from '../../lib/api/keys';
 import { useServerToday } from '../../lib/useServerToday';
+import { usePermissions } from '../../lib/usePermissions';
 import { formatTime } from '../../lib/date';
 
 /** The calendar day before `d` (yyyy-mm-dd) — overnight shifts started yesterday. */
@@ -53,6 +54,7 @@ const prevDate = (d: string) => {
  */
 export default function LivePresencePage() {
   const { t } = useTranslation();
+  const { canOp } = usePermissions('presence');
   const today = useServerToday();
   const yesterday = useMemo(() => prevDate(today), [today]);
   const [year, month] = today.split('-').map(Number);
@@ -194,9 +196,11 @@ export default function LivePresencePage() {
   return (
     <IonPage>
       <AdminHeader title={t('nav.presence')}>
-        <IonButton onClick={promptCreate} title={t('presence.spotTitle')}>
-          <IonIcon slot="icon-only" icon={handRightOutline} />
-        </IonButton>
+        {canOp('create') && (
+          <IonButton onClick={promptCreate} title={t('presence.spotTitle')}>
+            <IonIcon slot="icon-only" icon={handRightOutline} />
+          </IonButton>
+        )}
         <IonButton onClick={() => refetch()} title={t('common.refresh')}>
           {isRefetching ? <IonSpinner name="crescent" /> : <IonIcon slot="icon-only" icon={refreshOutline} />}
         </IonButton>
@@ -292,7 +296,7 @@ export default function LivePresencePage() {
                         <IonBadge slot="end" color="success">
                           {t('presence.spotAllConfirmed')}
                         </IonBadge>
-                      ) : c.past_deadline ? (
+                      ) : c.past_deadline && canOp('edit') ? (
                         <IonButton slot="end" size="small" color="warning" onClick={() => promptResolve(c.id, pendingCount)}>
                           {t('presence.resolveBtn')}
                         </IonButton>
@@ -301,16 +305,18 @@ export default function LivePresencePage() {
                           {t('presence.spotWaiting')}
                         </IonBadge>
                       )}
-                      <IonButton
-                        slot="end"
-                        size="small"
-                        fill="clear"
-                        color="danger"
-                        onClick={() => promptDelete(c.id)}
-                        title={t('common.delete')}
-                      >
-                        <IonIcon slot="icon-only" icon={trashOutline} />
-                      </IonButton>
+                      {canOp('delete') && (
+                        <IonButton
+                          slot="end"
+                          size="small"
+                          fill="clear"
+                          color="danger"
+                          onClick={() => promptDelete(c.id)}
+                          title={t('common.delete')}
+                        >
+                          <IonIcon slot="icon-only" icon={trashOutline} />
+                        </IonButton>
+                      )}
                     </IonItem>
                     {/* Not yet confirmed — the admin can confirm each in person. */}
                     {c.pending.map((p) => (
@@ -318,9 +324,11 @@ export default function LivePresencePage() {
                         <IonLabel className="ion-text-wrap" style={{ paddingInlineStart: 20 }}>
                           {p.full_name || p.member_id}
                         </IonLabel>
-                        <IonButton slot="end" size="small" fill="outline" onClick={() => confirmMember(c.id, p.member_id)}>
-                          {t('presence.manualConfirm')}
-                        </IonButton>
+                        {canOp('edit') && (
+                          <IonButton slot="end" size="small" fill="outline" onClick={() => confirmMember(c.id, p.member_id)}>
+                            {t('presence.manualConfirm')}
+                          </IonButton>
+                        )}
                       </IonItem>
                     ))}
                   </div>

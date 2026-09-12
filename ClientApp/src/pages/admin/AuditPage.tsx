@@ -150,26 +150,33 @@ export default function AuditPage() {
         </IonNote>
 
         <IonList inset>
+          {/* The modern label props, like every other form in the app: the
+              legacy <IonLabel position="stacked"> beside a bare IonSelect
+              rendered the picker as an outlined box out of step with the
+              inputs above it. */}
           <IonItem>
-            <IonLabel position="stacked">{t('audit.from')}</IonLabel>
             <IonInput
               type="date"
+              label={t('audit.from')}
+              labelPlacement="stacked"
               value={range.from}
               onIonChange={(e) => resetTo(setRange)({ ...range, from: e.detail.value ?? '' })}
             />
           </IonItem>
           <IonItem>
-            <IonLabel position="stacked">{t('audit.to')}</IonLabel>
             <IonInput
               type="date"
+              label={t('audit.to')}
+              labelPlacement="stacked"
               value={range.to}
               onIonChange={(e) => resetTo(setRange)({ ...range, to: e.detail.value ?? '' })}
             />
           </IonItem>
           <IonItem>
-            <IonLabel position="stacked">{t('audit.event')}</IonLabel>
             <IonSelect
               multiple
+              label={t('audit.event')}
+              labelPlacement="stacked"
               value={events}
               placeholder={t('audit.allEvents')}
               disabled={securityOnly}

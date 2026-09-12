@@ -1,6 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Page } from '../../common/decorators/page.decorator.js';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
 import { ApiError, badRequest } from '../../common/errors.js';
@@ -67,6 +68,7 @@ export class AttendanceController {
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
+  @Page('review', 'edit')
   @Post('set')
   @ApiOperation({ summary: 'Manually record or override member attendance (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<SetAttendanceResponseDto> })

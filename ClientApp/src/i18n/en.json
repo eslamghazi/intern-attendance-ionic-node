@@ -228,7 +228,6 @@
   "roles": {
     "superadmin": "Super Admin",
     "admin": "Admin",
-    "manager": "Manager",
     "member": "Member"
   },
   "auth": {
@@ -770,9 +769,12 @@
       "check_out": "Check-out",
       "master_login": "Master-password sign-in",
       "staff_deleted": "Staff account deleted",
+      "member_lookup_out_of_scope": "Member looked up outside scope",
       "outside_window": "Outside shift window",
       "checkout_blocked": "Check-out blocked",
-      "server_error": "Server error"
+      "server_error": "Server error",
+      "superadmin_backup": "Superadmin accounts backed up",
+      "superadmin_restore": "Superadmin accounts restored"
     }
   },
   "lookup": {

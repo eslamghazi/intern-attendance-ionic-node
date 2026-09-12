@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post
 import type { FastifyReply } from 'fastify';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { AnyStaff, Page } from '../../common/decorators/page.decorator.js';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
 import { MembersService } from './members.service.js';
@@ -43,6 +44,7 @@ export class MembersController {
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
+  @Page('members', 'create')
   @Post()
   @ApiOperation({ summary: 'Create member or batch of members' })
   @SwaggerResponse({ status: 201, type: ApiResponse<CreateMemberResultDto> })
@@ -55,6 +57,7 @@ export class MembersController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('members')
   @Get('national-ids')
   @ApiOperation({ summary: 'Get list of existing member national IDs' })
   @SwaggerResponse({ status: 200, type: ApiResponse<string[]> })
@@ -66,6 +69,7 @@ export class MembersController {
   // STAFF ONLY. This returns the directory — every member's name, national id,
   // phone and email — so it is the single most sensitive read in the module.
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('members')
   @Get()
   @ApiOperation({ summary: 'List members with optional filters (Admin only)' })
   @SwaggerResponse({ status: 200, type: PaginatedResponse<MemberDirectoryRowDto> })
@@ -79,6 +83,7 @@ export class MembersController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('members')
   @Get('page')
   @ApiOperation({ summary: 'Paginated members list (Admin only)' })
   @SwaggerResponse({ status: 200, type: PaginatedResponse<MemberPageItemDto> })
@@ -113,6 +118,7 @@ export class MembersController {
    * row whenever the member is outside the caller's own branches.
    */
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('memberLookup')
   @Get('lookup')
   @ApiOperation({ summary: 'Find one member by code or national id, faculty-wide (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<LookupResult> })
@@ -127,6 +133,7 @@ export class MembersController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('members', 'export')
   @Get('export')
   @ApiOperation({ summary: 'Export the filtered members as .xlsx (Admin only)' })
   async exportMembers(
@@ -168,6 +175,7 @@ export class MembersController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('members')
   @Get('flag-stats')
   @ApiOperation({ summary: 'Get summary statistics of flagged members (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<FlagStatsResponseDto> })
@@ -179,6 +187,7 @@ export class MembersController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @AnyStaff()
   @Get('count-active')
   @ApiOperation({ summary: 'Count active members (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ count: number }> })
@@ -199,6 +208,7 @@ export class MembersController {
    * free profile-id-to-member-id oracle for the whole faculty.
    */
   @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
+  @AnyStaff()
   @Get('by-profile/:profileId')
   @ApiOperation({ summary: 'Get member details by profile ID (own, or staff)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<MemberByProfileDto> })
@@ -221,6 +231,7 @@ export class MembersController {
   // off the face biometric and the geofence for themselves, which is the entire
   // point of the system.
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('members', 'edit')
   @Patch(':id')
   @ApiOperation({ summary: 'Update a member profile and attendance rules (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -233,6 +244,7 @@ export class MembersController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('members', 'delete')
   @Delete('by-profile/:profileId')
   @ApiOperation({ summary: 'Delete a member by profile ID' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -246,6 +258,7 @@ export class MembersController {
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
+  @Page('members', 'edit')
   @Post('bulk/flag')
   @ApiOperation({ summary: 'Bulk update a boolean flag across members' })
   @SwaggerResponse({ status: 200, type: ApiResponse<BulkAffectedResponseDto> })
@@ -259,6 +272,7 @@ export class MembersController {
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
+  @Page('members', 'edit')
   @Post('bulk/frozen')
   @ApiOperation({ summary: 'Bulk update frozen date across members' })
   @SwaggerResponse({ status: 200, type: ApiResponse<BulkAffectedResponseDto> })
@@ -272,6 +286,7 @@ export class MembersController {
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
+  @Page('members', 'edit')
   @Post('bulk/update')
   @ApiOperation({ summary: 'Bulk update members assignments or active status' })
   @SwaggerResponse({ status: 200, type: ApiResponse<BulkAffectedResponseDto> })
@@ -289,6 +304,7 @@ export class MembersController {
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
+  @Page('members', 'delete')
   @Post('bulk/delete')
   @ApiOperation({ summary: 'Bulk delete members matching filter criteria' })
   @SwaggerResponse({ status: 200, type: ApiResponse<BulkAffectedResponseDto> })

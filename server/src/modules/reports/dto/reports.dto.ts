@@ -12,6 +12,7 @@ import {
   Max,
   IsArray,
   Matches,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { MemberFilterQueryDto } from '../../members/dto/member.dto.js';
@@ -212,6 +213,17 @@ export class GetDashboardExportQueryDto extends GetStatsQueryDto {
   @IsOptional()
   @IsIn(['xlsx', 'pdf'])
   format?: 'xlsx' | 'pdf';
+
+  /**
+   * The chart panels the screen is showing, comma-separated, in the order
+   * shown — `donut,trendBar,branch`. Unknown names are ignored rather than
+   * rejected, so an older app talking to a newer API still gets its file.
+   */
+  @ApiPropertyOptional({ description: 'Chart panels to draw, comma-separated', example: 'donut,trendBar' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  charts?: string;
 }
 
 export class GetProbesDto {

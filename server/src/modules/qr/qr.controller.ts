@@ -1,6 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Page } from '../../common/decorators/page.decorator.js';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
 import { badRequest } from '../../common/errors.js';
@@ -17,6 +18,7 @@ export class QrController {
   constructor(private readonly qrService: QrService) {}
 
   @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
+  @Page('qr', 'create')
   @Post()
   @ApiOperation({ summary: 'Mint a new time-limited QR token' })
   @SwaggerResponse({ status: 201, type: ApiResponse<MintQrResponseDto> })

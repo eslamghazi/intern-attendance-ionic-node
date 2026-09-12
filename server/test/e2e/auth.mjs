@@ -6,6 +6,7 @@ import {
   SUPERADMIN,
   call,
   check,
+  grantAll,
   login,
   psql,
   report,
@@ -46,6 +47,8 @@ const made = await call('POST', '/auth/staff', {
 check('create admin', made.status, 201);
 const adminId = made.body?.id;
 const adminPw = made.body?.password;
+// Resetting a member's password needs the members page; grant it all.
+check('  granted every page', (await grantAll(suToken, adminId, 'Test Admin', ADMIN_NID)).status, 200);
 console.log(`       default password derived from the national id: ${adminPw}`);
 
 const a1 = await login(ADMIN_NID, adminPw);

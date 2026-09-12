@@ -8,9 +8,7 @@ export interface AdminProfile {
   full_name: string;
   national_id: string;
   phone: string | null;
-  /** 'manager' is carried only because the UI still branches on it; the
-   *  public.role enum has no such value, so it never actually comes back. */
-  role: 'admin' | 'manager' | 'superadmin';
+  role: 'admin' | 'superadmin';
   permissions: Permissions | null;
 }
 

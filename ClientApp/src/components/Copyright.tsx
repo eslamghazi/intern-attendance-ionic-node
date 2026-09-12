@@ -10,7 +10,7 @@ export default function Copyright() {
     <div className="app-copyright">
       <img src={CALAIX.logo} alt={CALAIX.name} className="app-copyright__logo" />
       <span className="ltr-nums">
-        © {year} {CALAIX.name} · {t('common.rightsReserved')}
+        © {year} {CALAIX.name} · {CALAIX.author} · {t('common.rightsReserved')}
       </span>
     </div>
   );

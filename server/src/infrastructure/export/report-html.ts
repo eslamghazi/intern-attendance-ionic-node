@@ -5,6 +5,8 @@ import {
 } from '../../config/constants.js';
 import type { ReportTable } from './workbook.js';
 import type { ReportDocument } from './export.types.js';
+import { copyrightLine } from './copyright.js';
+import { renderChartsSvg } from './charts-svg.js';
 export type { ReportDocument } from './export.types.js';
 
 /**
@@ -91,6 +93,18 @@ export function buildReportHtml(doc: ReportDocument): string {
   thead { display: table-header-group; }
   tr { break-inside: avoid; }
   .foot { margin-top: 10px; font-size: 8pt; color: ${P.muted}; text-align: center; }
+  /* Charts: two to a row where the page allows, each kept whole on a page.
+     The SVG's text inherits the document's font and direction, which is what
+     shapes the Arabic in a legend the same way as in the table. */
+  /* Two columns. A chart with an axis or a row of labels takes both — at half
+     width its text shrinks past legibility — and only the compact forms (a
+     donut, a gauge) share a row. */
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin: 0 0 14px; }
+  .chart { grid-column: 1 / -1; margin: 0; padding: 8px 6px 4px; border: 1px solid ${P.hairline}; border-radius: 8px; break-inside: avoid; }
+  .chart--half { grid-column: auto; }
+  .chart figcaption { font-size: 10pt; font-weight: 700; color: ${P.accentDark}; margin: 0 4px 6px; text-align: ${align}; }
+  .chart svg { display: block; font-family: inherit; }
+  .chart svg text { font-family: inherit; }
   @media print { .hint { display: none; } }
   .hint {
     margin: 12px 0; padding: 8px 10px; border-radius: 6px;
@@ -111,12 +125,15 @@ export function buildReportHtml(doc: ReportDocument): string {
       : 'Choose “Save as PDF” in the print dialog.'
   }</div>
 
+  ${renderChartsSvg(doc.charts, rtl)}
+
   <table>
     <thead><tr>${head}</tr></thead>
     <tbody>${body}</tbody>
   </table>
 
   <div class="foot">${esc(doc.generatedAt ?? '')}</div>
+  <div class="foot">${esc(copyrightLine(rtl))}</div>
 
   <script>
     // Wait for the webfonts before printing: printing first lays the table out

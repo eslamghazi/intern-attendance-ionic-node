@@ -3,6 +3,7 @@ import type { FastifyReply } from 'fastify';
 import { Public } from '../../common/decorators/public.decorator.js';
 
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { AnyStaff, Page } from '../../common/decorators/page.decorator.js';
 import { Caller as CallerDecorator, Claims as ClaimsDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
 import type { JwtClaims } from '../../infrastructure/database/context.js';
@@ -30,6 +31,7 @@ export class StorageController {
   ) {}
 
   @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
+  @AnyStaff()
   @Post(':kind')
   async uploadObject(
     @CallerDecorator() caller: Caller | null,
@@ -129,6 +131,7 @@ export class StorageController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('faceImages', 'delete')
   @Delete(':kind')
   async deleteObjects(
     @Param('kind') kindRaw: string,

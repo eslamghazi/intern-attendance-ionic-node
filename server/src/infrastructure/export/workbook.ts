@@ -6,7 +6,10 @@ import {
   SHEET_NAME_MAX,
   XLSX_CONTENT_TYPE,
 } from '../../config/constants.js';
-import type { ReportTable } from './export.types.js';
+import type { ReportDocument, ReportTable } from './export.types.js';
+import { copyrightLine } from './copyright.js';
+import { addChartsSheet } from './charts-sheet.js';
+import { reportLabel } from './labels.js';
 export type { ReportTable } from './export.types.js';
 
 /**
@@ -57,7 +60,7 @@ function sheetName(title: string): string {
   return title.replace(SHEET_NAME_ILLEGAL, ' ').trim().slice(0, SHEET_NAME_MAX) || 'Report';
 }
 
-export async function buildWorkbook(table: ReportTable): Promise<Buffer> {
+export async function buildWorkbook(table: ReportDocument): Promise<Buffer> {
   const rtl = table.rtl ?? true;
   const brandName = table.brandName?.trim();
   const cols = Math.max(table.headers.length, 1);
@@ -120,13 +123,16 @@ export async function buildWorkbook(table: ReportTable): Promise<Buffer> {
     c.width = i === 0 ? 26 : 14;
   });
 
-  // Footer, one blank row below the table.
+  // Footer, one blank row below the table: whose work this is.
   const footerRow = ws.rowCount + 2;
   ws.mergeCells(footerRow, 1, footerRow, cols);
   const footer = ws.getCell(footerRow, 1);
-  footer.value = `${new Date().getFullYear()}`;
+  footer.value = copyrightLine(rtl);
   footer.font = { name: fontName, size: 9, color: { argb: ARGB.muted }, italic: true };
   footer.alignment = { horizontal: 'center' };
+
+  // The charts, when the report has any, on a sheet after the table.
+  addChartsSheet(wb, table.charts, { name: reportLabel(rtl, 'charts'), rtl, font: fontName });
 
   // exceljs types this as its own ArrayBuffer alias; Buffer.from copies it once.
   return Buffer.from(await wb.xlsx.writeBuffer());

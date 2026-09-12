@@ -165,6 +165,16 @@ export const REPORT_PALETTE = {
 } as const;
 
 /**
+ * Whose work this is. Printed on every exported file and on every screen's
+ * footer — mirrors CALAIX in ClientApp/src/lib/config.ts.
+ */
+export const COPYRIGHT = {
+  holder: 'Calaix AI',
+  author: 'Eslam Ghazi',
+  url: 'https://calaixai.com',
+} as const;
+
+/**
  * Cell backgrounds per attendance status, matching the badges on screen.
  *
  * The MARK beside each is what makes a printed or colour-blind-safe copy still
@@ -178,6 +188,27 @@ export const STATUS_STYLE = {
   absent: { fill: '#fee2e2', mark: '✗' },
   left_work: { fill: '#f3e8ff', mark: '⇥' },
   pending: { fill: '#dbeafe', mark: '·' },
+} as const;
+
+/**
+ * The colours the exported charts draw with — the SAME ones the dashboard's
+ * own charts use (STATUS_COLOR.solid and the per-series accents in
+ * ClientApp/src/lib/colors.ts), so a chart in the file looks like the panel
+ * it was exported from.
+ *
+ * The four status hues validate as a categorical set (adjacent-pair CVD
+ * separation in the 7–18 band) on condition of a second encoding, which every
+ * chart supplies: the status glyph and the value ride beside each legend entry,
+ * and touching fills are separated by a surface gap.
+ */
+export const CHART_COLORS = {
+  present: '#16a34a',
+  late: '#f59e0b',
+  absent: '#dc2626',
+  pending: '#2563eb',
+  branch: '#0d9488',
+  group: '#6366f1',
+  shift: '#0891b2',
 } as const;
 
 /**
@@ -343,12 +374,20 @@ export const MEMBER_FIELDS = Object.keys(MEMBER_COLUMN) as (keyof typeof MEMBER_
 // ---------------------------------------------------------------------------
 
 /**
- * Every page a superadmin can grant, then the four only a superadmin ever sees.
+ * Every page a superadmin can grant, then the two only a superadmin ever sees.
  *
  * These are the client's route names, which is why the list lives in both
  * projects — but the server is where a grant is stored, so it is the server that
  * decides which names are real. Anything else is rejected at the door instead of
  * being written into a jsonb column and never matching a page again.
+ *
+ * The ORDER matters to one thing: ClientApp/src/lib/permissions.test.ts
+ * compares `[...GRANTABLE_PAGES, ...SUPERADMIN_PAGES]` to this list verbatim,
+ * so the grantable pages come first here and `admins`/`backup` last.
+ *
+ * `qr` is a page in its own right: minting a location-bypass QR lets a member
+ * check in from anywhere, which is not something every admin should be able to
+ * hand out.
  */
 export const ADMIN_PAGES = [
   'dashboard',
@@ -362,12 +401,44 @@ export const ADMIN_PAGES = [
   'faceTest',
   'faceImages',
   'memberLookup',
+  'qr',
   'shifts',
   'departments',
-  'admins',
   'settings',
+  'admins',
   'backup',
 ] as const;
 
 /** What a grant may allow on a page. Reading is implied by having the page. */
 export const ADMIN_OPS = ['create', 'edit', 'delete', 'export'] as const;
+
+/**
+ * The operations that actually exist on each page.
+ *
+ * This is what a grant can be checked against on the server (PermissionsGuard)
+ * and what the grant editor offers on the client — so a page that only ever
+ * exports does not carry a "delete" chip that does nothing, and a route cannot
+ * ask for an operation its page does not have.
+ *
+ * One entry per line, `page: [...]`, because the client's test parses this
+ * block out of the source to prove both ends agree.
+ */
+export const PAGE_OPS = {
+  dashboard: ['export'],
+  groups: ['create', 'edit', 'delete'],
+  branches: ['create', 'edit', 'delete'],
+  members: ['create', 'edit', 'delete', 'export'],
+  rosters: ['edit', 'export'],
+  review: ['edit', 'export'],
+  audit: ['export'],
+  presence: ['create', 'edit', 'delete', 'export'],
+  faceTest: [],
+  memberLookup: [],
+  faceImages: ['export', 'delete'],
+  qr: ['create'],
+  shifts: ['create', 'edit', 'delete'],
+  departments: ['create', 'edit', 'delete'],
+  settings: ['edit'],
+  admins: ['create', 'edit', 'delete'],
+  backup: ['export', 'create'],
+} as const satisfies Record<(typeof ADMIN_PAGES)[number], readonly (typeof ADMIN_OPS)[number][]>;

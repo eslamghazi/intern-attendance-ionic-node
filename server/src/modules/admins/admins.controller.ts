@@ -9,7 +9,12 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
-import { Claims as ClaimsDecorator } from '../../common/decorators/caller.decorator.js';
+import { Page } from '../../common/decorators/page.decorator.js';
+import {
+  Caller as CallerDecorator,
+  Claims as ClaimsDecorator,
+} from '../../common/decorators/caller.decorator.js';
+import type { Caller } from '../../domain/identity/types.js';
 import { AdminsService } from './admins.service.js';
 import { ApiResponse } from '../../common/dto/api-response.dto.js';
 import {
@@ -27,15 +32,17 @@ export class AdminsController {
   constructor(private readonly adminsService: AdminsService) {}
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('admins')
   @Get()
-  @ApiOperation({ summary: 'Get all admins (Admin only)' })
+  @ApiOperation({ summary: 'Get every staff account but the caller (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<AdminDto[]> })
-  async getAdmins(): Promise<ApiResponse<AdminDto[]>> {
-    const data = await this.adminsService.getAdmins();
+  async getAdmins(@CallerDecorator() caller: Caller): Promise<ApiResponse<AdminDto[]>> {
+    const data = await this.adminsService.getAdmins(caller);
     return new ApiResponse(data);
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('admins')
   @Get('assignments')
   @ApiOperation({ summary: 'Get all admin branch/group assignments (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<AdminAssignmentResponseDto[]> })

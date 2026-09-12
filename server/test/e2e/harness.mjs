@@ -186,6 +186,31 @@ export const login = (nationalId, password) =>
 export const loginSuper = () => login(SUPERADMIN.nationalId, SUPERADMIN.password);
 
 /**
+ * Every page a superadmin can grant, with every operation.
+ *
+ * A freshly created admin holds NOTHING — PermissionsGuard refuses them every
+ * staff route until a superadmin grants pages. The suites that test scoping
+ * BY ASSIGNMENT (branch A vs branch B) need their admins past that gate, so
+ * they grant everything here and let the assignment do the narrowing. Kept in
+ * step with ADMIN_PAGES minus the two superadmin-only pages.
+ */
+export const ALL_GRANTABLE_PAGES = [
+  'dashboard', 'groups', 'branches', 'members', 'rosters', 'review', 'audit',
+  'presence', 'faceTest', 'faceImages', 'memberLookup', 'qr', 'shifts',
+  'departments', 'settings',
+];
+
+export const grantAll = (suToken, adminId, full_name, national_id) =>
+  call('PATCH', `/admins/${adminId}`, {
+    token: suToken,
+    body: {
+      full_name,
+      national_id,
+      permissions: { pages: ALL_GRANTABLE_PAGES, ops: ['create', 'edit', 'delete', 'export'] },
+    },
+  });
+
+/**
  * Run one statement against the database.
  *
  * Collapsed to a single line: the query is passed as one `-c` argument and a

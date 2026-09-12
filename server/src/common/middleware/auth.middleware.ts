@@ -4,6 +4,7 @@ import { UnitOfWorkService } from '../../infrastructure/database/unit-of-work.se
 import * as schema from '../../infrastructure/database/schema/index.js';
 import { bearerToken, verifyToken } from '../auth/jwt.js';
 import { Role } from '../enums/index.js';
+import type { Caller } from '../../domain/identity/types.js';
 
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {
@@ -31,7 +32,15 @@ export class AuthMiddleware implements NestMiddleware {
     try {
       const profile = await this.uow.transaction(async (tx) => {
         const rows = await tx
-          .select({ role: schema.profiles.role, isActive: schema.profiles.isActive })
+          .select({
+            role: schema.profiles.role,
+            isActive: schema.profiles.isActive,
+            // The grant rides along on the lookup this middleware already
+            // makes, so PermissionsGuard costs no query of its own — and it
+            // is read fresh on every request, so taking a page away from an
+            // admin takes effect on their next click, not their next sign-in.
+            permissions: schema.profiles.permissions,
+          })
           .from(schema.profiles)
           .where(eq(schema.profiles.id, claims.sub))
           .limit(1);
@@ -39,10 +48,15 @@ export class AuthMiddleware implements NestMiddleware {
       });
 
       if (profile && profile.isActive !== false) {
-        const caller = {
+        const role = profile.role as Role;
+        const caller: Caller = {
           id: claims.sub,
-          role: profile.role as Role,
+          role,
           nationalId: claims.national_id,
+          // Only an admin has a grant to carry. A superadmin's column is
+          // whatever a superadmin once was before promotion; ignoring it here
+          // is what keeps "superadmin passes everything" true.
+          ...(role === Role.ADMIN ? { permissions: profile.permissions ?? null } : {}),
         };
         const claimsWithRole = { ...claims, user_role: profile.role as Role };
 

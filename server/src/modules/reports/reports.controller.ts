@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query, Res } from '@
 import type { FastifyReply } from 'fastify';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { AnyStaff, Page } from '../../common/decorators/page.decorator.js';
 import { Caller as CallerDecorator, Claims as ClaimsDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
 import { badRequest } from '../../common/errors.js';
@@ -40,6 +41,8 @@ import { I18nService } from '../../common/i18n/i18n.service.js';
 import { CatalogService } from '../catalog/catalog.service.js';
 import { parseFormat, sendReport } from '../../infrastructure/export/render.js';
 import { legendRows } from '../../infrastructure/export/legend.js';
+import type { ReportDocument } from '../../infrastructure/export/export.types.js';
+import { dashboardCharts, parsePanels } from '../../domain/report/dashboardCharts.js';
 import { ATTENDANCE_OUTCOME, OUTCOME_LEGEND_ORDER } from '../../config/constants.js';
 import { cairoClock } from '../../domain/clock.js';
 import {
@@ -62,6 +65,7 @@ export class ReportsController {
   ) {}
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('presence')
   @Get('present')
   @ApiOperation({ summary: 'Get currently present members for given dates' })
   @SwaggerResponse({ status: 200, type: ApiResponse<PresentMemberRowDto[]> })
@@ -77,6 +81,7 @@ export class ReportsController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('review')
   @Get('review')
   @ApiOperation({ summary: 'Get daily review attendance data for branch/date' })
   @SwaggerResponse({ status: 200, type: ApiResponse<ReviewAttendanceItemDto[]> })
@@ -91,6 +96,7 @@ export class ReportsController {
   }
 
   @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
+  @Page('review')
   @Get('detail')
   @ApiOperation({ summary: 'Get detailed attendance record for member/date' })
   @SwaggerResponse({ status: 200, type: ApiResponse<DetailAttendanceItemDto | null> })
@@ -105,6 +111,7 @@ export class ReportsController {
   }
 
   @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
+  @AnyStaff()
   @Get('history')
   @ApiOperation({ summary: 'Get monthly attendance history for a member' })
   @SwaggerResponse({ status: 200, type: ApiResponse<AttendanceHistoryEntryDto[]> })
@@ -130,6 +137,7 @@ export class ReportsController {
    * through their assignments, exactly as the screen behind it does.
    */
   @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
+  @AnyStaff()
   @Get('history/export')
   @ApiOperation({ summary: "Export a member's monthly attendance history" })
   async exportHistory(
@@ -195,6 +203,7 @@ export class ReportsController {
   }
 
   @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
+  @AnyStaff()
   @Get('day')
   @ApiOperation({ summary: 'Get member attendance status for a single day' })
   @SwaggerResponse({ status: 200, type: ApiResponse<DayAttendanceResultDto> })
@@ -209,6 +218,7 @@ export class ReportsController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('rosters')
   @Get('daily-roster')
   @ApiOperation({ summary: 'Get scheduled members roster for a given day' })
   @SwaggerResponse({ status: 200, type: ApiResponse<DailyRosterItemDto[]> })
@@ -231,6 +241,7 @@ export class ReportsController {
    * about what a mixed day means.
    */
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('review', 'export')
   @Get('monthly/export')
   @ApiOperation({ summary: 'Export the monthly attendance matrix as .xlsx (Admin only)' })
   async exportMonthly(
@@ -290,6 +301,7 @@ export class ReportsController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('review')
   @Get('monthly')
   @ApiOperation({ summary: 'Get monthly attendance grid with pagination' })
   @SwaggerResponse({ status: 200, type: PaginatedResponse<MonthlyAttendanceRowDto> })
@@ -305,6 +317,7 @@ export class ReportsController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('review')
   @Get('report')
   @ApiOperation({ summary: 'Generate attendance report across date range' })
   @SwaggerResponse({ status: 200, type: ApiResponse<ReportRowDto[]> })
@@ -319,6 +332,7 @@ export class ReportsController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('dashboard')
   @Get('today')
   @ApiOperation({ summary: 'Get today summary of attendance' })
   @SwaggerResponse({ status: 200, type: ApiResponse<TodaySummaryDto[]> })
@@ -340,13 +354,18 @@ export class ReportsController {
    * through CatalogService for the same reason — its option lists take a caller
    * and are already narrowed.
    *
-   * NO CHARTS. The screen's charts are canvases, and a picture of one exists
-   * only in the browser that drew it; the numbers behind every chart are in the
-   * table below. This used to be assembled in the page, which is why the export
-   * and the admin grids disagreed about formatting and why the client carried a
+   * THE CHARTS TRAVEL. The screen sends the panels it is showing (`charts=`),
+   * and the same scoped stats are drawn again here — as SVG in the print
+   * document, as cell-drawn bars in the workbook — so the file holds what the
+   * reader was looking at, not a screenshot of it. See domain/report/
+   * dashboardCharts.ts for how each panel maps onto a printable form.
+   *
+   * This used to be assembled in the page, which is why the export and the
+   * admin grids disagreed about formatting and why the client carried a
    * spreadsheet writer of its own.
    */
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('dashboard', 'export')
   @Get('dashboard/export')
   @ApiOperation({ summary: 'Export the dashboard summary (Admin only)' })
   async exportDashboard(
@@ -439,18 +458,35 @@ export class ReportsController {
       }
     }
 
-    const doc = {
+    // Seven short weekday names, Sunday first, for the calendar heat-map.
+    const weekdayNames = new Intl.DateTimeFormat(lang === 'ar' ? 'ar-EG' : 'en', { weekday: 'narrow' });
+    const weekdays = Array.from({ length: 7 }, (_, i) => weekdayNames.format(new Date(Date.UTC(2023, 0, 1 + i))));
+
+    const charts = dashboardCharts(parsePanels(query.charts), {
+      stats,
+      branches,
+      groups,
+      shifts,
+      year: query.year,
+      month: query.month,
+      weekdays,
+      t,
+    });
+
+    const doc: ReportDocument = {
       title: `${t('dashboard')} ${period}`,
       rtl: lang === 'ar',
       generatedAt: `${t('generated_at')}: ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
       headers: [t('metric'), t('value')],
       rows,
+      charts,
     };
 
     await sendReport(reply, parseFormat(query.format), doc, `dashboard-${period}`);
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('dashboard')
   @Get('stats')
   @ApiOperation({ summary: 'Get attendance statistical metrics' })
   @SwaggerResponse({ status: 200, type: ApiResponse<StatsSummaryDto> })
@@ -466,6 +502,7 @@ export class ReportsController {
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
+  @Page('faceImages')
   @Post('probes')
   @ApiOperation({ summary: 'Get attendance face verification probes for members' })
   @SwaggerResponse({ status: 200, type: ApiResponse<ProbeItemDto[]> })
@@ -479,6 +516,7 @@ export class ReportsController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('faceImages')
   @Get('probe-paths')
   @ApiOperation({ summary: 'Get list of all probe paths (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<string[]> })

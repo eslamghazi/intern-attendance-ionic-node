@@ -36,6 +36,7 @@ import ServerClock from '../../components/ServerClock';
 import Copyright from '../../components/Copyright';
 import ThemeToggle from '../../components/ThemeToggle';
 import LanguageToggle from '../../components/LanguageToggle';
+import { usePermissions } from '../../lib/usePermissions';
 
 /** QR image wrapped by a circular countdown ring that depletes as the current
  *  token nears expiry. */
@@ -86,6 +87,7 @@ function QrRing({ url, secondsLeft, total }: { url: string; secondsLeft: number;
 
 export default function QRPage() {
   const { t } = useTranslation();
+  const { canOp } = usePermissions('qr');
   const { profile } = useAuth();
   const confirmSignOut = useConfirmSignOut();
   const [present] = useIonToast();
@@ -241,7 +243,7 @@ export default function QRPage() {
           </div>
 
           {!active ? (
-            <IonButton expand="block" onClick={start}>
+            <IonButton expand="block" onClick={start} disabled={!canOp('create')}>
               <IonIcon slot="start" icon={qrCodeOutline} />
               {t('manager.generate')}
             </IonButton>

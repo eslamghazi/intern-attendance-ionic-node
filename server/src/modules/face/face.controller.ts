@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Put } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Page } from '../../common/decorators/page.decorator.js';
 import { Caller as CallerDecorator, Claims as ClaimsDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
 import type { JwtClaims } from '../../infrastructure/database/context.js';
@@ -43,6 +44,7 @@ export class FaceController {
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
+  @Page('members', 'edit')
   @Post('reset')
   @ApiOperation({ summary: 'Reset face biometrics for a member (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: boolean }> })
@@ -58,6 +60,7 @@ export class FaceController {
 
   @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
+  @Page('faceTest')
   @Post('lookup')
   @ApiOperation({ summary: 'Lookup member biometric status by numeric code' })
   @SwaggerResponse({ status: 200, type: ApiResponse<LookupFaceResponseDto> })
@@ -72,6 +75,7 @@ export class FaceController {
   }
 
   @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
+  @Page(['faceTest', 'members'])
   @Get('templates/:memberId')
   @ApiOperation({ summary: 'Get face embedding template for member' })
   @SwaggerResponse({ status: 200, type: ApiResponse<TemplateResponseDto> })
@@ -84,6 +88,7 @@ export class FaceController {
   }
 
   @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
+  @Page(['faceTest', 'members'], 'edit')
   @Put('templates/:memberId')
   @ApiOperation({ summary: 'Upsert face embedding template' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: boolean }> })
@@ -112,6 +117,7 @@ export class FaceController {
   // path alone discloses another member's code, branch and group.
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
+  @Page('faceImages')
   @Post('templates/photos')
   @ApiOperation({ summary: 'Get photo paths for list of members (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<TemplatePhotoItemDto[]> })
@@ -125,6 +131,7 @@ export class FaceController {
   }
 
   @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @Page('faceImages')
   @Get('templates/photo-paths')
   @ApiOperation({ summary: 'Get all enrolled face template photo paths (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<(string | null)[]> })
@@ -135,6 +142,7 @@ export class FaceController {
 
   @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
+  @Page('faceTest')
   @Post('tool-reset')
   @ApiOperation({ summary: 'Reset face biometrics using tool kiosk' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: boolean }> })

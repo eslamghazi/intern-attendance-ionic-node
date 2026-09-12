@@ -85,7 +85,7 @@ import PermissionBanner from './components/PermissionBanner';
 import SettingsPage from './pages/admin/SettingsPage';
 import AdminProfilePage from './pages/admin/AdminProfilePage';
 import RosterMakerPage from './pages/admin/RosterMakerPage';
-import QRPage from './pages/manager/QRPage';
+import QRPage from './pages/admin/QRPage';
 import ShiftsPage from './pages/admin/ShiftsPage';
 import DepartmentsPage from './pages/admin/DepartmentsPage';
 
@@ -223,9 +223,11 @@ function MemberShell() {
 function AdminShell({ role }: { role: Role }) {
   const { superadmin, canPage } = usePermissions();
   const show = (p: AdminPage) => superadmin || canPage(p);
-  const landing = superadmin
-    ? ROUTES.admin.dashboard
-    : ROUTES.admin[GRANTABLE_PAGES.find((p) => canPage(p)) ?? 'dashboard'];
+  // Where an admin lands: the first page they hold. One who holds nothing yet
+  // lands on their own profile — the one screen every admin has — rather than
+  // on a dashboard route that does not exist for them.
+  const first = GRANTABLE_PAGES.find((p) => canPage(p));
+  const landing = superadmin ? ROUTES.admin.dashboard : first ? ROUTES.admin[first] : ROUTES.admin.profile;
   return (
     <IonSplitPane contentId="main">
       <AppMenu role={role} />
@@ -243,14 +245,14 @@ function AdminShell({ role }: { role: Role }) {
           show('faceTest') && <Route key="face-test" exact path={ROUTES.admin.faceTest} component={FaceTestPage} />,
           show('faceImages') && <Route key="face-images" exact path={ROUTES.admin.faceImages} component={FaceImagesPage} />,
           show('memberLookup') && <Route key="member-lookup" exact path={ROUTES.admin.memberLookup} component={MemberLookupPage} />,
-          <Route key="qr" exact path={ROUTES.admin.qr} component={QRPage} />,
-          <Route key="rmaker" exact path={ROUTES.admin.rosterMaker} component={RosterMakerPage} />,
+          show('qr') && <Route key="qr" exact path={ROUTES.admin.qr} component={QRPage} />,
+          show('rosters') && <Route key="rmaker" exact path={ROUTES.admin.rosterMaker} component={RosterMakerPage} />,
           <Route key="profile" exact path={ROUTES.admin.profile} component={AdminProfilePage} />,
-          superadmin && <Route key="shifts" exact path={ROUTES.admin.shifts} component={ShiftsPage} />,
-          superadmin && <Route key="departments" exact path={ROUTES.admin.departments} component={DepartmentsPage} />,
-          superadmin && <Route key="admins" exact path={ROUTES.admin.admins} component={AdminsPage} />,
-          superadmin && <Route key="settings" exact path={ROUTES.admin.settings} component={SettingsPage} />,
-          superadmin && <Route key="backup" exact path={ROUTES.admin.backup} component={BackupPage} />,
+          show('shifts') && <Route key="shifts" exact path={ROUTES.admin.shifts} component={ShiftsPage} />,
+          show('departments') && <Route key="departments" exact path={ROUTES.admin.departments} component={DepartmentsPage} />,
+          show('settings') && <Route key="settings" exact path={ROUTES.admin.settings} component={SettingsPage} />,
+          show('admins') && <Route key="admins" exact path={ROUTES.admin.admins} component={AdminsPage} />,
+          show('backup') && <Route key="backup" exact path={ROUTES.admin.backup} component={BackupPage} />,
           <Route key="catch" render={() => <Redirect to={landing} />} />,
         ].filter(Boolean)}
       </IonRouterOutlet>
@@ -280,14 +282,7 @@ function AppRoutes() {
   // inside the member shell (MemberShell lands unenrolled members there and
   // check-in prompts them to enroll) rather than a full-screen dead-end.
   // Everything past auth relies on the global settings — gate on them loading.
-  const shell =
-    role === 'member' ? (
-      <MemberShell />
-    ) : role === 'manager' ? (
-      <ManagerShell />
-    ) : (
-      <AdminShell role={role ?? 'admin'} />
-    );
+  const shell = role === 'member' ? <MemberShell /> : <AdminShell role={role ?? 'admin'} />;
   return <SettingsGate>{shell}</SettingsGate>;
 }
 
@@ -300,15 +295,6 @@ function ConnectivityOverlay() {
     void pingServer(); // single connectivity probe at startup
   }, []);
   return reachable ? null : <ServerDown />;
-}
-
-function ManagerShell() {
-  return (
-    <IonRouterOutlet>
-      <Route exact path={ROUTES.manager.qr} component={QRPage} />
-      <Route render={() => <Redirect to={ROUTES.manager.qr} />} />
-    </IonRouterOutlet>
-  );
 }
 
 export default function App() {

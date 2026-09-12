@@ -9,6 +9,7 @@ import {
   SUPERADMIN,
   call,
   check,
+  grantAll,
   login,
   psql,
   report,
@@ -46,6 +47,14 @@ const wide = await call('POST', '/auth/staff', {
 });
 check('created the assigned admin', assigned.status, 201);
 check('created the unassigned admin', wide.status, 201);
+
+// A new admin holds no pages. This suite is about scoping BY ASSIGNMENT, so
+// both are granted everything and the assignment alone does the narrowing —
+// see the permissions suite for the grants themselves.
+check('granted the assigned admin every page',
+  (await grantAll(suToken, assigned.body.id, 'Assigned Admin', '29505151234561')).status, 200);
+check('granted the unassigned admin every page',
+  (await grantAll(suToken, wide.body.id, 'Unassigned Admin', '29606161234562')).status, 200);
 
 const aTok = (await login('29505151234561', assigned.body.password)).body.access_token;
 const wTok = (await login('29606161234562', wide.body.password)).body.access_token;
@@ -404,9 +413,11 @@ check('  nor reassign members to one',
 check('a member cannot read the whole roster grid',
   (await call('GET', '/roster/view?year=2026&month=9&page=1&page_size=5', asMember)).status, 403);
 
-// And an ADMIN still can, so the checks refuse the right people.
-check('an admin still lists staff', (await call('GET', '/admins', { token: wTok })).status, 200);
-check('  and reads the roster grid',
+// And an ADMIN with the pages still can, so the checks refuse the right people.
+// The one exception is the staff list: the admins page is the superadmin's and
+// no grant hands it out, so even a fully granted admin is refused there.
+check('an admin CANNOT list staff — no grant covers the admins page', (await call('GET', '/admins', { token: wTok })).status, 403);
+check('an admin reads the roster grid',
   (await call('GET', '/roster/view?year=2026&month=9&page=1&page_size=5', { token: wTok })).status, 200);
 check('a superadmin still creates an institution',
   (await call('POST', '/institutions', { token: suToken, body: { name: 'Second Inst', code: 2 } })).status, 201);

@@ -204,9 +204,10 @@ export default function AdminDashboard() {
   // reading. The page used to assemble it here — rows, totals and a spreadsheet
   // writer — which is why the client shipped an xlsx library for one button.
   //
-  // The charts do not travel. A chart is a canvas, and a picture of one exists
-  // only in the browser that drew it; every number behind every chart is in the
-  // table the server produces.
+  // The charts travel with it. The panels this screen is showing go along as
+  // `charts`, and the server draws the same scoped numbers again — as SVG in
+  // the print document, as cell-drawn bars in the workbook — so the file holds
+  // what the reader was looking at, not a screenshot of it.
   const exportDashboard = () => {
     serverExport(
       '/attendance/dashboard/export',
@@ -218,6 +219,7 @@ export default function AdminDashboard() {
         groupId: groupId || undefined,
         shiftId: shiftId || undefined,
         departmentId: departmentId || undefined,
+        charts: charts.join(',') || undefined,
       },
       `dashboard_${year}_${String(month).padStart(2, '0')}${day ? `_${day}` : ''}`,
     );

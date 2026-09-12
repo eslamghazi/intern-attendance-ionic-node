@@ -26,9 +26,12 @@ export const AUDIT_EVENTS = [
   'check_out',
   'master_login',
   'staff_deleted',
+  'member_lookup_out_of_scope',
   'outside_window',
   'checkout_blocked',
   'server_error',
+  'superadmin_backup',
+  'superadmin_restore',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENTS)[number];
@@ -46,6 +49,7 @@ export const SECURITY_EVENTS: readonly string[] = [
   'integrity_failed',
   'master_login',
   'staff_deleted',
+  'member_lookup_out_of_scope',
   'out_of_range',
   'low_accuracy',
   'outside_window',

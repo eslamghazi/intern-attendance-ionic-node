@@ -2,6 +2,7 @@ import { Controller, Get, Patch, Put, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Page } from '../../common/decorators/page.decorator.js';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import type { Caller } from '../../common/types.js';
 import { AuthService } from '../auth/auth.service.js';
@@ -47,6 +48,7 @@ export class SettingsController {
 
   @ApiBearerAuth()
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('settings', 'edit')
   @Patch()
   @ApiOperation({ summary: 'Update system settings (Admin only)' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -59,6 +61,7 @@ export class SettingsController {
 
   @ApiBearerAuth()
   @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Page('settings')
   @Get('master-password')
   @ApiOperation({ summary: 'Check if master password is configured' })
   @SwaggerResponse({ status: 200, type: ApiResponse<MasterPasswordStatusResponseDto> })

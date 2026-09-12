@@ -107,12 +107,11 @@ export interface NewStaff {
   full_name: string;
   phone?: string | null;
   /**
-   * The admin UI still offers a "manager" tier, but `public.role` is an enum of
-   * exactly ('superadmin', 'admin', 'member') — there has never been a manager
-   * value, so creating one always failed at the database. The API rejects it
-   * explicitly now instead of surfacing a Postgres type error.
+   * A superadmin may create another superadmin. Only a superadmin can reach
+   * the route at all, so this is the one door by which one comes into being
+   * by hand — an admin cannot promote anyone, themselves included.
    */
-  role?: 'admin' | 'manager';
+  role?: 'admin' | 'superadmin';
   assignments?: { group_id?: string | null; branch_id?: string | null }[];
 }
 

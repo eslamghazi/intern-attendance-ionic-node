@@ -90,13 +90,15 @@ ion-tab-button.tab-selected::before {
   background: var(--ion-color-primary);
 }
 
-/* Vendor credit (Powered by Calaix AI) */
+/* Vendor credit (Powered by Calaix AI) and the copyright line under it */
+.powered-by-block {
+  padding: 16px 0 20px;
+}
 .powered-by {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 16px 0 20px;
   font-size: 0.72rem;
   color: var(--ion-color-medium);
   text-decoration: none;
@@ -104,6 +106,13 @@ ion-tab-button.tab-selected::before {
 .powered-by img {
   height: 20px;
   opacity: 0.9;
+}
+.powered-by__rights {
+  margin-top: 6px;
+  text-align: center;
+  font-size: 0.66rem;
+  color: var(--ion-color-medium);
+  opacity: 0.85;
 }
 
 /* Admin grid filter bar */

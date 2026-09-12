@@ -27,12 +27,14 @@ import CopyId from '../../components/ui/CopyId';
 import SectionHeader from '../../components/ui/SectionHeader';
 import EmptyState from '../../components/ui/EmptyState';
 import { useConfirm } from '../../components/ui/useConfirm';
+import { usePermissions } from '../../lib/usePermissions';
 
 /** Simple department catalog: each department belongs to one branch. Adding and
  *  re-linking is all this page does — per-member monthly assignment happens
  *  through the roster upload. */
 export default function DepartmentsPage() {
   const { t } = useTranslation();
+  const { canOp } = usePermissions('departments');
   const qc = useQueryClient();
   const confirm = useConfirm();
   const [toast] = useIonToast();
@@ -105,6 +107,8 @@ export default function DepartmentsPage() {
       <AdminHeader title={t('nav.departments')} />
       <IonContent>
         {/* Add a department and link it to its branch. */}
+        {canOp('create') && (
+          <>
         <SectionHeader title={t('departments.add')} />
         <div className="ui-surface ui-section">
           <IonItem lines="none">
@@ -137,6 +141,8 @@ export default function DepartmentsPage() {
             {t('common.add')}
           </IonButton>
         </div>
+          </>
+        )}
 
         {/* Departments grouped by branch. */}
         <SectionHeader title={t('departments.catalog')} />
@@ -159,16 +165,20 @@ export default function DepartmentsPage() {
                         <CopyId id={d.id} />
                       </div>
                     </IonLabel>
-                    <IonButton
-                      slot="end"
-                      fill="clear"
-                      onClick={() => setEdit({ id: d.id, name: d.name, branch_id: d.branch_id ?? '' })}
-                    >
-                      <IonIcon slot="icon-only" icon={createOutline} />
-                    </IonButton>
-                    <IonButton slot="end" fill="clear" color="danger" onClick={() => remove(d.id, d.name)}>
-                      <IonIcon slot="icon-only" icon={trashOutline} />
-                    </IonButton>
+                    {canOp('edit') && (
+                      <IonButton
+                        slot="end"
+                        fill="clear"
+                        onClick={() => setEdit({ id: d.id, name: d.name, branch_id: d.branch_id ?? '' })}
+                      >
+                        <IonIcon slot="icon-only" icon={createOutline} />
+                      </IonButton>
+                    )}
+                    {canOp('delete') && (
+                      <IonButton slot="end" fill="clear" color="danger" onClick={() => remove(d.id, d.name)}>
+                        <IonIcon slot="icon-only" icon={trashOutline} />
+                      </IonButton>
+                    )}
                   </IonItem>
                 ))}
               </IonList>

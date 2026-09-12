@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post } from '@nestj
 import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Caller as CallerDecorator } from '../../common/decorators/caller.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { AnyStaff } from '../../common/decorators/page.decorator.js';
 import { Role } from '../../common/enums/index.js';
 import type { Caller } from '../../common/types.js';
 import { ProfileService } from './profile.service.js';
@@ -16,6 +17,7 @@ export class ProfileController {
 
   @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
+  @AnyStaff()
   @Post('mark-enrolled')
   @ApiOperation({ summary: 'Mark caller as biometric face enrolled' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -25,6 +27,7 @@ export class ProfileController {
   }
 
   @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
+  @AnyStaff()
   @Patch('me')
   @ApiOperation({ summary: 'Update caller own profile info' })
   @SwaggerResponse({ status: 200, type: ApiResponse<{ ok: true }> })
@@ -43,6 +46,7 @@ export class ProfileController {
   }
 
   @Roles(Role.MEMBER, Role.ADMIN, Role.SUPERADMIN)
+  @AnyStaff()
   @Get('member-code')
   @ApiOperation({ summary: 'Get caller member numeric code' })
   @SwaggerResponse({ status: 200, type: ApiResponse<MemberCodeResponseDto> })

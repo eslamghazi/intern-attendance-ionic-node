@@ -27,7 +27,76 @@ export interface ReportDocument extends ReportTable {
   subtitle?: string;
   /** When it was produced — a report without this cannot be filed. */
   generatedAt?: string;
+  /**
+   * Drawn above the table, in the order given. The print document renders
+   * them as inline SVG; the workbook as a sheet of cell-drawn bars, because
+   * a spreadsheet writer cannot make a native chart and a picture pasted into
+   * one cannot be read back. Both carry the same numbers as the table.
+   */
+  charts?: ReportChart[];
 }
+
+/**
+ * One mark of a chart: a bar, a slice, a segment.
+ *
+ * `mark` is the one-character status glyph (✓ ! ✗ ·) from STATUS_STYLE. It
+ * rides beside the label wherever the colour is a STATUS colour, so a printed
+ * or colour-blind copy still tells present from late without the hue.
+ */
+export interface ChartItem {
+  label: string;
+  value: number;
+  color: string;
+  mark?: string;
+  /**
+   * There is no value here — a day on which nothing was settled. A line
+   * breaks at it and a column is left out, so "nothing to measure" never
+   * prints as a 0% that was measured.
+   */
+  gap?: boolean;
+}
+
+/** A named row of a stacked bar — one branch, split by status. */
+export interface ChartStack {
+  label: string;
+  segments: ChartItem[];
+}
+
+/** One cell of a calendar heatmap; `null` is a day with nothing to say. */
+export interface ChartCell {
+  day: number;
+  /** 0–100, or null when no slot was settled that day. */
+  value: number | null;
+  /** Shown in the tooltip-less print: "12/15". */
+  detail?: string;
+}
+
+/**
+ * The forms an export can draw.
+ *
+ * Every dashboard panel maps onto one of these. Some panels change form on
+ * the way — a radar becomes bars, a polar area becomes a donut — because the
+ * print medium has no hover to explain an unusual shape, and a bar carries the
+ * same numbers legibly. The title travels unchanged so the reader finds the
+ * panel they picked.
+ */
+export type ReportChart =
+  | { kind: 'donut'; title: string; items: ChartItem[]; centerTop?: string; centerBottom?: string }
+  | { kind: 'gauge'; title: string; percent: number; label: string; color: string }
+  | { kind: 'bars'; title: string; items: ChartItem[] }
+  | { kind: 'columns'; title: string; items: ChartItem[]; yMax: number; ySuffix?: string }
+  | { kind: 'line'; title: string; items: ChartItem[]; yMax: number; ySuffix?: string }
+  | { kind: 'stacked'; title: string; rows: ChartStack[]; legend: ChartItem[] }
+  | {
+      kind: 'heatmap';
+      title: string;
+      cells: ChartCell[];
+      /** 0 = Sunday, as Date#getUTCDay reports it. */
+      firstWeekday: number;
+      /** Seven short names, Sunday first. */
+      weekdays: string[];
+      color: string;
+    };
 
 /**
  * The key to the marks, generated from the same table that draws them.

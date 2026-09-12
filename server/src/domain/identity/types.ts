@@ -8,6 +8,13 @@ export interface Caller {
   id: string;
   role: Role;
   nationalId?: string;
+  /**
+   * The grant on an admin's profile row, exactly as stored. `null` when the
+   * superadmin has not granted anything yet — which PermissionsGuard reads as
+   * "nothing", not "everything". Absent on members and superadmins, who have
+   * no grant to read.
+   */
+  permissions?: AdminPermissions | null;
 }
 
 // Egyptian national-ID parsing. Ported verbatim from the code that used to own

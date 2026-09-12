@@ -67,7 +67,7 @@ interface AdminForm {
   national_id?: string;
   full_name?: string;
   phone?: string;
-  role?: 'admin' | 'manager';
+  role?: 'admin' | 'superadmin';
   pages?: AdminPage[];
   pageOps?: Partial<Record<AdminPage, Op[]>>;
 }
@@ -177,7 +177,7 @@ export default function AdminsPage() {
           national_id: editForm.national_id!,
           phone: editForm.phone,
           permissions:
-            editAdmin.role === 'manager'
+            editAdmin.role === 'superadmin'
               ? null
               : (() => {
                   const pages = editForm.pages ?? [];
@@ -266,7 +266,7 @@ export default function AdminsPage() {
           <IonList>
             {admins.map((a) => {
               const mine = assignments.filter((x) => x.admin_id === a.id);
-              const isManager = a.role === 'manager';
+              const isSuper = a.role === 'superadmin';
               return (
                 <IonItem key={a.id}>
                   <div slot="start">
@@ -275,14 +275,14 @@ export default function AdminsPage() {
                   <IonLabel className="ion-text-wrap">
                     <h3>
                       {a.full_name}
-                      {isManager && (
-                        <IonChip color="warning" style={{ marginInlineStart: 8 }}>
-                          {t('roles.manager')}
+                      {isSuper && (
+                        <IonChip color="tertiary" style={{ marginInlineStart: 8 }}>
+                          {t('roles.superadmin')}
                         </IonChip>
                       )}
                     </h3>
                     <IonNote className="ltr-nums">{a.national_id}</IonNote>
-                    {!isManager && (
+                    {!isSuper && (
                       <div style={{ marginTop: 4 }}>
                         {mine.length === 0 && <IonNote>{t('common.all')}</IonNote>}
                         {mine.map((m) => (
@@ -312,7 +312,7 @@ export default function AdminsPage() {
                   <IonButton fill="clear" onClick={() => showStaffPassword(a)} title={t('admin.loginPassword')}>
                     <IonIcon slot="icon-only" icon={keyOutline} />
                   </IonButton>
-                  {!isManager && (
+                  {!isSuper && (
                     <IonButton fill="clear" onClick={() => openAssign(a.id)} title={t('admin.assignment')}>
                       <IonIcon slot="icon-only" icon={personAddOutline} />
                     </IonButton>
@@ -324,7 +324,7 @@ export default function AdminsPage() {
                         full_name: a.full_name,
                         national_id: a.national_id,
                         phone: a.phone ?? '',
-                        pages: a.permissions?.pages ?? [...GRANTABLE_PAGES],
+                        pages: a.permissions?.pages ?? [],
                         pageOps: initialPageOps(a.permissions),
                       });
                       setEditAdmin(a);
@@ -362,7 +362,7 @@ export default function AdminsPage() {
                   onIonChange={(e) => setForm({ ...form, role: e.detail.value })}
                 >
                   <IonSelectOption value="admin">{t('roles.admin')}</IonSelectOption>
-                  <IonSelectOption value="manager">{t('roles.manager')}</IonSelectOption>
+                  <IonSelectOption value="superadmin">{t('roles.superadmin')}</IonSelectOption>
                 </IonSelect>
               </IonItem>
               <IonItem>
@@ -438,7 +438,7 @@ export default function AdminsPage() {
               </IonItem>
             </IonList>
 
-            {editAdmin?.role !== 'manager' && (
+            {editAdmin?.role !== 'superadmin' && (
               <>
                 <IonNote className="ion-padding ui-caption" style={{ display: 'block' }}>
                   {t('perm.pagesHint')}

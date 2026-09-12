@@ -28,6 +28,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import ListSkeleton from '../../components/ui/ListSkeleton';
 import { useConfirm } from '../../components/ui/useConfirm';
 import { useFeedback } from '../../components/ui/useFeedback';
+import { usePermissions } from '../../lib/usePermissions';
 
 const EMPTY: Partial<Shift> = {
   name: '',
@@ -41,6 +42,7 @@ const EMPTY: Partial<Shift> = {
 
 export default function ShiftsPage() {
   const { t } = useTranslation();
+  const { canOp } = usePermissions('shifts');
   const qc = useQueryClient();
   const confirm = useConfirm();
   const fb = useFeedback();
@@ -113,33 +115,39 @@ export default function ShiftsPage() {
                     {t('shifts.checkout')}: {formatClock(s.checkout_open)} – {formatClock(s.checkout_close)}
                   </IonNote>
                 </IonLabel>
-                <IonButton
-                  fill="clear"
-                  onClick={() => {
-                    setDraft(s);
-                    setOpen(true);
-                  }}
-                >
-                  <IonIcon slot="icon-only" icon={createOutline} />
-                </IonButton>
-                <IonButton fill="clear" color="danger" onClick={() => onDelete(s)}>
-                  <IonIcon slot="icon-only" icon={trashOutline} />
-                </IonButton>
+                {canOp('edit') && (
+                  <IonButton
+                    fill="clear"
+                    onClick={() => {
+                      setDraft(s);
+                      setOpen(true);
+                    }}
+                  >
+                    <IonIcon slot="icon-only" icon={createOutline} />
+                  </IonButton>
+                )}
+                {canOp('delete') && (
+                  <IonButton fill="clear" color="danger" onClick={() => onDelete(s)}>
+                    <IonIcon slot="icon-only" icon={trashOutline} />
+                  </IonButton>
+                )}
               </IonItem>
             ))}
           </IonList>
         )}
 
-        <IonFab slot="fixed" vertical="bottom" horizontal="end">
-          <IonFabButton
-            onClick={() => {
-              setDraft(EMPTY);
-              setOpen(true);
-            }}
-          >
-            <IonIcon icon={add} />
-          </IonFabButton>
-        </IonFab>
+        {canOp('create') && (
+          <IonFab slot="fixed" vertical="bottom" horizontal="end">
+            <IonFabButton
+              onClick={() => {
+                setDraft(EMPTY);
+                setOpen(true);
+              }}
+            >
+              <IonIcon icon={add} />
+            </IonFabButton>
+          </IonFab>
+        )}
 
         <IonModal isOpen={open} onDidDismiss={() => setOpen(false)}>
           <AdminHeader title={draft.id ? t('common.edit') : t('shifts.add')}>
