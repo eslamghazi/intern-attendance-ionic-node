@@ -1,2 +1,0 @@
-ALTER TABLE "app_settings" ADD COLUMN "store_probe_images" boolean DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE "app_settings" ADD COLUMN "capture_hold_seconds" integer DEFAULT 3 NOT NULL;

@@ -1,0 +1,56 @@
+# Production overrides. Layered ON TOP of docker-compose.yml:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# (deploy/deploy.sh does this for you.)
+#
+# What changes, and why each one matters on a public host:
+#
+#   * Postgres and the API stop publishing ports. In development they bind
+#     127.0.0.1 so you can reach them with psql; on a server, nginx is the only
+#     thing that should be listening, and a container port published even on
+#     loopback is reachable by every other process and user on the box.
+#   * The web container binds 127.0.0.1 only. aaPanel's nginx sits in front and
+#     terminates TLS — see deploy/aapanel-nginx.conf. Without the loopback
+#     binding, Docker punches its own rule into iptables and the app is served
+#     unencrypted on :8080 to the whole internet, INCLUDING when aaPanel's
+#     firewall says otherwise. That is the single easiest way to deploy this
+#     wrongly.
+#   * Logs are capped. The default json-file driver grows without limit and
+#     fills the disk; on a small VPS that takes the database down with it.
+#   * The database gets a real shutdown grace period so a checkpoint is not
+#     interrupted mid-write.
+
+name: intern-attendance
+
+services:
+  db:
+    ports: !override []
+    stop_grace_period: 1m
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+    # A restore or a month-end report is the only thing here that needs memory;
+    # left unbounded, Postgres will happily use all of it and the OOM killer
+    # picks a victim by size, which is the database.
+    shm_size: 256mb
+
+  migrate:
+    logging: *logging
+
+  api:
+    ports: !override
+      # LOOPBACK ONLY. nginx on the host proxies to this; nothing else may.
+      - '127.0.0.1:${WEB_PORT:-8080}:8787'
+    logging: *logging
+    stop_grace_period: 30s
+
+volumes:
+  db-data:
+    # Named explicitly so a backup script and a human can both find it without
+    # guessing at the project prefix.
+    name: intern-attendance_db-data
+  storage-data:
+    name: intern-attendance_storage-data

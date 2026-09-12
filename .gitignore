@@ -1,8 +1,65 @@
-# Production runtime ignores
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# NOTE: patterns are deliberately NOT root-anchored — the repo now holds two
+# packages (ClientApp/ and server/) and each has its own node_modules / build
+# output.
+
+# dependencies
 node_modules/
+/.pnp
+.pnp.js
+
+# testing
+coverage/
+
+# build output
+dist/
+public/
+server/public/
+deploy-aapanel/
+deploy-aapanel.zip
+dev-dist/
+ClientApp/dev-dist/
+
+# local env (keep .env.example tracked)
 .env
 .env.*
 !.env.example
+
+# local credential notes — never commit
+admin-credentials.txt
+*credentials*.txt
+
+# uploaded files served by the API (faces / probes / avatars)
 storage-data/
-*.log
+server/storage-data/
+
+# misc
 .DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+/.nx
+/.nx/cache
+.vs/
+.claude/
+/.vscode/*
+!/.vscode/extensions.json
+.idea
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Optional eslint cache
+.eslintcache
+
+# Large ML assets — hosted on a separate repo and loaded via jsDelivr at runtime
+# (see FACE.modelUrl / ASSET_BASE in ClientApp/src/lib/config.ts). Kept locally for dev.
+ClientApp/public/models/
+ClientApp/public/mediapipe/
+
+# Scratch SQL and one-off queries. scratch_r.sql was committed once with a
+# real national id in it and a call to a function that no longer exists.
+scratch*.sql
+*.scratch.sql

@@ -1,0 +1,7 @@
+{
+  "name": "intern-attendance-V2",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react-vite"
+}
