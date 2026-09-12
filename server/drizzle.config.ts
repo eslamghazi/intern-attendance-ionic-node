@@ -26,9 +26,9 @@ export default defineConfig({
     ssl: process.env.DATABASE_SSL === '1' ? { rejectUnauthorized: false } : false,
   },
   // Everything this project owns lives in `public`. It used to pull in two
-  // more schemas that belonged to a hosted platform's own services; both are
-  // gone from the database (see db/functions/015_no_rls.sql), and naming a
-  // schema that does not exist makes every introspection fail.
+  // more schemas that belonged to a hosted platform's own services; both went
+  // with that platform, and naming a schema that does not exist makes every
+  // introspection fail.
   schemaFilter: ['public'],
   // The migration runner's own bookkeeping is not part of the model.
   tablesFilter: ['!_migrations'],
